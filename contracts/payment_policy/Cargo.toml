@@ -1,0 +1,18 @@
+[package]
+name = "payment_policy"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+soroban-token-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+ed25519-dalek = "1.0.1"
+rand = "0.7.3"
