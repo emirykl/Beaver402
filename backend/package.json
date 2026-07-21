@@ -1,0 +1,31 @@
+{
+  "name": "beaver402-backend",
+  "version": "0.1.0",
+  "description": "Beaver402 payment security layer backend",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "stellar",
+    "x402",
+    "payment",
+    "security"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@simplewebauthn/server": "^13.3.2",
+    "@stellar/stellar-sdk": "^16.2.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.2.0",
+    "express": "^5.2.1",
+    "tsx": "^4.23.11",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
