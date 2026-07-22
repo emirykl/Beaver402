@@ -1,0 +1,127 @@
+{
+  "description": "Cross-language test vectors for Beaver402 canonical encoding and hashing",
+  "version": "1",
+  "vectors": [
+    {
+      "name": "basic_payment",
+      "fields": {
+        "version": "1",
+        "domainSeparator": "beaver402:challenge:v1",
+        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "asset": "USDC",
+        "amount": "1000000",
+        "network": "testnet",
+        "nonce": "abc123def456",
+        "expiry": "1700000000"
+      },
+      "canonicalEncoded": "1|beaver402:challenge:v1|GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT|GET|https://api.merchant.com/data|e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT|USDC|1000000|testnet|abc123def456|1700000000"
+    },
+    {
+      "name": "post_with_body",
+      "fields": {
+        "version": "1",
+        "domainSeparator": "beaver402:challenge:v1",
+        "merchantPubkey": "GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX",
+        "httpMethod": "POST",
+        "normalizedEndpoint": "https://api.example.com/submit",
+        "bodyHash": "a948904f2f0f479b8f8564e9f2a7c5d35e2b9e5a6e8b5f5e3a1d8c7b6a5f4e3d",
+        "recipient": "GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX",
+        "asset": "USDC",
+        "amount": "5000000",
+        "network": "testnet",
+        "nonce": "xyz789ghi012",
+        "expiry": "1700001000"
+      },
+      "canonicalEncoded": "1|beaver402:challenge:v1|GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX|POST|https://api.example.com/submit|a948904f2f0f479b8f8564e9f2a7c5d35e2b9e5a6e8b5f5e3a1d8c7b6a5f4e3d|GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX|USDC|5000000|testnet|xyz789ghi012|1700001000"
+    },
+    {
+      "name": "case_normalization",
+      "fields": {
+        "version": "1",
+        "domainSeparator": "beaver402:challenge:v1",
+        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "httpMethod": "get",
+        "normalizedEndpoint": "HTTPS://API.MERCHANT.COM/Data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "asset": "USDC",
+        "amount": "1000000",
+        "network": "testnet",
+        "nonce": "abc123def456",
+        "expiry": "1700000000"
+      },
+      "expectedSameHashAs": "basic_payment",
+      "note": "http method and endpoint should normalize to same values as basic_payment"
+    },
+    {
+      "name": "mismatched_amount",
+      "challenge": {
+        "version": "1",
+        "domainSeparator": "beaver402:challenge:v1",
+        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "asset": "USDC",
+        "amount": "1000000",
+        "network": "testnet",
+        "nonce": "abc123def456",
+        "expiry": "1700000000"
+      },
+      "intent": {
+        "version": "1",
+        "domainSeparator": "beaver402:intent:v1",
+        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "asset": "USDC",
+        "amount": "2000000",
+        "network": "testnet",
+        "nonce": "abc123def456",
+        "expiry": "1700000000"
+      },
+      "shouldMatch": false,
+      "note": "challenge says 1 USDC, intent says 2 USDC, hashes must differ"
+    },
+    {
+      "name": "mismatched_endpoint",
+      "challenge": {
+        "version": "1",
+        "domainSeparator": "beaver402:challenge:v1",
+        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "asset": "USDC",
+        "amount": "1000000",
+        "network": "testnet",
+        "nonce": "abc123def456",
+        "expiry": "1700000000"
+      },
+      "intent": {
+        "version": "1",
+        "domainSeparator": "beaver402:intent:v1",
+        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://evil.com/steal",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "asset": "USDC",
+        "amount": "1000000",
+        "network": "testnet",
+        "nonce": "abc123def456",
+        "expiry": "1700000000"
+      },
+      "shouldMatch": false,
+      "note": "endpoint tampered by attacker, hashes must differ"
+    }
+  ]
+}
