@@ -1,0 +1,18 @@
+{
+  "name": "beaver402-frontend",
+  "version": "0.1.0",
+  "description": "Beaver402 passkey control panel",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "@simplewebauthn/browser": "^13.1.0"
+  }
+}
