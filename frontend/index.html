@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beaver402 Control Panel</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #6366f1;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warning: #f59e0b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .status-active { background: #22c55e22; color: var(--success); }
+    .status-frozen { background: #ef444422; color: var(--danger); }
+    .status-unknown { background: #71717a22; color: var(--text-muted); }
+    .btn {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.15s;
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn-danger { border-color: var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: #ef444422; }
+    .btn-success { border-color: var(--success); color: var(--success); }
+    .btn-success:hover { background: #22c55e22; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-muted); }
+    .info-value { font-family: monospace; font-size: 0.8rem; word-break: break-all; }
+    .log {
+      background: #0a0b0f;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
+    .log-entry { padding: 0.25rem 0; color: var(--text-muted); }
+    .log-entry.success { color: var(--success); }
+    .log-entry.error { color: var(--danger); }
+    #passkey-section { margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Beaver402 Control Panel</h1>
+    <p class="subtitle">Payment policy management via passkey authentication</p>
+
+    <div id="passkey-section" class="card">
+      <h2>Authentication</h2>
+      <div id="auth-status">
+        <p style="color: var(--text-muted)">Register or sign in with your passkey to manage the payment policy.</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="btn-register">Register Passkey</button>
+        <button class="btn" id="btn-login">Sign In</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Policy Status <span id="status-badge" class="status-badge status-unknown">loading</span></h2>
+      <div id="policy-info">
+        <div class="info-row">
+          <span class="info-label">Contract</span>
+          <span class="info-value" id="contract-id">not connected</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Agent Signer</span>
+          <span class="info-value" id="agent-signer">unknown</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Velocity</span>
+          <span class="info-value" id="velocity-info">0 / 0 tx</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Owner Actions</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+        These actions require passkey authentication and submit transactions to Stellar testnet.
+      </p>
+      <div class="actions">
+        <button class="btn btn-danger" id="btn-freeze">Freeze Payments</button>
+        <button class="btn btn-success" id="btn-restore">Restore Payments</button>
+        <button class="btn btn-danger" id="btn-revoke">Revoke Agent Signer</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent Activity</h2>
+      <div class="log" id="activity-log">
+        <div class="log-entry">waiting for events...</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
