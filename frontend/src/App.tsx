@@ -8,12 +8,8 @@ import {
   type PolicyState,
 } from "./stellar-ops.js";
 
-const spring = { type: "spring", stiffness: 300, damping: 30 };
-const fadeUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
-};
+const ease = [0.25, 0.1, 0.25, 1];
+const stagger = { staggerChildren: 0.08 };
 
 interface LogEntry {
   id: number;
@@ -36,10 +32,20 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
 
-  const addLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
-    const time = new Date().toLocaleTimeString();
-    setLogs((prev) => [{ id: ++logId, time, message, type }, ...prev].slice(0, 50));
-  }, []);
+  const addLog = useCallback(
+    (message: string, type: LogEntry["type"] = "info") => {
+      const time = new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      setLogs((prev) =>
+        [{ id: ++logId, time, message, type }, ...prev].slice(0, 30)
+      );
+    },
+    []
+  );
 
   const refresh = useCallback(async () => {
     const state = await fetchPolicyState();
@@ -48,28 +54,38 @@ export default function App() {
 
   const handleAuth = useCallback(() => {
     setAuthenticated(true);
-    addLog("authenticated with passkey", "success");
+    addLog("Passkey authenticated", "success");
     refresh();
   }, [addLog, refresh]);
 
   const handleAction = useCallback(
-    async (action: string, fn: () => Promise<{ success: boolean; txHash?: string; error?: string }>) => {
+    async (
+      action: string,
+      fn: () => Promise<{
+        success: boolean;
+        txHash?: string;
+        error?: string;
+      }>
+    ) => {
       if (!authenticated) {
-        addLog("please sign in first", "error");
+        addLog("Authentication required", "error");
         return;
       }
       setLoading(action);
-      addLog(`submitting ${action} transaction...`);
+      addLog(`Submitting ${action}...`);
       try {
         const result = await fn();
         if (result.success) {
-          addLog(`${action} completed${result.txHash ? `, tx: ${result.txHash}` : ""}`, "success");
+          addLog(
+            `${capitalize(action)} confirmed${result.txHash ? ` ${result.txHash.slice(0, 12)}...` : ""}`,
+            "success"
+          );
           await refresh();
         } else {
-          addLog(`${action} failed: ${result.error}`, "error");
+          addLog(`${capitalize(action)} failed: ${result.error}`, "error");
         }
       } catch (err) {
-        addLog(`${action} error: ${err}`, "error");
+        addLog(`${capitalize(action)} error`, "error");
       }
       setLoading(null);
     },
@@ -77,347 +93,507 @@ export default function App() {
   );
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
+    <div style={page}>
+      <motion.div
+        style={container}
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: stagger,
+        }}
+      >
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <h1 style={styles.title}>Beaver402</h1>
-          <p style={styles.subtitle}>Payment policy control panel</p>
-        </motion.div>
+        <motion.header
+          style={header}
+          variants={{
+            hidden: { opacity: 0, y: -8 },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease } },
+          }}
+        >
+          <h1 style={title}>Beaver402</h1>
+          <p style={subtitle}>Payment Policy</p>
+        </motion.header>
 
-        {/* Auth Card */}
-        <motion.div style={styles.card} {...fadeUp} transition={{ delay: 0.1, ...spring }}>
-          <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
+        {/* Auth */}
+        <Card delay={0}>
+          <div style={sectionHeader}>
+            <div style={dot(authenticated ? "#34c759" : "#8e8e93")} />
+            <span style={sectionTitle}>
+              {authenticated ? "Connected" : "Authentication"}
             </span>
-            <span style={styles.cardTitle}>Authentication</span>
-            <AnimatePresence>
-              {authenticated && (
-                <motion.span
-                  style={{ ...styles.badge, ...styles.badgeSuccess }}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={spring}
-                >
-                  connected
-                </motion.span>
-              )}
-            </AnimatePresence>
           </div>
-          {!authenticated ? (
-            <motion.div style={styles.authButtons}>
-              <motion.button
-                style={{ ...styles.btn, ...styles.btnPrimary }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleAuth}
+          <AnimatePresence mode="wait">
+            {!authenticated ? (
+              <motion.div
+                key="unauth"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease }}
               >
-                Sign in with Passkey
-              </motion.button>
-            </motion.div>
-          ) : (
-            <p style={styles.mutedText}>passkey authenticated, you can manage the policy below</p>
-          )}
-        </motion.div>
+                <p style={bodyText}>
+                  Use your passkey to manage this payment policy.
+                </p>
+                <motion.button
+                  style={btnPrimary}
+                  whileHover={{ scale: 1.015 }}
+                  whileTap={{ scale: 0.985 }}
+                  onClick={handleAuth}
+                >
+                  Continue with Passkey
+                </motion.button>
+              </motion.div>
+            ) : (
+              <motion.p
+                key="auth"
+                style={bodyTextMuted}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                Passkey verified. Owner permissions active.
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </Card>
 
-        {/* Status Card */}
-        <motion.div style={styles.card} {...fadeUp} transition={{ delay: 0.2, ...spring }}>
-          <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </span>
-            <span style={styles.cardTitle}>Policy Status</span>
+        {/* Status */}
+        <Card delay={1}>
+          <div style={sectionHeader}>
+            <div
+              style={dot(policyState.frozen ? "#ff3b30" : "#34c759")}
+            />
+            <span style={sectionTitle}>Status</span>
             <motion.span
               style={{
-                ...styles.badge,
-                ...(policyState.frozen ? styles.badgeDanger : styles.badgeSuccess),
+                ...badge,
+                background: policyState.frozen
+                  ? "rgba(255,59,48,0.1)"
+                  : "rgba(52,199,89,0.1)",
+                color: policyState.frozen ? "#ff3b30" : "#34c759",
               }}
               layout
-              transition={spring}
+              transition={{ duration: 0.3, ease }}
             >
-              {policyState.frozen ? "frozen" : "active"}
+              {policyState.frozen ? "Frozen" : "Active"}
             </motion.span>
           </div>
 
-          <div style={styles.infoGrid}>
-            <InfoRow label="Contract" value={truncate(policyState.contractId, 20)} />
-            <InfoRow label="Agent Signer" value={policyState.agentSigner ? truncate(policyState.agentSigner, 20) : "revoked"} />
-            <InfoRow label="TX Count" value={String(policyState.velocityTxCount)} />
-            <InfoRow label="Total Volume" value={`${policyState.velocityTotalAmount} stroops`} />
+          <div style={infoList}>
+            <Row label="Contract" value={trunc(policyState.contractId)} />
+            <Row
+              label="Agent Signer"
+              value={
+                policyState.agentSigner
+                  ? trunc(policyState.agentSigner)
+                  : "Revoked"
+              }
+              muted={!policyState.agentSigner}
+            />
+            <Row
+              label="Transactions"
+              value={String(policyState.velocityTxCount)}
+            />
+            <Row
+              label="Volume"
+              value={`${policyState.velocityTotalAmount} stroops`}
+              last
+            />
           </div>
-        </motion.div>
+        </Card>
 
-        {/* Actions Card */}
-        <motion.div style={styles.card} {...fadeUp} transition={{ delay: 0.3, ...spring }}>
-          <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </span>
-            <span style={styles.cardTitle}>Owner Actions</span>
+        {/* Actions */}
+        <Card delay={2}>
+          <div style={sectionHeader}>
+            <span style={sectionTitle}>Actions</span>
           </div>
-
-          <div style={styles.actionGrid}>
-            <ActionButton
+          <div style={actionList}>
+            <ActionRow
               label="Freeze Payments"
-              variant="danger"
+              desc="Stop all outgoing payments immediately"
+              destructive
               loading={loading === "freeze"}
               onClick={() => handleAction("freeze", freezePayments)}
             />
-            <ActionButton
+            <ActionRow
               label="Restore Payments"
-              variant="success"
+              desc="Resume normal payment operations"
               loading={loading === "restore"}
               onClick={() => handleAction("restore", restorePayments)}
             />
-            <ActionButton
+            <ActionRow
               label="Revoke Agent Signer"
-              variant="danger"
+              desc="Permanently remove the agent's signing authority"
+              destructive
               loading={loading === "revoke"}
               onClick={() => handleAction("revoke", revokeAgentSigner)}
+              last
             />
           </div>
-        </motion.div>
+        </Card>
 
-        {/* Activity Log */}
-        <motion.div style={styles.card} {...fadeUp} transition={{ delay: 0.4, ...spring }}>
-          <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-            </span>
-            <span style={styles.cardTitle}>Activity</span>
+        {/* Log */}
+        <Card delay={3}>
+          <div style={sectionHeader}>
+            <span style={sectionTitle}>Activity</span>
+            <span style={countBadge}>{logs.length}</span>
           </div>
-
-          <div style={styles.logContainer}>
-            <AnimatePresence mode="popLayout">
+          <div style={logBox}>
+            <AnimatePresence initial={false}>
               {logs.length === 0 ? (
-                <motion.p key="empty" style={styles.mutedText} {...fadeUp}>
-                  waiting for events...
+                <motion.p
+                  key="empty"
+                  style={bodyTextMuted}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.4 }}
+                >
+                  No activity yet
                 </motion.p>
               ) : (
                 logs.map((entry) => (
                   <motion.div
                     key={entry.id}
-                    style={{
-                      ...styles.logEntry,
-                      color:
-                        entry.type === "success"
-                          ? "#34d399"
-                          : entry.type === "error"
-                          ? "#f87171"
-                          : "#94a3b8",
-                    }}
-                    initial={{ opacity: 0, x: -20, height: 0 }}
-                    animate={{ opacity: 1, x: 0, height: "auto" }}
-                    exit={{ opacity: 0, x: 20, height: 0 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    style={logRow}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease }}
                   >
-                    <span style={styles.logTime}>{entry.time}</span>
-                    <span>{entry.message}</span>
+                    <span style={logTime}>{entry.time}</span>
+                    <span
+                      style={{
+                        ...logMsg,
+                        color:
+                          entry.type === "success"
+                            ? "#34c759"
+                            : entry.type === "error"
+                              ? "#ff3b30"
+                              : "#8e8e93",
+                      }}
+                    >
+                      {entry.message}
+                    </span>
                   </motion.div>
                 ))
               )}
             </AnimatePresence>
           </div>
-        </motion.div>
-      </div>
+        </Card>
+      </motion.div>
     </div>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+/* ---- Sub Components ---- */
+
+function Card({
+  children,
+  delay,
+}: {
+  children: React.ReactNode;
+  delay: number;
+}) {
   return (
-    <div style={styles.infoRow}>
-      <span style={styles.infoLabel}>{label}</span>
-      <span style={styles.infoValue}>{value}</span>
-    </div>
+    <motion.div
+      style={card}
+      variants={{
+        hidden: { opacity: 0, y: 12 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.45, ease, delay: delay * 0.08 },
+        },
+      }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
-function ActionButton({
+function Row({
   label,
-  variant,
-  loading,
-  onClick,
+  value,
+  last,
+  muted,
 }: {
   label: string;
-  variant: "danger" | "success";
-  loading: boolean;
-  onClick: () => void;
+  value: string;
+  last?: boolean;
+  muted?: boolean;
 }) {
-  const variantStyles =
-    variant === "danger"
-      ? { borderColor: "#ef4444", color: "#ef4444" }
-      : { borderColor: "#22c55e", color: "#22c55e" };
-
   return (
-    <motion.button
-      style={{ ...styles.btn, ...styles.btnOutline, ...variantStyles, opacity: loading ? 0.6 : 1 }}
-      whileHover={{ scale: 1.03, backgroundColor: variant === "danger" ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.08)" }}
-      whileTap={{ scale: 0.97 }}
-      onClick={onClick}
-      disabled={loading}
-    >
-      {loading ? "submitting..." : label}
-    </motion.button>
+    <div style={{ ...infoRow, ...(last ? { border: "none" } : {}) }}>
+      <span style={infoLabel}>{label}</span>
+      <span style={{ ...infoValue, ...(muted ? { color: "#636366" } : {}) }}>
+        {value}
+      </span>
+    </div>
   );
 }
 
-function truncate(str: string, len: number): string {
-  if (str.length <= len) return str;
-  return str.slice(0, len - 3) + "...";
+function ActionRow({
+  label,
+  desc,
+  destructive,
+  loading: isLoading,
+  onClick,
+  last,
+}: {
+  label: string;
+  desc: string;
+  destructive?: boolean;
+  loading: boolean;
+  onClick: () => void;
+  last?: boolean;
+}) {
+  return (
+    <motion.div
+      style={{
+        ...actionRow,
+        ...(last ? { border: "none" } : {}),
+        opacity: isLoading ? 0.5 : 1,
+      }}
+      whileHover={{ backgroundColor: "rgba(255,255,255,0.03)" }}
+      whileTap={{ scale: 0.995 }}
+      onClick={isLoading ? undefined : onClick}
+    >
+      <div>
+        <div
+          style={{
+            ...actionLabel,
+            color: destructive ? "#ff3b30" : "#f5f5f7",
+          }}
+        >
+          {label}
+        </div>
+        <div style={actionDesc}>{desc}</div>
+      </div>
+      <span style={chevron}>
+        {isLoading ? (
+          <motion.span
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+            style={{ display: "inline-block" }}
+          >
+            &bull;
+          </motion.span>
+        ) : (
+          <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
+            <path
+              d="M1 1l5 5-5 5"
+              stroke="#3a3a3c"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
+    </motion.div>
+  );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    background: "linear-gradient(180deg, #000000 0%, #0a0a0f 50%, #111118 100%)",
-    color: "#f0f0f5",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    padding: "3rem 1.5rem",
-  },
-  container: {
-    maxWidth: "640px",
-    margin: "0 auto",
-  },
-  title: {
-    fontSize: "2rem",
-    fontWeight: 700,
-    letterSpacing: "-0.03em",
-    marginBottom: "0.25rem",
-    background: "linear-gradient(135deg, #e0e7ff, #818cf8)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-  },
-  subtitle: {
-    fontSize: "0.9rem",
-    color: "#64748b",
-    marginBottom: "2.5rem",
-    fontWeight: 400,
-  },
-  card: {
-    background: "rgba(255,255,255,0.03)",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    border: "1px solid rgba(255,255,255,0.06)",
-    borderRadius: "16px",
-    padding: "1.5rem",
-    marginBottom: "1rem",
-  },
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    marginBottom: "1rem",
-  },
-  cardIcon: {
-    color: "#818cf8",
-    display: "flex",
-    alignItems: "center",
-  },
-  cardTitle: {
-    fontSize: "0.95rem",
-    fontWeight: 600,
-    flex: 1,
-  },
-  badge: {
-    display: "inline-block",
-    padding: "0.2rem 0.6rem",
-    borderRadius: "999px",
-    fontSize: "0.7rem",
-    fontWeight: 600,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-  },
-  badgeSuccess: {
-    background: "rgba(34,197,94,0.12)",
-    color: "#34d399",
-  },
-  badgeDanger: {
-    background: "rgba(239,68,68,0.12)",
-    color: "#f87171",
-  },
-  infoGrid: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "0",
-  },
-  infoRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0.6rem 0",
-    borderBottom: "1px solid rgba(255,255,255,0.04)",
-    fontSize: "0.85rem",
-  },
-  infoLabel: {
-    color: "#64748b",
-    fontWeight: 500,
-  },
-  infoValue: {
-    fontFamily: "'SF Mono', 'Fira Code', monospace",
-    fontSize: "0.8rem",
-    color: "#94a3b8",
-  },
-  actionGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "0.5rem",
-  },
-  btn: {
-    padding: "0.65rem 1rem",
-    borderRadius: "10px",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    fontFamily: "'Inter', sans-serif",
-    cursor: "pointer",
-    border: "none",
-    transition: "all 0.2s ease",
-  },
-  btnPrimary: {
-    background: "linear-gradient(135deg, #6366f1, #818cf8)",
-    color: "white",
-    width: "100%",
-  },
-  btnOutline: {
-    background: "transparent",
-    border: "1px solid",
-  },
-  authButtons: {
-    display: "flex",
-    gap: "0.5rem",
-  },
-  mutedText: {
-    color: "#475569",
-    fontSize: "0.85rem",
-  },
-  logContainer: {
-    maxHeight: "200px",
-    overflowY: "auto" as const,
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "0.25rem",
-  },
-  logEntry: {
-    fontFamily: "'SF Mono', 'Fira Code', monospace",
-    fontSize: "0.75rem",
-    padding: "0.3rem 0",
-    display: "flex",
-    gap: "0.5rem",
-    overflow: "hidden",
-  },
-  logTime: {
-    opacity: 0.5,
-    flexShrink: 0,
-  },
+/* ---- Helpers ---- */
+
+function trunc(s: string, n = 16): string {
+  return s.length <= n ? s : s.slice(0, n - 1) + "\u2026";
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/* ---- Styles ---- */
+
+const ff =
+  "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const mono =
+  "'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, monospace";
+
+const page: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "#000000",
+  color: "#f5f5f7",
+  fontFamily: ff,
+  WebkitFontSmoothing: "antialiased",
+  MozOsxFontSmoothing: "grayscale",
+};
+
+const container: React.CSSProperties = {
+  maxWidth: 520,
+  margin: "0 auto",
+  padding: "60px 20px 80px",
+};
+
+const header: React.CSSProperties = {
+  marginBottom: 40,
+};
+
+const title: React.CSSProperties = {
+  fontSize: 34,
+  fontWeight: 700,
+  letterSpacing: "-0.022em",
+  lineHeight: 1.1,
+  color: "#f5f5f7",
+  margin: 0,
+};
+
+const subtitle: React.CSSProperties = {
+  fontSize: 17,
+  fontWeight: 400,
+  color: "#86868b",
+  marginTop: 4,
+};
+
+const card: React.CSSProperties = {
+  background: "#1c1c1e",
+  borderRadius: 12,
+  padding: "16px 20px",
+  marginBottom: 12,
+};
+
+const sectionHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 12,
+};
+
+const sectionTitle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  color: "#86868b",
+  textTransform: "uppercase",
+  letterSpacing: "0.02em",
+  flex: 1,
+};
+
+const dot = (color: string): React.CSSProperties => ({
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: color,
+  flexShrink: 0,
+});
+
+const badge: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  padding: "3px 8px",
+  borderRadius: 6,
+  letterSpacing: "0.01em",
+};
+
+const countBadge: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 500,
+  color: "#636366",
+  background: "#2c2c2e",
+  padding: "2px 7px",
+  borderRadius: 6,
+};
+
+const bodyText: React.CSSProperties = {
+  fontSize: 15,
+  color: "#f5f5f7",
+  lineHeight: 1.47,
+  marginBottom: 16,
+};
+
+const bodyTextMuted: React.CSSProperties = {
+  fontSize: 15,
+  color: "#636366",
+  lineHeight: 1.47,
+};
+
+const btnPrimary: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 20px",
+  borderRadius: 10,
+  border: "none",
+  background: "#0a84ff",
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: 600,
+  fontFamily: ff,
+  cursor: "pointer",
+  letterSpacing: "-0.01em",
+};
+
+const infoList: React.CSSProperties = {};
+
+const infoRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "10px 0",
+  borderBottom: "0.5px solid #2c2c2e",
+};
+
+const infoLabel: React.CSSProperties = {
+  fontSize: 15,
+  color: "#f5f5f7",
+  fontWeight: 400,
+};
+
+const infoValue: React.CSSProperties = {
+  fontSize: 15,
+  color: "#86868b",
+  fontFamily: mono,
+  fontWeight: 400,
+};
+
+const actionList: React.CSSProperties = {};
+
+const actionRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "12px 0",
+  borderBottom: "0.5px solid #2c2c2e",
+  cursor: "pointer",
+  borderRadius: 0,
+  transition: "background 0.15s",
+};
+
+const actionLabel: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 400,
+  marginBottom: 2,
+};
+
+const actionDesc: React.CSSProperties = {
+  fontSize: 13,
+  color: "#636366",
+  fontWeight: 400,
+};
+
+const chevron: React.CSSProperties = {
+  flexShrink: 0,
+  marginLeft: 8,
+  display: "flex",
+  alignItems: "center",
+};
+
+const logBox: React.CSSProperties = {
+  maxHeight: 180,
+  overflowY: "auto",
+};
+
+const logRow: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  padding: "5px 0",
+  fontSize: 12,
+  fontFamily: mono,
+};
+
+const logTime: React.CSSProperties = {
+  color: "#3a3a3c",
+  flexShrink: 0,
+};
+
+const logMsg: React.CSSProperties = {
+  wordBreak: "break-all",
 };
