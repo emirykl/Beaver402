@@ -23,11 +23,15 @@ pub fn check_and_update_velocity(env: &Env, amount: i128) -> bool {
             window_start: now,
         });
 
-    // Reset window if expired
-    if now >= state.window_start + config.window_size {
-        state.tx_count = 0;
-        state.total_amount = 0;
-        state.window_start = now;
+    // Deterministic window reset: advance by full windows elapsed
+    if config.window_size > 0 {
+        let elapsed = now.saturating_sub(state.window_start);
+        if elapsed >= config.window_size {
+            state.tx_count = 0;
+            state.total_amount = 0;
+            let windows = elapsed / config.window_size;
+            state.window_start = state.window_start.saturating_add(windows * config.window_size);
+        }
     }
 
     // Check if already at limit BEFORE this tx
@@ -35,9 +39,15 @@ pub fn check_and_update_velocity(env: &Env, amount: i128) -> bool {
         return false;
     }
 
-    // Count this transaction
-    state.tx_count += 1;
-    state.total_amount += amount;
+    // Overflow-safe counter updates
+    state.tx_count = match state.tx_count.checked_add(1) {
+        Some(v) => v,
+        None => return false, // overflow means limit exceeded
+    };
+    state.total_amount = match state.total_amount.checked_add(amount) {
+        Some(v) => v,
+        None => return false,
+    };
 
     // Save updated state
     env.storage()
