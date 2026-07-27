@@ -13,7 +13,7 @@ use soroban_sdk::{
     BytesN, Env, TryIntoVal, Vec,
 };
 
-use crate::crypto::{verify_ed25519, CHALLENGE_DOMAIN, INTENT_DOMAIN};
+use crate::crypto::verify_ed25519;
 use crate::errors::PolicyError;
 use crate::events::{
     emit_payment_frozen, emit_payment_restored, emit_proof_of_intent, emit_signer_revoked,
@@ -32,6 +32,7 @@ impl PaymentPolicyContract {
         agent_signer: BytesN<32>,
         velocity_config: VelocityConfig,
     ) {
+        validate_velocity_config(&velocity_config);
         env.storage().instance().set(&DataKey::Owner, &owner);
         env.storage()
             .instance()
@@ -164,6 +165,7 @@ impl PaymentPolicyContract {
         env.current_contract_address()
             .require_auth();
 
+        validate_velocity_config(&config);
         env.storage()
             .instance()
             .set(&DataKey::VelocityConfig, &config);
@@ -202,6 +204,15 @@ impl PaymentPolicyContract {
     pub fn get_velocity_state(env: Env) -> VelocityState {
         velocity::get_velocity_state(&env)
     }
+}
+
+fn validate_velocity_config(config: &VelocityConfig) {
+    assert!(config.max_tx_count > 0, "max_tx_count must be positive");
+    assert!(
+        config.max_total_amount > 0,
+        "max_total_amount must be positive"
+    );
+    assert!(config.window_size > 0, "window_size must be positive");
 }
 
 #[contractimpl]
@@ -276,20 +287,18 @@ impl CustomAccountInterface for PaymentPolicyContract {
             .instance()
             .set(&DataKey::Nonce(signature.nonce.clone()), &true);
 
-        // 8. Expiry check
+        // 8. Expiry check (expiry=0 is not valid, all signatures must have an expiry)
         let now = env.ledger().timestamp();
-        if signature.expiry > 0 && now > signature.expiry {
+        if signature.expiry == 0 || now > signature.expiry {
             return Err(PolicyError::ChallengeExpired);
         }
 
         // 9. Extract payment amount from auth_context for velocity tracking
         let mut payment_amount: i128 = 0;
         let transfer_fn = soroban_sdk::symbol_short!("transfer");
-        let mut has_transfer = false;
         for context in auth_context.iter() {
             if let Context::Contract(c) = context {
                 if c.fn_name == transfer_fn && c.args.len() >= 3 {
-                    has_transfer = true;
                     let amount_val = c.args.get(2).unwrap();
                     let amount: Result<i128, _> = amount_val.try_into_val(&env);
                     if let Ok(a) = amount {
@@ -299,8 +308,8 @@ impl CustomAccountInterface for PaymentPolicyContract {
             }
         }
 
-        // 10. Velocity check
-        if has_transfer && !check_and_update_velocity(&env, payment_amount.max(1)) {
+        // 10. Velocity check (always counts, even non-transfer auth calls)
+        if !check_and_update_velocity(&env, payment_amount) {
             return Err(PolicyError::VelocityExceeded);
         }
 
