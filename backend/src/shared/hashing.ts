@@ -3,6 +3,7 @@ import type { ChallengeFields, IntentFields } from "./types.js";
 
 export const CHALLENGE_DOMAIN = "beaver402:challenge:v1";
 export const INTENT_DOMAIN = "beaver402:intent:v1";
+export const POI_DOMAIN = "beaver402:poi:v1";
 
 export function normalizeEndpoint(url: string): string {
   try {
@@ -26,9 +27,11 @@ export function hashBody(body: string | Buffer | null | undefined): string {
 }
 
 export function canonicalEncode(fields: ChallengeFields | IntentFields): Buffer {
+  // domain separator is excluded from canonical encoding because it is applied
+  // by the outer domain-separated hash. Including it here would make challenge
+  // and intent hashes differ even when all security-critical fields match.
   const parts: string[] = [
     fields.version,
-    fields.domainSeparator,
     fields.merchantPubkey,
     fields.httpMethod.toUpperCase(),
     normalizeEndpoint(fields.normalizedEndpoint),
@@ -56,14 +59,16 @@ export function domainSeparatedHash(
   return createHash("sha256").update(preimage).digest();
 }
 
+// Contract-bound hash: both challenge and intent use the same POI domain
+// so the contract can compare challenge_hash == intent_hash when fields match
 export function hashChallenge(fields: ChallengeFields): Buffer {
   const encoded = canonicalEncode(fields);
-  return domainSeparatedHash(CHALLENGE_DOMAIN, encoded);
+  return domainSeparatedHash(POI_DOMAIN, encoded);
 }
 
 export function hashIntent(fields: IntentFields): Buffer {
   const encoded = canonicalEncode(fields);
-  return domainSeparatedHash(INTENT_DOMAIN, encoded);
+  return domainSeparatedHash(POI_DOMAIN, encoded);
 }
 
 export function fieldsMatch(
