@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "c7668a62309e782e68796de3b02956b7e209b7b0f62f2493f93972e3ac42d028"
+                  "bytes": "bb9072a6192c0c9d315c469948d2488443410113500bf125df0eb133aa2b7cbd"
                 }
               ]
             }
@@ -61,7 +61,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "ceaf9cd7353a6069a37786a8e1e653196adf132ddec5a91dc47027b4ac9ac8e4"
+                        "bytes": "83a169981017e22724fbaaef8d3f07906ebcdba76af414416e85d60b585ae9f5"
                       }
                     },
                     {
@@ -83,7 +83,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "c7668a62309e782e68796de3b02956b7e209b7b0f62f2493f93972e3ac42d028"
+                            "bytes": "bb9072a6192c0c9d315c469948d2488443410113500bf125df0eb133aa2b7cbd"
                           }
                         ]
                       },
@@ -98,7 +98,7 @@
                             "symbol": "Nonce"
                           },
                           {
-                            "bytes": "adad8d07d56571ecee0846f6daef31f868286bf783dcdd410ee2c41fa75bd38d"
+                            "bytes": "2db767b434c81fc16bd2cf8f0b1e9ab944156850f1b2e2ab69eb32975763fa8b"
                           }
                         ]
                       },
@@ -115,7 +115,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "809d54f37f9cc4a4e4f3be712d2eb8225ef459184ff266c278f7dfe83bd320ef"
+                        "bytes": "7e45031a17134300a79678de5088491f9af8af25ffb0b7f78030d305d5d40c35"
                       }
                     },
                     {
@@ -150,6 +150,43 @@
                             },
                             "val": {
                               "u64": "86400"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "vec": [
+                          {
+                            "symbol": "VelocityState"
+                          }
+                        ]
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "total_amount"
+                            },
+                            "val": {
+                              "i128": "0"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "tx_count"
+                            },
+                            "val": {
+                              "u32": 1
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "window_start"
+                            },
+                            "val": {
+                              "u64": "1000"
                             }
                           }
                         ]
@@ -219,13 +256,13 @@
             "data": {
               "vec": [
                 {
-                  "bytes": "5acc4d2e9ce3020aceb3ad785b3d3fe061183bae9e1eb178992bcc1ffae41a87"
+                  "bytes": "75095f81e0486599d4ff5f4e4d3ce1c55f28bb75aec1bdaec834f4fc3695003c"
                 },
                 {
-                  "bytes": "5acc4d2e9ce3020aceb3ad785b3d3fe061183bae9e1eb178992bcc1ffae41a87"
+                  "bytes": "75095f81e0486599d4ff5f4e4d3ce1c55f28bb75aec1bdaec834f4fc3695003c"
                 },
                 {
-                  "bytes": "c7668a62309e782e68796de3b02956b7e209b7b0f62f2493f93972e3ac42d028"
+                  "bytes": "bb9072a6192c0c9d315c469948d2488443410113500bf125df0eb133aa2b7cbd"
                 },
                 {
                   "i128": "0"

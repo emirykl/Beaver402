@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "5f9ab7eb35e2cc5787c9abbac6875428ac44382fe7cd74c5e0cbf7e3aea1b714"
+                  "bytes": "1189af5143cf8f4c3ce783ff4194e5b28ad865ef882a2c7df548c5ba2b64e72e"
                 }
               ]
             }
@@ -93,7 +93,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "bf5426e4abec0bb27e4d45aef6963171ac1e8ef96a0f8c9c72559de1fe707ae2"
+                        "bytes": "63e200d80048dae598dd8dd2ece9b4fc8092b9350a056bc96f358d287ed963dc"
                       }
                     },
                     {
@@ -115,7 +115,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "5f9ab7eb35e2cc5787c9abbac6875428ac44382fe7cd74c5e0cbf7e3aea1b714"
+                            "bytes": "1189af5143cf8f4c3ce783ff4194e5b28ad865ef882a2c7df548c5ba2b64e72e"
                           }
                         ]
                       },
@@ -130,7 +130,7 @@
                             "symbol": "Nonce"
                           },
                           {
-                            "bytes": "7eb4b3c731503029e4d92664b7abb9b0fc21a30951d14ce1b8c08be2e11f1fc0"
+                            "bytes": "ea1946314dd696eded6492ce3170b517e5d0bce562cb5afce2743804cb76bee1"
                           }
                         ]
                       },
@@ -147,7 +147,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "7d929e4c8e1db2499798c3da596379f5445edfbcab39e345f012d79843204b05"
+                        "bytes": "c8c546601c4c5fa22a037475914304445f457a012b9f4fc83625c3d4a7653ef2"
                       }
                     },
                     {
@@ -210,7 +210,7 @@
                               "symbol": "tx_count"
                             },
                             "val": {
-                              "u32": 0
+                              "u32": 1
                             }
                           },
                           {
@@ -328,13 +328,13 @@
             "data": {
               "vec": [
                 {
-                  "bytes": "f68f48bc1498c645b227b1de04e25b7a27abd93bd9c776ea163e64ea62f7fb09"
+                  "bytes": "001ad7357d7cafa6288d31ab9db891a5d2d28ebfab3c9dc6ce7ed1a7db6b31bf"
                 },
                 {
-                  "bytes": "f68f48bc1498c645b227b1de04e25b7a27abd93bd9c776ea163e64ea62f7fb09"
+                  "bytes": "001ad7357d7cafa6288d31ab9db891a5d2d28ebfab3c9dc6ce7ed1a7db6b31bf"
                 },
                 {
-                  "bytes": "5f9ab7eb35e2cc5787c9abbac6875428ac44382fe7cd74c5e0cbf7e3aea1b714"
+                  "bytes": "1189af5143cf8f4c3ce783ff4194e5b28ad865ef882a2c7df548c5ba2b64e72e"
                 },
                 {
                   "i128": "0"
