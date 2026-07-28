@@ -5,8 +5,12 @@ import {
   verifyMerchantSignature,
 } from "./challenge-signer.js";
 
-const MERCHANT_SECRET =
-  process.env.MERCHANT_SECRET || Keypair.random().secret();
+const MERCHANT_SECRET = process.env.MERCHANT_SECRET;
+if (!MERCHANT_SECRET) {
+  throw new Error(
+    "MERCHANT_SECRET environment variable is required. Generate one with: node -e \"console.log(require('@stellar/stellar-sdk').Keypair.random().secret())\""
+  );
+}
 const MERCHANT_KEYPAIR = Keypair.fromSecret(MERCHANT_SECRET);
 const RECIPIENT = process.env.RECIPIENT_ADDRESS || MERCHANT_KEYPAIR.publicKey();
 const ASSET = "USDC";
