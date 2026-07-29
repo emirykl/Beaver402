@@ -4,6 +4,7 @@ import {
   domainSeparatedHash,
   CHALLENGE_DOMAIN,
   INTENT_DOMAIN,
+  POI_DOMAIN,
 } from "../src/shared/hashing.js";
 import { loadTestVectors } from "../src/shared/test-vectors.js";
 import type { ChallengeFields } from "../src/shared/types.js";
@@ -16,20 +17,20 @@ describe("cross language vector compatibility", () => {
     const encoded = canonicalEncode(v.fields as ChallengeFields);
     const encodedStr = encoded.toString("utf-8");
 
-    // verify pipe-separated format
+    // verify pipe-separated format (11 fields, domainSeparator excluded)
     const parts = encodedStr.split("|");
-    expect(parts.length).toBe(12);
+    expect(parts.length).toBe(11);
     expect(parts[0]).toBe("1"); // version
-    expect(parts[3]).toBe("GET"); // method normalized
-    expect(parts[8]).toBe("1000000"); // amount
+    expect(parts[2]).toBe("GET"); // method normalized
+    expect(parts[7]).toBe("1000000"); // amount
   });
 
   it("should produce stable hash output for same input across runs", () => {
     const v = vectors.vectors[0];
     const encoded = canonicalEncode(v.fields as ChallengeFields);
 
-    const hash1 = domainSeparatedHash(CHALLENGE_DOMAIN, encoded);
-    const hash2 = domainSeparatedHash(CHALLENGE_DOMAIN, encoded);
+    const hash1 = domainSeparatedHash(POI_DOMAIN, encoded);
+    const hash2 = domainSeparatedHash(POI_DOMAIN, encoded);
 
     expect(hash1.toString("hex")).toBe(hash2.toString("hex"));
   });
@@ -59,8 +60,8 @@ describe("cross language vector compatibility", () => {
     const challengeEncoded = canonicalEncode(v.challenge as ChallengeFields);
     const intentEncoded = canonicalEncode(v.intent as ChallengeFields);
 
-    const challengeHash = domainSeparatedHash(CHALLENGE_DOMAIN, challengeEncoded);
-    const intentHash = domainSeparatedHash(INTENT_DOMAIN, intentEncoded);
+    const challengeHash = domainSeparatedHash(POI_DOMAIN, challengeEncoded);
+    const intentHash = domainSeparatedHash(POI_DOMAIN, intentEncoded);
 
     // different amounts must produce different hashes
     expect(challengeHash.toString("hex")).not.toBe(intentHash.toString("hex"));
@@ -85,5 +86,17 @@ describe("cross language vector compatibility", () => {
 
     // domain is 22 bytes ("beaver402:challenge:v1")
     expect(Buffer.from(domain).length).toBe(22);
+  });
+
+  it("POI domain should produce matching hashes for same canonical encoding", () => {
+    const v = vectors.vectors[0];
+    const encoded = canonicalEncode(v.fields as ChallengeFields);
+
+    // both challenge and intent use POI domain for contract hash comparison
+    const hash1 = domainSeparatedHash(POI_DOMAIN, encoded);
+    const hash2 = domainSeparatedHash(POI_DOMAIN, encoded);
+
+    expect(hash1.toString("hex")).toBe(hash2.toString("hex"));
+    expect(POI_DOMAIN).toBe("beaver402:poi:v1");
   });
 });

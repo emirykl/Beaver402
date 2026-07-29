@@ -7,8 +7,10 @@ import {
   normalizeEndpoint,
   normalizeAmount,
   hashBody,
+  domainSeparatedHash,
   CHALLENGE_DOMAIN,
   INTENT_DOMAIN,
+  POI_DOMAIN,
 } from "../src/shared/hashing.js";
 import { loadTestVectors } from "../src/shared/test-vectors.js";
 import type { ChallengeFields, IntentFields } from "../src/shared/types.js";
@@ -36,6 +38,17 @@ describe("canonical encoding", () => {
     const encoded2 = canonicalEncode(v2.fields as ChallengeFields);
 
     expect(encoded1.toString("utf-8")).toBe(encoded2.toString("utf-8"));
+  });
+
+  it("should not include domain separator in canonical encoding", () => {
+    const v = vectors.vectors[0];
+    const encoded = canonicalEncode(v.fields as ChallengeFields);
+    const parts = encoded.toString("utf-8").split("|");
+    // 11 fields: version, merchantPubkey, method, endpoint, bodyHash,
+    // recipient, asset, amount, network, nonce, expiry
+    expect(parts.length).toBe(11);
+    expect(parts[0]).toBe("1"); // version
+    expect(parts[2]).toBe("GET"); // method (3rd, not 4th since no domainSep)
   });
 });
 
@@ -81,7 +94,7 @@ describe("body hashing", () => {
 });
 
 describe("domain separated hashing", () => {
-  it("should produce different hashes for challenge and intent domains with same data", () => {
+  it("should produce identical hashes for matching challenge and intent fields", () => {
     const fields = vectors.vectors[0].fields as ChallengeFields;
 
     const challengeFields: ChallengeFields = {
@@ -96,10 +109,16 @@ describe("domain separated hashing", () => {
     const challengeHash = hashChallenge(challengeFields);
     const intentHash = hashIntent(intentFields);
 
-    // different domain separators must produce different hashes
-    expect(challengeHash.toString("hex")).not.toBe(
-      intentHash.toString("hex")
-    );
+    // both use the same POI domain for contract comparison, so matching
+    // fields produce matching hashes regardless of domainSeparator value
+    expect(challengeHash.toString("hex")).toBe(intentHash.toString("hex"));
+  });
+
+  it("should produce different hashes with different raw domains", () => {
+    const data = Buffer.from("test");
+    const h1 = domainSeparatedHash(CHALLENGE_DOMAIN, data);
+    const h2 = domainSeparatedHash(INTENT_DOMAIN, data);
+    expect(h1.toString("hex")).not.toBe(h2.toString("hex"));
   });
 
   it("should produce consistent hash for same input", () => {

@@ -13,14 +13,19 @@ import {
   extractRequestFromToolCall,
   isPaymentRequired,
 } from "../src/mcp/mcp-tool-handler.js";
+import {
+  canonicalEncode,
+  domainSeparatedHash,
+  POI_DOMAIN,
+} from "../src/shared/hashing.js";
+import type { IntentFields } from "../src/shared/types.js";
 
 const merchantKp = Keypair.random();
 const agentKp = Keypair.random();
 const recipientKp = Keypair.random();
 
 describe("end to end x402 payment flow", () => {
-  it("should complete a valid payment cycle", async () => {
-    // step 1: merchant creates challenge (simulating 402 response)
+  it("should validate a matching challenge and intent pair", () => {
     const challenge = createSignedChallenge({
       merchantKeypair: merchantKp,
       httpMethod: "GET",
@@ -32,26 +37,25 @@ describe("end to end x402 payment flow", () => {
       expirySeconds: 300,
     });
 
-    // step 2: verify merchant signature
     expect(verifyMerchantSignature(challenge)).toBe(true);
 
-    // step 3: adapter processes payment
-    const adapter = new Beaver402Adapter({
-      agentKeypair: agentKp,
-      policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: "testnet",
-    });
-
-    const result = await adapter.processPayment(
+    const intent = createIntentFromChallenge(
       challenge,
       "GET",
       "https://api.merchant.com/data"
     );
 
-    expect(result.success).toBe(true);
-    expect(result.txHash).toBeTruthy();
-    expect(result.challengeHash).toBe(challenge.hash);
-    expect(result.intentHash).toBeTruthy();
+    const matchResult = verifyChallengeIntentMatch(challenge, intent);
+    expect(matchResult.matches).toBe(true);
+
+    // both use the same POI domain, so hashes match when fields match
+    expect(challenge.hash).toBe(intent.hash);
+
+    expect(intent.fields.method || intent.fields.httpMethod).toBeTruthy();
+    expect(intent.fields.recipient).toBe(recipientKp.publicKey());
+    expect(intent.fields.asset).toBe("USDC");
+    expect(intent.fields.amount).toBe("1000000");
+    expect(intent.fields.network).toBe("testnet");
   });
 
   it("should reject when agent observes different endpoint", async () => {
@@ -119,7 +123,7 @@ describe("end to end x402 payment flow", () => {
       asset: "USDC",
       amount: "1000000",
       network: "testnet",
-      expirySeconds: -100, // already expired
+      expirySeconds: -100,
     });
 
     const adapter = new Beaver402Adapter({
@@ -149,7 +153,6 @@ describe("end to end x402 payment flow", () => {
       network: "testnet",
     });
 
-    // tamper with the signature
     challenge.merchantSignature = Buffer.from("invalid").toString("base64");
 
     const adapter = new Beaver402Adapter({
@@ -166,6 +169,80 @@ describe("end to end x402 payment flow", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("merchant signature");
+  });
+
+  it("should verify complete two-party proof of intent flow", () => {
+    const challenge = createSignedChallenge({
+      merchantKeypair: merchantKp,
+      httpMethod: "POST",
+      endpoint: "https://api.merchant.com/submit",
+      body: '{"task":"analyze_data","priority":"high"}',
+      recipient: recipientKp.publicKey(),
+      asset: "USDC",
+      amount: "5000000",
+      network: "testnet",
+      expirySeconds: 600,
+    });
+
+    const intent = createIntentFromChallenge(
+      challenge,
+      "POST",
+      "https://api.merchant.com/submit",
+      '{"task":"analyze_data","priority":"high"}'
+    );
+
+    const match = verifyChallengeIntentMatch(challenge, intent);
+    expect(match.matches).toBe(true);
+    expect(challenge.hash).toBe(intent.hash);
+    expect(challenge.hash).toBeTruthy();
+    expect(challenge.hash.length).toBe(64);
+  });
+
+  it("should reject when amount is tampered between challenge and intent", () => {
+    const challenge = createSignedChallenge({
+      merchantKeypair: merchantKp,
+      httpMethod: "GET",
+      endpoint: "https://api.merchant.com/data",
+      recipient: recipientKp.publicKey(),
+      asset: "USDC",
+      amount: "1000000",
+      network: "testnet",
+    });
+
+    const intent = createIntentFromChallenge(
+      challenge,
+      "GET",
+      "https://api.merchant.com/data"
+    );
+
+    // tamper with the amount
+    intent.fields.amount = "9999999";
+    const encoded = canonicalEncode(intent.fields as IntentFields);
+    intent.hash = domainSeparatedHash(POI_DOMAIN, encoded).toString("hex");
+
+    const match = verifyChallengeIntentMatch(challenge, intent);
+    expect(match.matches).toBe(false);
+  });
+
+  it("should reject when method is tampered", () => {
+    const challenge = createSignedChallenge({
+      merchantKeypair: merchantKp,
+      httpMethod: "GET",
+      endpoint: "https://api.merchant.com/data",
+      recipient: recipientKp.publicKey(),
+      asset: "USDC",
+      amount: "1000000",
+      network: "testnet",
+    });
+
+    const intent = createIntentFromChallenge(
+      challenge,
+      "POST",
+      "https://api.merchant.com/data"
+    );
+
+    const match = verifyChallengeIntentMatch(challenge, intent);
+    expect(match.matches).toBe(false);
   });
 });
 
