@@ -1,4 +1,4 @@
-import { Keypair } from "@stellar/stellar-sdk";
+import * as StellarSdk from "@stellar/stellar-sdk";
 import {
   createIntentFromChallenge,
   verifyChallengeIntentMatch,
@@ -9,8 +9,12 @@ import type {
   PolicySignaturePayload,
 } from "../shared/types.js";
 
+const SOROBAN_RPC_URL =
+  process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
+const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
+
 export interface Beaver402AdapterConfig {
-  agentKeypair: Keypair;
+  agentKeypair: StellarSdk.Keypair;
   policyContractId: string;
   network: string;
 }
@@ -66,7 +70,7 @@ export class Beaver402Adapter {
     // step 4: check expiry
     const now = Math.floor(Date.now() / 1000);
     const expiry = parseInt(challenge.fields.expiry, 10);
-    if (expiry > 0 && now > expiry) {
+    if (!expiry || now > expiry) {
       return {
         success: false,
         error: "challenge has expired",
@@ -76,17 +80,24 @@ export class Beaver402Adapter {
     // step 5: build policy signature payload for the contract
     const policyPayload = this.buildPolicyPayload(challenge, intent.hash);
 
-    // step 6: submit to x402 facilitator
-    // in testnet MVP, we simulate the facilitator flow
-    const txResult = await this.submitToFacilitator(challenge, policyPayload);
-
-    return {
-      success: txResult.success,
-      txHash: txResult.txHash,
-      error: txResult.error,
-      challengeHash: challenge.hash,
-      intentHash: intent.hash,
-    };
+    // step 6: submit USDC payment through Soroban
+    try {
+      const txResult = await this.submitPayment(challenge, policyPayload);
+      return {
+        success: txResult.success,
+        txHash: txResult.txHash,
+        error: txResult.error,
+        challengeHash: challenge.hash,
+        intentHash: intent.hash,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: `payment submission failed: ${err}`,
+        challengeHash: challenge.hash,
+        intentHash: intent.hash,
+      };
+    }
   }
 
   private buildPolicyPayload(
@@ -104,27 +115,86 @@ export class Beaver402Adapter {
     };
   }
 
-  private async submitToFacilitator(
+  private async submitPayment(
     challenge: SignedChallenge,
     policyPayload: PolicySignaturePayload
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    // testnet MVP: log the payment details
-    // in production this would interact with the x402 facilitator
-    console.log("submitting payment to x402 facilitator:", {
-      recipient: challenge.fields.recipient,
-      asset: challenge.fields.asset,
-      amount: challenge.fields.amount,
-      network: challenge.fields.network,
-      challengeHash: policyPayload.challengeHash,
-      intentHash: policyPayload.intentHash,
-    });
+    const server = new StellarSdk.SorobanRpc.Server(SOROBAN_RPC_URL);
+    const agentPubkey = this.config.agentKeypair.publicKey();
+    const sourceAccount = await server.getAccount(agentPubkey);
 
-    // simulate successful settlement
-    const mockTxHash = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    // build the USDC transfer invocation through the policy contract
+    // the policy contract's __check_auth will be triggered as part of
+    // the authorization chain when the smart account transfers USDC
+    const recipientAddress = StellarSdk.Address.fromString(
+      challenge.fields.recipient
+    );
+    const amount = BigInt(challenge.fields.amount);
+
+    // find testnet USDC issuer
+    const usdcIssuer =
+      process.env.USDC_ISSUER ||
+      "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+
+    const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
+      fee: "10000000",
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        StellarSdk.Operation.invokeContractFunction({
+          contract: usdcIssuer,
+          function: "transfer",
+          args: [
+            StellarSdk.Address.fromString(agentPubkey).toScVal(),
+            recipientAddress.toScVal(),
+            StellarSdk.nativeToScVal(amount, { type: "i128" }),
+          ],
+        })
+      )
+      .setTimeout(300)
+      .build();
+
+    // simulate to get auth requirements
+    const simulated = await server.simulateTransaction(tx);
+    if (StellarSdk.SorobanRpc.Api.isSimulationError(simulated)) {
+      return {
+        success: false,
+        error: `simulation failed: ${simulated.error}`,
+      };
+    }
+
+    const prepared = StellarSdk.SorobanRpc.assembleTransaction(
+      tx,
+      simulated as StellarSdk.SorobanRpc.Api.SimulateTransactionSuccessResponse
+    ).build();
+
+    prepared.sign(this.config.agentKeypair);
+
+    const sendResponse = await server.sendTransaction(prepared);
+    if (sendResponse.status === "ERROR") {
+      return {
+        success: false,
+        error: `send failed: ${JSON.stringify(sendResponse)}`,
+      };
+    }
+
+    // poll for result
+    let getResponse = await server.getTransaction(sendResponse.hash);
+    const maxAttempts = 30;
+    let attempt = 0;
+    while (getResponse.status === "NOT_FOUND" && attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 1000));
+      getResponse = await server.getTransaction(sendResponse.hash);
+      attempt++;
+    }
+
+    if (getResponse.status === "SUCCESS") {
+      return { success: true, txHash: sendResponse.hash };
+    }
 
     return {
-      success: true,
-      txHash: mockTxHash,
+      success: false,
+      error: `transaction ${getResponse.status}`,
     };
   }
 }
@@ -135,7 +205,7 @@ export function createAdapter(
   network = "testnet"
 ): Beaver402Adapter {
   return new Beaver402Adapter({
-    agentKeypair: Keypair.fromSecret(agentSecret),
+    agentKeypair: StellarSdk.Keypair.fromSecret(agentSecret),
     policyContractId,
     network,
   });
