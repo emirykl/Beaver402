@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   fetchPolicyState,
@@ -7,6 +7,7 @@ import {
   revokeAgentSigner,
   type PolicyState,
 } from "./stellar-ops.js";
+import { registerPasskey, authenticatePasskey } from "./passkey-auth.js";
 
 const ease = [0.25, 0.1, 0.25, 1];
 const stagger = { staggerChildren: 0.08 };
@@ -31,6 +32,7 @@ export default function App() {
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<"idle" | "registering" | "authenticating">("idle");
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
@@ -52,11 +54,57 @@ export default function App() {
     setPolicyState(state);
   }, []);
 
-  const handleAuth = useCallback(() => {
-    setAuthenticated(true);
-    addLog("Passkey authenticated", "success");
-    refresh();
+  const handleAuth = useCallback(async () => {
+    const userId = "beaver402-owner";
+    setAuthMode("authenticating");
+    addLog("Authenticating with passkey...");
+
+    try {
+      // try authentication first (user already registered)
+      const authOk = await authenticatePasskey(userId);
+      if (authOk) {
+        // notify backend of successful auth session
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: "default" }),
+        });
+        setAuthenticated(true);
+        addLog("Passkey authenticated", "success");
+        refresh();
+        setAuthMode("idle");
+        return;
+      }
+    } catch {
+      // authentication failed, try registration
+    }
+
+    setAuthMode("registering");
+    addLog("No passkey found, registering new one...");
+    try {
+      const regOk = await registerPasskey(userId);
+      if (regOk) {
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: "default" }),
+        });
+        setAuthenticated(true);
+        addLog("Passkey registered and authenticated", "success");
+        refresh();
+      } else {
+        addLog("Passkey registration failed", "error");
+      }
+    } catch (err) {
+      addLog("Passkey error: check browser support", "error");
+    }
+    setAuthMode("idle");
   }, [addLog, refresh]);
+
+  // load policy state on mount
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const handleAction = useCallback(
     async (
@@ -136,12 +184,19 @@ export default function App() {
                   Use your passkey to manage this payment policy.
                 </p>
                 <motion.button
-                  style={btnPrimary}
-                  whileHover={{ scale: 1.015 }}
-                  whileTap={{ scale: 0.985 }}
-                  onClick={handleAuth}
+                  style={{
+                    ...btnPrimary,
+                    opacity: authMode !== "idle" ? 0.6 : 1,
+                  }}
+                  whileHover={authMode === "idle" ? { scale: 1.015 } : {}}
+                  whileTap={authMode === "idle" ? { scale: 0.985 } : {}}
+                  onClick={authMode === "idle" ? handleAuth : undefined}
                 >
-                  Continue with Passkey
+                  {authMode === "authenticating"
+                    ? "Verifying..."
+                    : authMode === "registering"
+                      ? "Registering..."
+                      : "Continue with Passkey"}
                 </motion.button>
               </motion.div>
             ) : (

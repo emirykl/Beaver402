@@ -24,29 +24,43 @@ export async function fetchPolicyState(): Promise<PolicyState> {
   }
 }
 
-export async function freezePayments(): Promise<{ success: boolean; txHash?: string; error?: string }> {
+async function authedPost(
+  path: string
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/freeze`, { method: "POST" });
+    const res = await fetch(`${API_BASE}/${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-session-id": "default",
+      },
+    });
     return await res.json();
   } catch (err) {
     return { success: false, error: String(err) };
   }
 }
 
-export async function restorePayments(): Promise<{ success: boolean; txHash?: string; error?: string }> {
-  try {
-    const res = await fetch(`${API_BASE}/restore`, { method: "POST" });
-    return await res.json();
-  } catch (err) {
-    return { success: false, error: String(err) };
-  }
+export async function freezePayments(): Promise<{
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}> {
+  return authedPost("freeze");
 }
 
-export async function revokeAgentSigner(): Promise<{ success: boolean; txHash?: string; error?: string }> {
-  try {
-    const res = await fetch(`${API_BASE}/revoke`, { method: "POST" });
-    return await res.json();
-  } catch (err) {
-    return { success: false, error: String(err) };
-  }
+export async function restorePayments(): Promise<{
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}> {
+  return authedPost("restore");
+}
+
+export async function revokeAgentSigner(): Promise<{
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}> {
+  return authedPost("revoke");
 }
