@@ -250,7 +250,8 @@ impl CustomAccountInterface for PaymentPolicyContract {
             &agent_signer,
             &signature_payload.into(),
             &signature.agent_signature,
-        );
+        )
+        .map_err(|_| PolicyError::InvalidBuyerSigner)?;
 
         // 4. Check merchant is in allowlist
         let merchant_allowed: bool = env
@@ -268,7 +269,8 @@ impl CustomAccountInterface for PaymentPolicyContract {
             &signature.merchant_pubkey,
             &signature.challenge_hash,
             &signature.merchant_signature,
-        );
+        )
+        .map_err(|_| PolicyError::InvalidMerchantSignature)?;
 
         // 6. Verify challenge_hash == intent_hash (Proof of Intent)
         if signature.challenge_hash != signature.intent_hash {

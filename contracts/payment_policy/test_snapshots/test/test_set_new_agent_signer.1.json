@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "55ad142d8c21947875aa34b69b2da3360d375714c3b9b0f7d7ab22700e5b3890"
+                  "bytes": "8c4c937566ba45df3f3f954aa012367c42a5b90535ee83cd0f16693bf9d9d6f8"
                 }
               ]
             }
@@ -35,7 +35,7 @@
               "function_name": "set_agent_signer",
               "args": [
                 {
-                  "bytes": "78cd5c49050dba89dc2a9ec823a89de6e638444a148e6a2cd93b29b9ae20ade8"
+                  "bytes": "786a724c7adfb67530e8aa60ac0a0ebfca69c5f586d9893b975e07b3dc070362"
                 }
               ]
             }
@@ -80,7 +80,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "78cd5c49050dba89dc2a9ec823a89de6e638444a148e6a2cd93b29b9ae20ade8"
+                        "bytes": "786a724c7adfb67530e8aa60ac0a0ebfca69c5f586d9893b975e07b3dc070362"
                       }
                     },
                     {
@@ -102,7 +102,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "55ad142d8c21947875aa34b69b2da3360d375714c3b9b0f7d7ab22700e5b3890"
+                            "bytes": "8c4c937566ba45df3f3f954aa012367c42a5b90535ee83cd0f16693bf9d9d6f8"
                           }
                         ]
                       },
@@ -117,7 +117,7 @@
                             "symbol": "Nonce"
                           },
                           {
-                            "bytes": "0276419029975d0725e1dfb5e6124e33cbe45e453646ed127c7c6b939b06f259"
+                            "bytes": "7dbad5d0ae60017956b167d0857abfe4a7fcdc31fb93c473f97ce12587f72b8f"
                           }
                         ]
                       },
@@ -134,7 +134,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "1a61e202db5155a5e7ce45687aa7d03103ad58f60ff528e8f1169190b33dcf09"
+                        "bytes": "9cbed994741c1c4c11888f0ce6d9f671d90a489135574405c57bb8d735420e01"
                       }
                     },
                     {
@@ -295,13 +295,13 @@
             "data": {
               "vec": [
                 {
-                  "bytes": "0b8382a4e709e29413886531029adebb6258f720194846bc7e3ca98f90b1083b"
+                  "bytes": "3cb622cb55c34aaf8bb3dabef9cd49b74ca3e8d0f4b0f9d25894a026f3eb8302"
                 },
                 {
-                  "bytes": "0b8382a4e709e29413886531029adebb6258f720194846bc7e3ca98f90b1083b"
+                  "bytes": "3cb622cb55c34aaf8bb3dabef9cd49b74ca3e8d0f4b0f9d25894a026f3eb8302"
                 },
                 {
-                  "bytes": "55ad142d8c21947875aa34b69b2da3360d375714c3b9b0f7d7ab22700e5b3890"
+                  "bytes": "8c4c937566ba45df3f3f954aa012367c42a5b90535ee83cd0f16693bf9d9d6f8"
                 },
                 {
                   "i128": "0"

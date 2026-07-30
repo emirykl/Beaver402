@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "3ddb18c89e4273a00c629010e10fc053a9f3382670c2433afbe251cfe1da4100"
+                  "bytes": "a93f33506e81f84d9615dfdfeb7abdd366b5e8535a45b703faa510d90bf40839"
                 }
               ]
             }
@@ -108,7 +108,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "6e6af198b6bb41482d4a1c70a92680303d94f4559b06a99634a24ca51b36fa21"
+                        "bytes": "ca0acf8c8d4a678e8c3ffef8738b8b66bb3ff68f343890b8e245ea6137d86298"
                       }
                     },
                     {
@@ -130,7 +130,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "3ddb18c89e4273a00c629010e10fc053a9f3382670c2433afbe251cfe1da4100"
+                            "bytes": "a93f33506e81f84d9615dfdfeb7abdd366b5e8535a45b703faa510d90bf40839"
                           }
                         ]
                       },
@@ -145,7 +145,7 @@
                             "symbol": "Nonce"
                           },
                           {
-                            "bytes": "55ce78a130082b6dc594921522fdeeef35698f514d8095de807708c138b9afbb"
+                            "bytes": "16540a5d84e83973bc75711882de32779c986e3712d46bf6ef956b0618f02951"
                           }
                         ]
                       },
@@ -160,7 +160,7 @@
                             "symbol": "Nonce"
                           },
                           {
-                            "bytes": "a7bc293ef51116c9a978cb8670e25d20c019dfb31daccbc5319cb2ea87abbf10"
+                            "bytes": "4f6969c021654df6fd656ae27cfa74708267a65b0cdfdf9f77b1a022b3234abd"
                           }
                         ]
                       },
@@ -177,7 +177,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "bced54d74248fbbdbc2a5f0944c74412282a473b3945fe4c01d43bca54cd5de4"
+                        "bytes": "155627176331491c70527e74b842c3e56413454bc0733c71703e6050e4b027dc"
                       }
                     },
                     {
