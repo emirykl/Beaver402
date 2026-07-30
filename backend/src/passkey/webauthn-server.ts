@@ -8,33 +8,62 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
 } from "@simplewebauthn/server";
+import { readFileSync, writeFileSync, existsSync } from "fs";
+import { join } from "path";
 
 const RP_NAME = "Beaver402";
 const RP_ID = process.env.RP_ID || "localhost";
-const ORIGIN = process.env.ORIGIN || `http://${RP_ID}:3000`;
+const ORIGIN = process.env.ORIGIN || `http://${RP_ID}:5173`;
+
+const STORE_PATH = process.env.CREDENTIAL_STORE ||
+  join(process.cwd(), ".beaver402-credentials.json");
 
 interface StoredCredential {
   credentialID: string;
-  credentialPublicKey: Uint8Array;
+  credentialPublicKey: number[]; // serializable array instead of Uint8Array
   counter: number;
   transports?: string[];
 }
 
-// in-memory store for testnet MVP
-const userCredentials = new Map<string, StoredCredential[]>();
+interface CredentialStore {
+  users: Record<string, StoredCredential[]>;
+}
+
+// file-backed credential store that survives restarts
+function loadStore(): CredentialStore {
+  if (existsSync(STORE_PATH)) {
+    try {
+      return JSON.parse(readFileSync(STORE_PATH, "utf-8"));
+    } catch {
+      return { users: {} };
+    }
+  }
+  return { users: {} };
+}
+
+function saveStore(store: CredentialStore): void {
+  writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
+}
+
+function getUserCredentials(userId: string): StoredCredential[] {
+  const store = loadStore();
+  return store.users[userId] || [];
+}
+
+// pending challenges are ephemeral (only valid for current session)
 const pendingChallenges = new Map<string, string>();
 
 export async function startRegistration(userId: string, userName: string) {
-  const existingCreds = userCredentials.get(userId) || [];
+  const existingCreds = getUserCredentials(userId);
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: RP_ID,
     userName,
-    attestationType: "none",
+    attestationType: "direct",
     authenticatorSelection: {
-      residentKey: "preferred",
-      userVerification: "preferred",
+      residentKey: "required",
+      userVerification: "required",
     },
     excludeCredentials: existingCreds.map((c) => ({
       id: c.credentialID,
@@ -69,13 +98,16 @@ export async function finishRegistration(
 
   const stored: StoredCredential = {
     credentialID: credential.id,
-    credentialPublicKey: credential.publicKey,
+    credentialPublicKey: Array.from(credential.publicKey),
     counter: credential.counter,
   };
 
-  const existing = userCredentials.get(userId) || [];
-  existing.push(stored);
-  userCredentials.set(userId, existing);
+  const store = loadStore();
+  if (!store.users[userId]) {
+    store.users[userId] = [];
+  }
+  store.users[userId].push(stored);
+  saveStore(store);
 
   pendingChallenges.delete(userId);
 
@@ -87,14 +119,14 @@ export async function finishRegistration(
 }
 
 export async function startAuthentication(userId: string) {
-  const creds = userCredentials.get(userId) || [];
+  const creds = getUserCredentials(userId);
 
   const options = await generateAuthenticationOptions({
     rpID: RP_ID,
     allowCredentials: creds.map((c) => ({
       id: c.credentialID,
     })),
-    userVerification: "preferred",
+    userVerification: "required",
   });
 
   pendingChallenges.set(userId, options.challenge);
@@ -110,11 +142,13 @@ export async function finishAuthentication(
     throw new Error("no pending authentication challenge");
   }
 
-  const creds = userCredentials.get(userId) || [];
+  const creds = getUserCredentials(userId);
   const credential = creds.find((c) => c.credentialID === response.id);
   if (!credential) {
     throw new Error("credential not found");
   }
+
+  const publicKeyUint8 = new Uint8Array(credential.credentialPublicKey);
 
   const verification = await verifyAuthenticationResponse({
     response,
@@ -123,7 +157,7 @@ export async function finishAuthentication(
     expectedRPID: RP_ID,
     credential: {
       id: credential.credentialID,
-      publicKey: credential.credentialPublicKey,
+      publicKey: publicKeyUint8,
       counter: credential.counter,
     },
   });
@@ -132,12 +166,18 @@ export async function finishAuthentication(
     throw new Error("authentication verification failed");
   }
 
-  credential.counter = verification.authenticationInfo.newCounter;
+  // update counter in persistent store
+  const store = loadStore();
+  const userCreds = store.users[userId] || [];
+  const toUpdate = userCreds.find((c) => c.credentialID === response.id);
+  if (toUpdate) {
+    toUpdate.counter = verification.authenticationInfo.newCounter;
+    saveStore(store);
+  }
+
   pendingChallenges.delete(userId);
 
   return { verified: true };
 }
 
-export function getUserCredentials(userId: string) {
-  return userCredentials.get(userId) || [];
-}
+export { getUserCredentials };

@@ -104,8 +104,12 @@ export class Beaver402Adapter {
     challenge: SignedChallenge,
     intentHash: string
   ): PolicySignaturePayload {
+    // agent signs the challenge hash to prove authorization
+    const challengeBytes = Buffer.from(challenge.hash, "hex");
+    const agentSig = this.config.agentKeypair.sign(challengeBytes);
+
     return {
-      agentSignature: "", // filled during tx signing
+      agentSignature: agentSig.toString("base64"),
       merchantPubkey: challenge.merchantPubkey,
       merchantSignature: challenge.merchantSignature,
       challengeHash: challenge.hash,
