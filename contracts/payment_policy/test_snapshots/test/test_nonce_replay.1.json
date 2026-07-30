@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "71b6a8c5734eca487c58c199c7cc9b57ab25f0a6f0566d5eccecf8abc54448d8"
+                  "bytes": "29abbb7768b0de20c04296865bfc3fedaae5b4a8d181eb0084703de9fd3496d9"
                 }
               ]
             }
@@ -62,7 +62,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "1d3c43d616293485ff35ecf1195f11c9106642ca5f76ed276b18248865f4f47f"
+                        "bytes": "ac740dd1da018392298f82de7716a42cdee24e1870f8c736df9ded578baa0d45"
                       }
                     },
                     {
@@ -84,7 +84,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "71b6a8c5734eca487c58c199c7cc9b57ab25f0a6f0566d5eccecf8abc54448d8"
+                            "bytes": "29abbb7768b0de20c04296865bfc3fedaae5b4a8d181eb0084703de9fd3496d9"
                           }
                         ]
                       },
@@ -99,7 +99,7 @@
                             "symbol": "Nonce"
                           },
                           {
-                            "bytes": "33139ba4a24791feac47c13bd584f883cb6b9f5f1d8539fa730bafa2b6ab9d62"
+                            "bytes": "d5130707222eca8d62045fd98c59de445b705be873ba937b16c87ec9964cef4d"
                           }
                         ]
                       },
@@ -116,7 +116,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "c46c17ceeb206dd7f5cc5a0c2048fcfbd261bcf621a4853bd6036bb09026fc86"
+                        "bytes": "92e269bba628a5313402467b67957cfe1192bb43d404c602b19c4bff0abc33d0"
                       }
                     },
                     {
