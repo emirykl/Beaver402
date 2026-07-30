@@ -17,12 +17,17 @@ export function extractRequestFromToolCall(
 ): ExtractedRequestInfo | null {
   const args = toolCall.arguments;
 
+  const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]);
+
   // look for common patterns in tool call arguments
-  const method =
+  const rawMethod = (
     (args.method as string) ||
     (args.httpMethod as string) ||
     (args.http_method as string) ||
-    "GET";
+    "GET"
+  ).toUpperCase();
+
+  const method = VALID_METHODS.has(rawMethod) ? rawMethod : "GET";
 
   const endpoint =
     (args.url as string) ||
@@ -44,7 +49,7 @@ export function extractRequestFromToolCall(
   }
 
   return {
-    httpMethod: method.toUpperCase(),
+    httpMethod: method,
     endpoint,
     bodyHash: hashBody(rawBody ?? null),
     rawBody,

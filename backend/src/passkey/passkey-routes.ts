@@ -1,4 +1,4 @@
-import express, { type Request, type Response } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import {
   startRegistration,
   finishRegistration,
@@ -7,8 +7,34 @@ import {
   getUserCredentials,
 } from "./webauthn-server.js";
 
+// simple per-IP rate limiter for auth endpoints
+const rateLimitWindow = 60_000; // 1 minute
+const maxRequests = 10;
+const requestCounts = new Map<string, { count: number; resetAt: number }>();
+
+function rateLimit(req: Request, res: Response, next: NextFunction): void {
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  const entry = requestCounts.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    requestCounts.set(ip, { count: 1, resetAt: now + rateLimitWindow });
+    next();
+    return;
+  }
+
+  if (entry.count >= maxRequests) {
+    res.status(429).json({ error: "too many requests, try again later" });
+    return;
+  }
+
+  entry.count++;
+  next();
+}
+
 export function createPasskeyRouter() {
   const router = express.Router();
+  router.use(rateLimit);
 
   router.post("/api/passkey/register/start", async (req: Request, res: Response) => {
     try {

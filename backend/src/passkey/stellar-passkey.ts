@@ -1,15 +1,13 @@
 import {
-  Keypair,
   TransactionBuilder,
   Networks,
   Operation,
-  Asset,
   Account,
-  Memo,
 } from "@stellar/stellar-sdk";
 
 const NETWORK_PASSPHRASE = Networks.TESTNET;
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
+const BASE_FEE = "10000000"; // 1 XLM max fee for Soroban contract calls
 
 export interface PasskeyTxOptions {
   sourceAccount: string;
@@ -20,7 +18,7 @@ export async function buildFreezeTx(options: PasskeyTxOptions): Promise<string> 
   const account = await fetchAccount(options.sourceAccount);
 
   const tx = new TransactionBuilder(account, {
-    fee: "100",
+    fee: BASE_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
   })
     .addOperation(
@@ -40,7 +38,7 @@ export async function buildRestoreTx(options: PasskeyTxOptions): Promise<string>
   const account = await fetchAccount(options.sourceAccount);
 
   const tx = new TransactionBuilder(account, {
-    fee: "100",
+    fee: BASE_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
   })
     .addOperation(
@@ -60,7 +58,7 @@ export async function buildRevokeTx(options: PasskeyTxOptions): Promise<string> 
   const account = await fetchAccount(options.sourceAccount);
 
   const tx = new TransactionBuilder(account, {
-    fee: "100",
+    fee: BASE_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
   })
     .addOperation(

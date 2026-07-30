@@ -50,6 +50,62 @@ async function callContractView(functionName: string, args: StellarSdk.xdr.ScVal
   return response;
 }
 
+function getRetval(sim: Awaited<ReturnType<typeof callContractView>>): StellarSdk.xdr.ScVal | null {
+  if ("result" in sim && sim.result?.retval) {
+    return sim.result.retval;
+  }
+  return null;
+}
+
+async function safeContractBool(fn: string): Promise<boolean> {
+  try {
+    const sim = await callContractView(fn);
+    const retval = getRetval(sim);
+    if (!retval) return false;
+    return retval.switch().name === "scvBool" && retval.value() === true;
+  } catch {
+    return false;
+  }
+}
+
+function extractBytes(sim: Awaited<ReturnType<typeof callContractView>>): string | null {
+  const retval = getRetval(sim);
+  if (!retval) return null;
+  try {
+    const raw = retval.value();
+    if (raw instanceof Uint8Array || Buffer.isBuffer(raw)) {
+      return Buffer.from(raw).toString("hex");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function extractMap(sim: Awaited<ReturnType<typeof callContractView>>): Map<string, unknown> {
+  const result = new Map<string, unknown>();
+  const retval = getRetval(sim);
+  if (!retval) return result;
+  try {
+    const fields = retval.value();
+    if (!Array.isArray(fields)) return result;
+    for (const field of fields) {
+      try {
+        const entry = field.value();
+        if (!Array.isArray(entry) || entry.length < 2) continue;
+        const key = String(entry[0].value());
+        const val = entry[1].value();
+        result.set(key, val);
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    // return empty map
+  }
+  return result;
+}
+
 async function submitContractCall(
   functionName: string,
   args: StellarSdk.xdr.ScVal[] = []
@@ -94,11 +150,13 @@ async function submitContractCall(
     throw new Error(`send failed: ${JSON.stringify(sendResponse)}`);
   }
 
-  // poll for confirmation
+  // poll for confirmation (max 30 attempts)
   let getResponse = await server.getTransaction(sendResponse.hash);
-  while (getResponse.status === "NOT_FOUND") {
+  let attempts = 0;
+  while (getResponse.status === "NOT_FOUND" && attempts < 30) {
     await new Promise((r) => setTimeout(r, 1000));
     getResponse = await server.getTransaction(sendResponse.hash);
+    attempts++;
   }
 
   if (getResponse.status !== "SUCCESS") {
@@ -125,40 +183,23 @@ export function createPolicyRouter() {
 
     try {
       // query contract state through simulation
-      const frozenSim = await callContractView("is_frozen");
-      const frozen =
-        "result" in frozenSim &&
-        frozenSim.result?.retval?.value() === true;
+      const frozen = await safeContractBool("is_frozen");
 
       let agentSigner: string | null = null;
       try {
         const signerSim = await callContractView("get_agent_signer");
-        if ("result" in signerSim && signerSim.result?.retval) {
-          const raw = signerSim.result.retval.value();
-          if (raw && typeof raw === "object" && "toString" in raw) {
-            agentSigner = Buffer.from(raw as Buffer).toString("hex");
-          }
-        }
+        agentSigner = extractBytes(signerSim);
       } catch {
-        agentSigner = null; // signer revoked
+        agentSigner = null; // signer revoked or not set
       }
 
       let velocityTxCount = 0;
       let velocityTotalAmount = "0";
       try {
         const velSim = await callContractView("get_velocity_state");
-        if ("result" in velSim && velSim.result?.retval) {
-          const fields = velSim.result.retval.value();
-          if (Array.isArray(fields)) {
-            for (const field of fields) {
-              const entry = field.value();
-              const key = entry[0].value().toString();
-              const val = entry[1].value();
-              if (key === "tx_count") velocityTxCount = Number(val);
-              if (key === "total_amount") velocityTotalAmount = String(val);
-            }
-          }
-        }
+        const parsed = extractMap(velSim);
+        velocityTxCount = Number(parsed.get("tx_count") ?? 0);
+        velocityTotalAmount = String(parsed.get("total_amount") ?? "0");
       } catch {
         // use defaults
       }

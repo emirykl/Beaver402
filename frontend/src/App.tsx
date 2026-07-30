@@ -9,7 +9,7 @@ import {
 } from "./stellar-ops.js";
 import { registerPasskey, authenticatePasskey } from "./passkey-auth.js";
 
-const ease = [0.25, 0.1, 0.25, 1];
+const ease = [0.25, 0.1, 0.25, 1] as [number, number, number, number];
 const stagger = { staggerChildren: 0.08 };
 
 interface LogEntry {
