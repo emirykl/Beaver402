@@ -277,17 +277,21 @@ impl CustomAccountInterface for PaymentPolicyContract {
             return Err(PolicyError::ChallengeMismatch);
         }
 
-        // 7. Nonce replay check
-        if env
-            .storage()
-            .instance()
-            .has(&DataKey::Nonce(signature.nonce.clone()))
-        {
+        // 7. Nonce replay check — use temporary storage so entries
+        //    auto-expire and don't bloat instance storage forever.
+        let nonce_key = DataKey::Nonce(signature.nonce.clone());
+        if env.storage().temporary().has(&nonce_key) {
             return Err(PolicyError::NonceReused);
         }
+        env.storage().temporary().set(&nonce_key, &true);
+        // Extend TTL so the nonce survives long enough to prevent replays.
+        // Cap at the ledger's max_entry_ttl to avoid InvalidAction errors.
+        let max_ttl = env.storage().max_ttl();
+        let desired_ttl: u32 = 7200; // ~1 day of ledgers (5s each)
+        let ttl = desired_ttl.min(max_ttl);
         env.storage()
-            .instance()
-            .set(&DataKey::Nonce(signature.nonce.clone()), &true);
+            .temporary()
+            .extend_ttl(&nonce_key, ttl, ttl);
 
         // 8. Expiry check (expiry=0 is not valid, all signatures must have an expiry)
         let now = env.ledger().timestamp();
@@ -310,12 +314,17 @@ impl CustomAccountInterface for PaymentPolicyContract {
             }
         }
 
-        // 10. Velocity check (always counts, even non-transfer auth calls)
+        // 10. Reject negative amounts — prevent velocity counter manipulation
+        if payment_amount < 0 {
+            return Err(PolicyError::InvalidAmount);
+        }
+
+        // 11. Velocity check (always counts, even non-transfer auth calls)
         if !check_and_update_velocity(&env, payment_amount) {
             return Err(PolicyError::VelocityExceeded);
         }
 
-        // 11. Emit Proof of Intent event
+        // 12. Emit Proof of Intent event
         emit_proof_of_intent(
             &env,
             &signature.challenge_hash,

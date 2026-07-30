@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "a93f33506e81f84d9615dfdfeb7abdd366b5e8535a45b703faa510d90bf40839"
+                  "bytes": "a161c39c39effcd318f35269ba2793654bb4b4a39a5024519cb5d1cf237e72d0"
                 }
               ]
             }
@@ -91,6 +91,60 @@
             "contract_data": {
               "ext": "v0",
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "Nonce"
+                  },
+                  {
+                    "bytes": "63847ad58ec1b7d76e0b0a0c727e0792e6fe046bfd5f72e35b38038d788ce835"
+                  }
+                ]
+              },
+              "durability": "temporary",
+              "val": {
+                "bool": true
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 7300
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "Nonce"
+                  },
+                  {
+                    "bytes": "8911bd195bb579478209b69cca7e14186810c9493b78cef16f5cd0b4188b45c6"
+                  }
+                ]
+              },
+              "durability": "temporary",
+              "val": {
+                "bool": true
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 7300
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -108,7 +162,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "ca0acf8c8d4a678e8c3ffef8738b8b66bb3ff68f343890b8e245ea6137d86298"
+                        "bytes": "e8480c9e93f4a919dd68df7a260cd69ad72e428e58d5369a728b4daf96e0c316"
                       }
                     },
                     {
@@ -130,37 +184,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "a93f33506e81f84d9615dfdfeb7abdd366b5e8535a45b703faa510d90bf40839"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "bool": true
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "Nonce"
-                          },
-                          {
-                            "bytes": "16540a5d84e83973bc75711882de32779c986e3712d46bf6ef956b0618f02951"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "bool": true
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "Nonce"
-                          },
-                          {
-                            "bytes": "4f6969c021654df6fd656ae27cfa74708267a65b0cdfdf9f77b1a022b3234abd"
+                            "bytes": "a161c39c39effcd318f35269ba2793654bb4b4a39a5024519cb5d1cf237e72d0"
                           }
                         ]
                       },
@@ -177,7 +201,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "155627176331491c70527e74b842c3e56413454bc0733c71703e6050e4b027dc"
+                        "bytes": "80843224d6ed4f2acc7daf8617d61d84c302ff35c7098cb611ec73eefd1e1a5d"
                       }
                     },
                     {

@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, BytesN};
+use soroban_sdk::{contracttype, BytesN};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -38,12 +38,4 @@ pub struct PolicySignature {
     pub intent_hash: BytesN<32>,
     pub nonce: BytesN<32>,
     pub expiry: u64,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PaymentParams {
-    pub recipient: Address,
-    pub asset: Address,
-    pub amount: i128,
 }

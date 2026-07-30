@@ -17,4 +17,5 @@ pub enum PolicyError {
     InvalidSignatureFormat = 14,
     NotInitialized = 15,
     AlreadyInitialized = 16,
+    InvalidAmount = 17,
 }

@@ -1,5 +1,6 @@
 use soroban_sdk::Env;
 
+use crate::events::emit_payment_frozen;
 use crate::types::{DataKey, VelocityConfig, VelocityState};
 
 /// Check velocity limits BEFORE this transaction. Returns false if already exceeded.
@@ -57,6 +58,7 @@ pub fn check_and_update_velocity(env: &Env, amount: i128) -> bool {
     // Auto-freeze if this tx pushed us over the limit (takes effect on next tx)
     if state.tx_count >= config.max_tx_count || state.total_amount >= config.max_total_amount {
         env.storage().instance().set(&DataKey::Frozen, &true);
+        emit_payment_frozen(env, "velocity", state.tx_count, state.total_amount);
     }
 
     true

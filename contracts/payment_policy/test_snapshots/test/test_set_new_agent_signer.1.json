@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "8c4c937566ba45df3f3f954aa012367c42a5b90535ee83cd0f16693bf9d9d6f8"
+                  "bytes": "b332c2d1506bc86d3b870ad4275dfefe293d0f4144df6f9a28c3c71fd8f37358"
                 }
               ]
             }
@@ -35,7 +35,7 @@
               "function_name": "set_agent_signer",
               "args": [
                 {
-                  "bytes": "786a724c7adfb67530e8aa60ac0a0ebfca69c5f586d9893b975e07b3dc070362"
+                  "bytes": "232fd040a390f72bef3431830e6748de2413993ddeb4ad956d6fac336d48f5f6"
                 }
               ]
             }
@@ -63,6 +63,33 @@
             "contract_data": {
               "ext": "v0",
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "Nonce"
+                  },
+                  {
+                    "bytes": "a4136c2ac5b724fac470cc12d486634d35ddccc9dd5f69356433bb15e7f69201"
+                  }
+                ]
+              },
+              "durability": "temporary",
+              "val": {
+                "bool": true
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 7300
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -80,7 +107,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "786a724c7adfb67530e8aa60ac0a0ebfca69c5f586d9893b975e07b3dc070362"
+                        "bytes": "232fd040a390f72bef3431830e6748de2413993ddeb4ad956d6fac336d48f5f6"
                       }
                     },
                     {
@@ -102,22 +129,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "8c4c937566ba45df3f3f954aa012367c42a5b90535ee83cd0f16693bf9d9d6f8"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "bool": true
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "Nonce"
-                          },
-                          {
-                            "bytes": "7dbad5d0ae60017956b167d0857abfe4a7fcdc31fb93c473f97ce12587f72b8f"
+                            "bytes": "b332c2d1506bc86d3b870ad4275dfefe293d0f4144df6f9a28c3c71fd8f37358"
                           }
                         ]
                       },
@@ -134,7 +146,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "9cbed994741c1c4c11888f0ce6d9f671d90a489135574405c57bb8d735420e01"
+                        "bytes": "e55577ab81af874a45d867c9076e3f43bc5d1265992559671d27cd7078e1420d"
                       }
                     },
                     {
@@ -295,13 +307,13 @@
             "data": {
               "vec": [
                 {
-                  "bytes": "3cb622cb55c34aaf8bb3dabef9cd49b74ca3e8d0f4b0f9d25894a026f3eb8302"
+                  "bytes": "238dc96d626fe0c524ceec0ca4560e5bd1eaa4ac770f53b9c7015ddd9f631d56"
                 },
                 {
-                  "bytes": "3cb622cb55c34aaf8bb3dabef9cd49b74ca3e8d0f4b0f9d25894a026f3eb8302"
+                  "bytes": "238dc96d626fe0c524ceec0ca4560e5bd1eaa4ac770f53b9c7015ddd9f631d56"
                 },
                 {
-                  "bytes": "8c4c937566ba45df3f3f954aa012367c42a5b90535ee83cd0f16693bf9d9d6f8"
+                  "bytes": "b332c2d1506bc86d3b870ad4275dfefe293d0f4144df6f9a28c3c71fd8f37358"
                 },
                 {
                   "i128": "0"

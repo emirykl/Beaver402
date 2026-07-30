@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "4c87b8cf370013df5db7c4bf4d14104db0dcd22778900f98ed20a3a4d90dd1ea"
+                  "bytes": "07763406e6865b71525de56469c67ba751082aef673234fecd073737415ebaea"
                 }
               ]
             }
@@ -45,6 +45,33 @@
             "contract_data": {
               "ext": "v0",
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "Nonce"
+                  },
+                  {
+                    "bytes": "4b91d504c82c819b1406da527206c620ec17ee87d807049cb04f7646caeb846f"
+                  }
+                ]
+              },
+              "durability": "temporary",
+              "val": {
+                "bool": true
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 7300
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -62,7 +89,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "3b8849cb1b874ff785a04aaf9bda4d29636fcb62dc91a381e2d9020efc3e3563"
+                        "bytes": "c66615f57faa85e1e7fafea920d637cfbe48515bb4c4d7969f194146741e0911"
                       }
                     },
                     {
@@ -84,22 +111,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "4c87b8cf370013df5db7c4bf4d14104db0dcd22778900f98ed20a3a4d90dd1ea"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "bool": true
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "Nonce"
-                          },
-                          {
-                            "bytes": "b5c0cfe586661cf92ab66ee33bd17d390c4eda8c45d74b69eceb8639db76ca67"
+                            "bytes": "07763406e6865b71525de56469c67ba751082aef673234fecd073737415ebaea"
                           }
                         ]
                       },
@@ -116,7 +128,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "d950cad8a520ce97495ed56bd525ae0b5a47f09adf9a41bb48a4f374a7589daa"
+                        "bytes": "091387b33888a095d1ae219fb740d2cdcaf9dcf5c164e1421961ee019b894af0"
                       }
                     },
                     {
