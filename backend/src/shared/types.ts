@@ -1,6 +1,8 @@
-export interface ChallengeFields {
+// Shared field structure for both challenge and intent payloads.
+// All security-critical fields that must match between merchant
+// challenge and buyer intent for proof of intent verification.
+export interface PayloadFields {
   version: string;
-  domainSeparator: string;
   merchantPubkey: string;
   httpMethod: string;
   normalizedEndpoint: string;
@@ -13,20 +15,9 @@ export interface ChallengeFields {
   expiry: string;
 }
 
-export interface IntentFields {
-  version: string;
-  domainSeparator: string;
-  merchantPubkey: string;
-  httpMethod: string;
-  normalizedEndpoint: string;
-  bodyHash: string;
-  recipient: string;
-  asset: string;
-  amount: string;
-  network: string;
-  nonce: string;
-  expiry: string;
-}
+// Backward-compatible aliases
+export type ChallengeFields = PayloadFields;
+export type IntentFields = PayloadFields;
 
 export interface SignedChallenge {
   fields: ChallengeFields;

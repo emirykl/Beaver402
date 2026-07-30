@@ -6,7 +6,6 @@
       "name": "basic_payment",
       "fields": {
         "version": "1",
-        "domainSeparator": "beaver402:challenge:v1",
         "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
@@ -24,7 +23,6 @@
       "name": "post_with_body",
       "fields": {
         "version": "1",
-        "domainSeparator": "beaver402:challenge:v1",
         "merchantPubkey": "GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX",
         "httpMethod": "POST",
         "normalizedEndpoint": "https://api.example.com/submit",
@@ -42,7 +40,6 @@
       "name": "case_normalization",
       "fields": {
         "version": "1",
-        "domainSeparator": "beaver402:challenge:v1",
         "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
         "httpMethod": "get",
         "normalizedEndpoint": "HTTPS://API.MERCHANT.COM/Data",
@@ -61,7 +58,6 @@
       "name": "mismatched_amount",
       "challenge": {
         "version": "1",
-        "domainSeparator": "beaver402:challenge:v1",
         "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
@@ -75,7 +71,6 @@
       },
       "intent": {
         "version": "1",
-        "domainSeparator": "beaver402:intent:v1",
         "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
@@ -94,7 +89,6 @@
       "name": "mismatched_endpoint",
       "challenge": {
         "version": "1",
-        "domainSeparator": "beaver402:challenge:v1",
         "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
@@ -108,7 +102,6 @@
       },
       "intent": {
         "version": "1",
-        "domainSeparator": "beaver402:intent:v1",
         "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://evil.com/steal",

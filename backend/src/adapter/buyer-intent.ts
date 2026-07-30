@@ -2,7 +2,6 @@ import {
   hashIntent,
   hashBody,
   fieldsMatch,
-  INTENT_DOMAIN,
 } from "../shared/hashing.js";
 import type {
   IntentFields,
@@ -26,7 +25,6 @@ export interface CreateIntentOptions {
 export function createIntent(options: CreateIntentOptions): SignedIntent {
   const fields: IntentFields = {
     version: "1",
-    domainSeparator: INTENT_DOMAIN,
     merchantPubkey: options.merchantPubkey,
     httpMethod: options.httpMethod,
     normalizedEndpoint: options.endpoint,

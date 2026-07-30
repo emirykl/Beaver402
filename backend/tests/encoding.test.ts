@@ -97,14 +97,8 @@ describe("domain separated hashing", () => {
   it("should produce identical hashes for matching challenge and intent fields", () => {
     const fields = vectors.vectors[0].fields as ChallengeFields;
 
-    const challengeFields: ChallengeFields = {
-      ...fields,
-      domainSeparator: CHALLENGE_DOMAIN,
-    };
-    const intentFields: IntentFields = {
-      ...fields,
-      domainSeparator: INTENT_DOMAIN,
-    };
+    const challengeFields: ChallengeFields = { ...fields };
+    const intentFields: IntentFields = { ...fields };
 
     const challengeHash = hashChallenge(challengeFields);
     const intentHash = hashIntent(intentFields);
@@ -150,14 +144,8 @@ describe("case normalization produces same hash", () => {
 describe("fields match detection", () => {
   it("should detect matching fields between challenge and intent", () => {
     const fields = vectors.vectors[0].fields;
-    const challenge: ChallengeFields = {
-      ...fields,
-      domainSeparator: CHALLENGE_DOMAIN,
-    };
-    const intent: IntentFields = {
-      ...fields,
-      domainSeparator: INTENT_DOMAIN,
-    };
+    const challenge: ChallengeFields = { ...fields };
+    const intent: IntentFields = { ...fields };
     expect(fieldsMatch(challenge, intent)).toBe(true);
   });
 
