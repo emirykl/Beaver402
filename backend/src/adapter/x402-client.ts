@@ -4,6 +4,7 @@ import {
   verifyChallengeIntentMatch,
 } from "./buyer-intent.js";
 import { verifyMerchantSignature } from "../merchant/challenge-signer.js";
+import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import type {
   SignedChallenge,
   PolicySignaturePayload,
@@ -25,6 +26,30 @@ export interface PaymentResult {
   error?: string;
   challengeHash?: string;
   intentHash?: string;
+}
+
+async function logTransaction(
+  challenge: SignedChallenge,
+  result: PaymentResult
+): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  try {
+    const supabase = getSupabase();
+    await supabase.from("transactions").insert({
+      tx_hash: result.txHash ?? null,
+      challenge_hash: result.challengeHash ?? null,
+      intent_hash: result.intentHash ?? null,
+      merchant_pubkey: challenge.merchantPubkey,
+      recipient: challenge.fields.recipient,
+      asset: challenge.fields.asset,
+      amount: challenge.fields.amount,
+      network: challenge.fields.network,
+      status: result.success ? "success" : "failed",
+      error: result.error ?? null,
+    });
+  } catch {
+    // logging failure should not break the payment flow
+  }
 }
 
 export class Beaver402Adapter {
@@ -81,9 +106,10 @@ export class Beaver402Adapter {
     const policyPayload = this.buildPolicyPayload(challenge, intent.hash);
 
     // step 6: submit USDC payment through Soroban
+    let result: PaymentResult;
     try {
       const txResult = await this.submitPayment(challenge, policyPayload);
-      return {
+      result = {
         success: txResult.success,
         txHash: txResult.txHash,
         error: txResult.error,
@@ -91,13 +117,16 @@ export class Beaver402Adapter {
         intentHash: intent.hash,
       };
     } catch (err) {
-      return {
+      result = {
         success: false,
         error: `payment submission failed: ${err}`,
         challengeHash: challenge.hash,
         intentHash: intent.hash,
       };
     }
+
+    await logTransaction(challenge, result);
+    return result;
   }
 
   private buildPolicyPayload(
