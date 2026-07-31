@@ -21,6 +21,7 @@
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
     "@stellar/stellar-sdk": "^16.2.0",
+    "@supabase/supabase-js": "^2.112.2",
     "@types/express": "^5.0.6",
     "@types/node": "^26.2.0",
     "express": "^5.2.1",
