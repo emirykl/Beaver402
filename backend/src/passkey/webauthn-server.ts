@@ -8,53 +8,82 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
 } from "@simplewebauthn/server";
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { join } from "path";
+import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 
 const RP_NAME = "Beaver402";
 const RP_ID = process.env.RP_ID || "localhost";
 const ORIGIN = process.env.ORIGIN || `http://${RP_ID}:5173`;
 
-const STORE_PATH = process.env.CREDENTIAL_STORE ||
-  join(process.cwd(), ".beaver402-credentials.json");
-
-interface StoredCredential {
+export interface StoredCredential {
   credentialID: string;
-  credentialPublicKey: number[]; // serializable array instead of Uint8Array
+  credentialPublicKey: number[];
   counter: number;
   transports?: string[];
-}
-
-interface CredentialStore {
-  users: Record<string, StoredCredential[]>;
-}
-
-// file-backed credential store that survives restarts
-function loadStore(): CredentialStore {
-  if (existsSync(STORE_PATH)) {
-    try {
-      return JSON.parse(readFileSync(STORE_PATH, "utf-8"));
-    } catch {
-      return { users: {} };
-    }
-  }
-  return { users: {} };
-}
-
-function saveStore(store: CredentialStore): void {
-  writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
-}
-
-function getUserCredentials(userId: string): StoredCredential[] {
-  const store = loadStore();
-  return store.users[userId] || [];
 }
 
 // pending challenges are ephemeral (only valid for current session)
 const pendingChallenges = new Map<string, string>();
 
+async function getUserCredentials(userId: string): Promise<StoredCredential[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("credentials")
+    .select("credential_id, public_key, counter, transports")
+    .eq("user_id", userId);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => ({
+    credentialID: row.credential_id,
+    credentialPublicKey: Array.from(Buffer.from(row.public_key, "base64")),
+    counter: row.counter,
+    transports: row.transports ?? undefined,
+  }));
+}
+
+async function saveCredential(
+  userId: string,
+  cred: StoredCredential
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from("credentials").insert({
+    user_id: userId,
+    credential_id: cred.credentialID,
+    public_key: Buffer.from(new Uint8Array(cred.credentialPublicKey)).toString(
+      "base64"
+    ),
+    counter: cred.counter,
+    transports: cred.transports ?? null,
+  });
+
+  if (error) {
+    throw new Error(`failed to save credential: ${error.message}`);
+  }
+}
+
+async function updateCredentialCounter(
+  credentialID: string,
+  newCounter: number
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("credentials")
+    .update({ counter: newCounter })
+    .eq("credential_id", credentialID);
+
+  if (error) {
+    throw new Error(`failed to update counter: ${error.message}`);
+  }
+}
+
 export async function startRegistration(userId: string, userName: string) {
-  const existingCreds = getUserCredentials(userId);
+  const existingCreds = await getUserCredentials(userId);
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
@@ -102,12 +131,7 @@ export async function finishRegistration(
     counter: credential.counter,
   };
 
-  const store = loadStore();
-  if (!store.users[userId]) {
-    store.users[userId] = [];
-  }
-  store.users[userId].push(stored);
-  saveStore(store);
+  await saveCredential(userId, stored);
 
   pendingChallenges.delete(userId);
 
@@ -119,7 +143,7 @@ export async function finishRegistration(
 }
 
 export async function startAuthentication(userId: string) {
-  const creds = getUserCredentials(userId);
+  const creds = await getUserCredentials(userId);
 
   const options = await generateAuthenticationOptions({
     rpID: RP_ID,
@@ -142,7 +166,7 @@ export async function finishAuthentication(
     throw new Error("no pending authentication challenge");
   }
 
-  const creds = getUserCredentials(userId);
+  const creds = await getUserCredentials(userId);
   const credential = creds.find((c) => c.credentialID === response.id);
   if (!credential) {
     throw new Error("credential not found");
@@ -166,14 +190,10 @@ export async function finishAuthentication(
     throw new Error("authentication verification failed");
   }
 
-  // update counter in persistent store
-  const store = loadStore();
-  const userCreds = store.users[userId] || [];
-  const toUpdate = userCreds.find((c) => c.credentialID === response.id);
-  if (toUpdate) {
-    toUpdate.counter = verification.authenticationInfo.newCounter;
-    saveStore(store);
-  }
+  await updateCredentialCounter(
+    response.id,
+    verification.authenticationInfo.newCounter
+  );
 
   pendingChallenges.delete(userId);
 
