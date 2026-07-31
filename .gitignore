@@ -6,3 +6,4 @@ dist/
 .soroban/
 *.log
 .DS_Store
+beaver-allinfo.pdf
