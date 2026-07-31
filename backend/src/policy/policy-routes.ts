@@ -1,20 +1,37 @@
 import express, { type Request, type Response } from "express";
 import * as StellarSdk from "@stellar/stellar-sdk";
+import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 
 const SOROBAN_RPC_URL =
   process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
 const CONTRACT_ID = process.env.POLICY_CONTRACT_ID || "";
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
 
-// authenticated session store (in-memory for testnet MVP)
-const authenticatedSessions = new Set<string>();
-
-export function markAuthenticated(sessionId: string) {
-  authenticatedSessions.add(sessionId);
+export async function markAuthenticated(sessionId: string) {
+  if (!isSupabaseConfigured()) {
+    return;
+  }
+  const supabase = getSupabase();
+  await supabase.from("sessions").upsert({
+    id: sessionId,
+    authenticated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  });
 }
 
-export function isAuthenticated(sessionId: string): boolean {
-  return authenticatedSessions.has(sessionId);
+export async function isAuthenticated(sessionId: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) {
+    return false;
+  }
+  const supabase = getSupabase();
+  const { data } = await supabase
+    .from("sessions")
+    .select("id, expires_at")
+    .eq("id", sessionId)
+    .single();
+
+  if (!data) return false;
+  return new Date(data.expires_at) > new Date();
 }
 
 function getSessionId(req: Request): string {
@@ -218,7 +235,7 @@ export function createPolicyRouter() {
 
   router.post("/api/policy/freeze", async (req: Request, res: Response) => {
     const session = getSessionId(req);
-    if (!isAuthenticated(session)) {
+    if (!(await isAuthenticated(session))) {
       res.status(401).json({ success: false, error: "authentication required" });
       return;
     }
@@ -233,7 +250,7 @@ export function createPolicyRouter() {
 
   router.post("/api/policy/restore", async (req: Request, res: Response) => {
     const session = getSessionId(req);
-    if (!isAuthenticated(session)) {
+    if (!(await isAuthenticated(session))) {
       res.status(401).json({ success: false, error: "authentication required" });
       return;
     }
@@ -248,7 +265,7 @@ export function createPolicyRouter() {
 
   router.post("/api/policy/revoke", async (req: Request, res: Response) => {
     const session = getSessionId(req);
-    if (!isAuthenticated(session)) {
+    if (!(await isAuthenticated(session))) {
       res.status(401).json({ success: false, error: "authentication required" });
       return;
     }

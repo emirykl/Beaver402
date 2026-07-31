@@ -51,13 +51,13 @@ app.post("/api/mcp/extract", (req, res) => {
 });
 
 // session auth callback (called after successful passkey auth)
-app.post("/api/auth/session", (req, res) => {
+app.post("/api/auth/session", async (req, res) => {
   const { sessionId } = req.body;
   if (!sessionId) {
     res.status(400).json({ error: "sessionId is required" });
     return;
   }
-  markAuthenticated(sessionId);
+  await markAuthenticated(sessionId);
   res.json({ authenticated: true });
 });
 
