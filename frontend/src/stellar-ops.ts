@@ -64,3 +64,25 @@ export async function revokeAgentSigner(): Promise<{
 }> {
   return authedPost("revoke");
 }
+
+export interface Transaction {
+  id: string;
+  tx_hash: string | null;
+  recipient: string | null;
+  asset: string | null;
+  amount: string | null;
+  status: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export async function fetchTransactions(): Promise<Transaction[]> {
+  try {
+    const res = await fetch("/api/transactions");
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.transactions ?? [];
+  } catch {
+    return [];
+  }
+}

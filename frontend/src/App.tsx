@@ -5,7 +5,9 @@ import {
   freezePayments,
   restorePayments,
   revokeAgentSigner,
+  fetchTransactions,
   type PolicyState,
+  type Transaction,
 } from "./stellar-ops.js";
 import { registerPasskey, authenticatePasskey } from "./passkey-auth.js";
 
@@ -33,6 +35,7 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<"idle" | "registering" | "authenticating">("idle");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
@@ -52,6 +55,8 @@ export default function App() {
   const refresh = useCallback(async () => {
     const state = await fetchPolicyState();
     setPolicyState(state);
+    const txs = await fetchTransactions();
+    setTransactions(txs);
   }, []);
 
   const handleAuth = useCallback(async () => {
@@ -288,8 +293,49 @@ export default function App() {
           </div>
         </Card>
 
-        {/* Log */}
+        {/* Transactions */}
         <Card delay={3}>
+          <div style={sectionHeader}>
+            <span style={sectionTitle}>Transaction History</span>
+            <span style={countBadge}>{transactions.length}</span>
+          </div>
+          <div style={logBox}>
+            {transactions.length === 0 ? (
+              <p style={bodyTextMuted}>No transactions recorded</p>
+            ) : (
+              transactions.map((tx) => (
+                <div key={tx.id} style={txRow}>
+                  <div style={txTop}>
+                    <span
+                      style={{
+                        ...txStatus,
+                        color: tx.status === "success" ? "#34c759" : "#ff3b30",
+                      }}
+                    >
+                      {tx.status === "success" ? "Confirmed" : "Failed"}
+                    </span>
+                    <span style={txAmount}>
+                      {tx.amount ?? "0"} {tx.asset ?? ""}
+                    </span>
+                  </div>
+                  <div style={txBottom}>
+                    {tx.tx_hash ? (
+                      <span style={txHash}>{trunc(tx.tx_hash, 20)}</span>
+                    ) : tx.error ? (
+                      <span style={txError}>{trunc(tx.error, 40)}</span>
+                    ) : null}
+                    <span style={txTime}>
+                      {new Date(tx.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        {/* Log */}
+        <Card delay={4}>
           <div style={sectionHeader}>
             <span style={sectionTitle}>Activity</span>
             <span style={countBadge}>{logs.length}</span>
@@ -651,4 +697,49 @@ const logTime: React.CSSProperties = {
 
 const logMsg: React.CSSProperties = {
   wordBreak: "break-all",
+};
+
+const txRow: React.CSSProperties = {
+  padding: "10px 0",
+  borderBottom: "0.5px solid #2c2c2e",
+};
+
+const txTop: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 4,
+};
+
+const txBottom: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const txStatus: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+};
+
+const txAmount: React.CSSProperties = {
+  fontSize: 13,
+  fontFamily: mono,
+  color: "#f5f5f7",
+};
+
+const txHash: React.CSSProperties = {
+  fontSize: 11,
+  fontFamily: mono,
+  color: "#636366",
+};
+
+const txError: React.CSSProperties = {
+  fontSize: 11,
+  color: "#ff3b30",
+};
+
+const txTime: React.CSSProperties = {
+  fontSize: 11,
+  color: "#3a3a3c",
 };

@@ -7,6 +7,7 @@ import {
   isPaymentRequired,
   extractPaymentDetails,
 } from "./mcp/mcp-tool-handler.js";
+import { getSupabase, isSupabaseConfigured } from "./lib/supabase.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -59,6 +60,30 @@ app.post("/api/auth/session", async (req, res) => {
   }
   await markAuthenticated(sessionId);
   res.json({ authenticated: true });
+});
+
+// transaction history
+app.get("/api/transactions", async (_req, res) => {
+  if (!isSupabaseConfigured()) {
+    res.json({ transactions: [] });
+    return;
+  }
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json({ transactions: data ?? [] });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 // health check
