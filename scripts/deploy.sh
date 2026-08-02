@@ -4,12 +4,18 @@
 # ──────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Prefer rustup toolchain over Homebrew Rust
+if [ -d "$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin" ]; then
+    export PATH="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PATH"
+fi
+
 NETWORK="testnet"
 RPC_URL="https://soroban-testnet.stellar.org"
 NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-WASM_PATH="$ROOT_DIR/target/wasm32-unknown-unknown/release/payment_policy.wasm"
+# stellar CLI v27+ uses wasm32v1-none target
+WASM_PATH="$ROOT_DIR/target/wasm32v1-none/release/payment_policy.wasm"
 ENV_FILE="$ROOT_DIR/backend/.env"
 
 # ── Colors ────────────────────────────────────────────────────────
