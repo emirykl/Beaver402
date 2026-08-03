@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "f356e13c8404c49dbfe12ec6db2fd58aac825657317ec298c8004f47cede7364"
+                  "bytes": "e77fadb2a632aecc8a6976e755bf6620fcec92236e5bdd5236414d14b57bc5fe"
                 }
               ]
             }
@@ -61,7 +61,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "e4211991a412bd6b5d95f334734b305df1e51b9a08f1487100df763f1061db71"
+                        "bytes": "ae6c63caa1964ab7e3c95af367378138f98d18672b9f4d560e14eb07432c6da5"
                       }
                     },
                     {
@@ -83,7 +83,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "f356e13c8404c49dbfe12ec6db2fd58aac825657317ec298c8004f47cede7364"
+                            "bytes": "e77fadb2a632aecc8a6976e755bf6620fcec92236e5bdd5236414d14b57bc5fe"
                           }
                         ]
                       },

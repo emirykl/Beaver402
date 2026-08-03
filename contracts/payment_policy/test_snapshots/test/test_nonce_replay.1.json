@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "268717e4a572c91203290f366f7f123e1e6bdda0cfeec8f1796363cb10a4545d"
+                  "bytes": "a4f921f73a2f3cb934ae0ff25a78445bd88034ac4f991505b1f0f9ff8f409f0a"
                 }
               ]
             }
@@ -51,7 +51,7 @@
                     "symbol": "Nonce"
                   },
                   {
-                    "bytes": "729a49716777bc93474fee691ff70a08bef8f0bfc97567b61ef475913a55360e"
+                    "bytes": "de4f8022d60debbe361c0c7a7800e25ea31b91fb3325b7530a77be4180cf639b"
                   }
                 ]
               },
@@ -89,7 +89,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "7b2f1fb55b3b197ee6a2e79d0b9d3fdfe70e91b577cbbfeeed18c8b1554e8ca5"
+                        "bytes": "ac9092d8a95fd58ba5d50b0736cc90fd75eea4fbe397c626a6fb1086ab289ae2"
                       }
                     },
                     {
@@ -111,7 +111,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "268717e4a572c91203290f366f7f123e1e6bdda0cfeec8f1796363cb10a4545d"
+                            "bytes": "a4f921f73a2f3cb934ae0ff25a78445bd88034ac4f991505b1f0f9ff8f409f0a"
                           }
                         ]
                       },

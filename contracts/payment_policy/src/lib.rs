@@ -486,3 +486,6 @@ fn check_settlement(
 
 #[cfg(test)]
 mod test;
+
+#[cfg(test)]
+mod vectors_test;
