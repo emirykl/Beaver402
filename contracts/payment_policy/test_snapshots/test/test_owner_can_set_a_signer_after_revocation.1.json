@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
+                  "bytes": "210018553252e8681e791bf82e8f4401a9aec67f6f027a403b9dca168a8b27dd"
                 }
               ]
             }
@@ -32,12 +32,8 @@
           "function": {
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "set_agent_signer",
-              "args": [
-                {
-                  "bytes": "38a88394e98f71f3079d4b4250caeb9761e1475beddedb3945f4b3a0cc58d71b"
-                }
-              ]
+              "function_name": "revoke_agent_signer",
+              "args": []
             }
           },
           "sub_invocations": []
@@ -63,33 +59,6 @@
             "contract_data": {
               "ext": "v0",
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "key": {
-                "vec": [
-                  {
-                    "symbol": "Nonce"
-                  },
-                  {
-                    "bytes": "44c0854a3331637e990773e6ee6d9df9a52a2297aa544e85622e258e9706e7aa"
-                  }
-                ]
-              },
-              "durability": "temporary",
-              "val": {
-                "bool": true
-              }
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 7300
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -98,18 +67,6 @@
                     "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                   },
                   "storage": [
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "AgentSigner"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "bytes": "38a88394e98f71f3079d4b4250caeb9761e1475beddedb3945f4b3a0cc58d71b"
-                      }
-                    },
                     {
                       "key": {
                         "vec": [
@@ -129,7 +86,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
+                            "bytes": "210018553252e8681e791bf82e8f4401a9aec67f6f027a403b9dca168a8b27dd"
                           }
                         ]
                       },
@@ -181,43 +138,6 @@
                             },
                             "val": {
                               "u64": "86400"
-                            }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "VelocityState"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "map": [
-                          {
-                            "key": {
-                              "symbol": "total_amount"
-                            },
-                            "val": {
-                              "i128": "0"
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "tx_count"
-                            },
-                            "val": {
-                              "u32": 1
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "window_start"
-                            },
-                            "val": {
-                              "u64": "1000"
                             }
                           }
                         ]
@@ -288,42 +208,5 @@
       }
     ]
   },
-  "events": [
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-        "type_": "contract",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "poi"
-              },
-              {
-                "symbol": "verified"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "bytes": "5b972c80b9871d715da7d3e98b5c1e6d600c6509be366b6d7be683781c92efdd"
-                },
-                {
-                  "bytes": "5b972c80b9871d715da7d3e98b5c1e6d600c6509be366b6d7be683781c92efdd"
-                },
-                {
-                  "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
-                },
-                {
-                  "i128": "0"
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    }
-  ]
+  "events": []
 }

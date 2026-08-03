@@ -16,3 +16,5 @@ soroban-token-sdk = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 ed25519-dalek = "1.0.1"
 rand = "0.7.3"
+p256 = { version = "0.13", features = ["ecdsa"] }
+sha2 = "0.10"

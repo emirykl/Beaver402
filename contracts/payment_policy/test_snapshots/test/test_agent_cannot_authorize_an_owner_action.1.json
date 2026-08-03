@@ -16,26 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "set_agent_signer",
-              "args": [
-                {
-                  "bytes": "38a88394e98f71f3079d4b4250caeb9761e1475beddedb3945f4b3a0cc58d71b"
+                  "bytes": "c0b07e887defc7c41ee0b085ef630a6c172e5526663d9f75da8cd4ebfcb93f31"
                 }
               ]
             }
@@ -63,33 +44,6 @@
             "contract_data": {
               "ext": "v0",
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "key": {
-                "vec": [
-                  {
-                    "symbol": "Nonce"
-                  },
-                  {
-                    "bytes": "44c0854a3331637e990773e6ee6d9df9a52a2297aa544e85622e258e9706e7aa"
-                  }
-                ]
-              },
-              "durability": "temporary",
-              "val": {
-                "bool": true
-              }
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 7300
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -107,7 +61,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "38a88394e98f71f3079d4b4250caeb9761e1475beddedb3945f4b3a0cc58d71b"
+                        "bytes": "ff3df0c07e1022c60d9eb8e7bd30c935a9175de5a7c6f84f460f6f6653e77e0a"
                       }
                     },
                     {
@@ -129,7 +83,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
+                            "bytes": "c0b07e887defc7c41ee0b085ef630a6c172e5526663d9f75da8cd4ebfcb93f31"
                           }
                         ]
                       },
@@ -185,43 +139,6 @@
                           }
                         ]
                       }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "VelocityState"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "map": [
-                          {
-                            "key": {
-                              "symbol": "total_amount"
-                            },
-                            "val": {
-                              "i128": "0"
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "tx_count"
-                            },
-                            "val": {
-                              "u32": 1
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "window_start"
-                            },
-                            "val": {
-                              "u64": "1000"
-                            }
-                          }
-                        ]
-                      }
                     }
                   ]
                 }
@@ -256,26 +173,6 @@
         "entry": {
           "last_modified_ledger_seq": 0,
           "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "key": {
-                "ledger_key_nonce": {
-                  "nonce": "5541220902715666415"
-                }
-              },
-              "durability": "temporary",
-              "val": "void"
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 10099
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
             "contract_code": {
               "ext": "v0",
               "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -288,42 +185,5 @@
       }
     ]
   },
-  "events": [
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-        "type_": "contract",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "poi"
-              },
-              {
-                "symbol": "verified"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "bytes": "5b972c80b9871d715da7d3e98b5c1e6d600c6509be366b6d7be683781c92efdd"
-                },
-                {
-                  "bytes": "5b972c80b9871d715da7d3e98b5c1e6d600c6509be366b6d7be683781c92efdd"
-                },
-                {
-                  "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
-                },
-                {
-                  "i128": "0"
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    }
-  ]
+  "events": []
 }
