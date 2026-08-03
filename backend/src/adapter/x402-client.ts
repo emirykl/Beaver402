@@ -152,7 +152,7 @@ export class Beaver402Adapter {
     challenge: SignedChallenge,
     policyPayload: PolicySignaturePayload
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    const server = new StellarSdk.SorobanRpc.Server(SOROBAN_RPC_URL);
+    const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
     const agentPubkey = this.config.agentKeypair.publicKey();
     const sourceAccount = await server.getAccount(agentPubkey);
 
@@ -189,16 +189,16 @@ export class Beaver402Adapter {
 
     // simulate to get auth requirements
     const simulated = await server.simulateTransaction(tx);
-    if (StellarSdk.SorobanRpc.Api.isSimulationError(simulated)) {
+    if (StellarSdk.rpc.Api.isSimulationError(simulated)) {
       return {
         success: false,
         error: `simulation failed: ${simulated.error}`,
       };
     }
 
-    const prepared = StellarSdk.SorobanRpc.assembleTransaction(
+    const prepared = StellarSdk.rpc.assembleTransaction(
       tx,
-      simulated as StellarSdk.SorobanRpc.Api.SimulateTransactionSuccessResponse
+      simulated as StellarSdk.rpc.Api.SimulateTransactionSuccessResponse
     ).build();
 
     prepared.sign(this.config.agentKeypair);

@@ -92,9 +92,13 @@ export function createPasskeyRouter() {
     }
   });
 
-  router.get("/api/passkey/credentials/:userId", (req: Request, res: Response) => {
-    const creds = getUserCredentials(req.params.userId);
-    res.json({ count: creds.length, hasCredentials: creds.length > 0 });
+  router.get("/api/passkey/credentials/:userId", async (req: Request, res: Response) => {
+    try {
+      const creds = await getUserCredentials(String(req.params.userId));
+      res.json({ count: creds.length, hasCredentials: creds.length > 0 });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   return router;

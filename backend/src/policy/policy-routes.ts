@@ -39,7 +39,7 @@ function getSessionId(req: Request): string {
 }
 
 async function callContractView(functionName: string, args: StellarSdk.xdr.ScVal[] = []) {
-  const server = new StellarSdk.SorobanRpc.Server(SOROBAN_RPC_URL);
+  const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
 
   const account = new StellarSdk.Account(
     "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
@@ -61,7 +61,7 @@ async function callContractView(functionName: string, args: StellarSdk.xdr.ScVal
     .build();
 
   const response = await server.simulateTransaction(tx);
-  if (StellarSdk.SorobanRpc.Api.isSimulationError(response)) {
+  if (StellarSdk.rpc.Api.isSimulationError(response)) {
     throw new Error(`simulation failed: ${response.error}`);
   }
   return response;
@@ -104,17 +104,12 @@ function extractMap(sim: Awaited<ReturnType<typeof callContractView>>): Map<stri
   const retval = getRetval(sim);
   if (!retval) return result;
   try {
-    const fields = retval.value();
-    if (!Array.isArray(fields)) return result;
-    for (const field of fields) {
-      try {
-        const entry = field.value();
-        if (!Array.isArray(entry) || entry.length < 2) continue;
-        const key = String(entry[0].value());
-        const val = entry[1].value();
-        result.set(key, val);
-      } catch {
-        continue;
+    // Contract structs come back as ScVal maps. Letting the SDK convert them
+    // keeps the numeric fields as bigints instead of raw XDR wrappers.
+    const native = StellarSdk.scValToNative(retval);
+    if (native && typeof native === "object" && !Array.isArray(native)) {
+      for (const [key, value] of Object.entries(native)) {
+        result.set(key, value);
       }
     }
   } catch {
@@ -133,7 +128,7 @@ async function submitContractCall(
   }
 
   const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
-  const server = new StellarSdk.SorobanRpc.Server(SOROBAN_RPC_URL);
+  const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
   const sourceAccount = await server.getAccount(sourceKeypair.publicKey());
 
   const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
@@ -151,13 +146,13 @@ async function submitContractCall(
     .build();
 
   const simulated = await server.simulateTransaction(tx);
-  if (StellarSdk.SorobanRpc.Api.isSimulationError(simulated)) {
+  if (StellarSdk.rpc.Api.isSimulationError(simulated)) {
     throw new Error(`simulation failed: ${simulated.error}`);
   }
 
-  const prepared = StellarSdk.SorobanRpc.assembleTransaction(
+  const prepared = StellarSdk.rpc.assembleTransaction(
     tx,
-    simulated as StellarSdk.SorobanRpc.Api.SimulateTransactionSuccessResponse
+    simulated as StellarSdk.rpc.Api.SimulateTransactionSuccessResponse
   ).build();
   prepared.sign(sourceKeypair);
 
