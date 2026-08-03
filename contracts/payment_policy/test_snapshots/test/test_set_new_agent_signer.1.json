@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 1,
+    "address": 3,
     "nonce": 0,
     "mux_id": 0
   },
@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
+                  "bytes": "bbdebf8f72c580edf155f18216dc4b999d259002e6b659f3b235607ffa913a90"
                 }
               ]
             }
@@ -35,7 +35,7 @@
               "function_name": "set_agent_signer",
               "args": [
                 {
-                  "bytes": "38a88394e98f71f3079d4b4250caeb9761e1475beddedb3945f4b3a0cc58d71b"
+                  "bytes": "ba7035412c6617713c20f9a15e7afade6b2ca13d84f7fcbcdda96534cdd350b3"
                 }
               ]
             }
@@ -44,6 +44,8 @@
         }
       ]
     ],
+    [],
+    [],
     []
   ],
   "ledger": {
@@ -69,7 +71,7 @@
                     "symbol": "Nonce"
                   },
                   {
-                    "bytes": "44c0854a3331637e990773e6ee6d9df9a52a2297aa544e85622e258e9706e7aa"
+                    "bytes": "295f4d5830fd75af8f6f86dc4696b47ae2af2804330346d966806f7bcc4655b8"
                   }
                 ]
               },
@@ -107,7 +109,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "38a88394e98f71f3079d4b4250caeb9761e1475beddedb3945f4b3a0cc58d71b"
+                        "bytes": "ba7035412c6617713c20f9a15e7afade6b2ca13d84f7fcbcdda96534cdd350b3"
                       }
                     },
                     {
@@ -129,7 +131,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
+                            "bytes": "bbdebf8f72c580edf155f18216dc4b999d259002e6b659f3b235607ffa913a90"
                           }
                         ]
                       },
@@ -201,7 +203,7 @@
                               "symbol": "total_amount"
                             },
                             "val": {
-                              "i128": "0"
+                              "i128": "1000000"
                             }
                           },
                           {
@@ -307,16 +309,16 @@
             "data": {
               "vec": [
                 {
-                  "bytes": "5b972c80b9871d715da7d3e98b5c1e6d600c6509be366b6d7be683781c92efdd"
+                  "bytes": "9c4067bf037152d3586b78100971cb4372f16e9f282257acb0f1b3544ccc803e"
                 },
                 {
-                  "bytes": "5b972c80b9871d715da7d3e98b5c1e6d600c6509be366b6d7be683781c92efdd"
+                  "bytes": "bd3142a73ec7db41ef5ac4737b71d11170a4f58b841186cfc1de2eb989be15e8"
                 },
                 {
-                  "bytes": "cd4ce49b31b5b1382d2b5eafc81ef6c9490823c518e574651f4a35075c3d5058"
+                  "bytes": "bbdebf8f72c580edf155f18216dc4b999d259002e6b659f3b235607ffa913a90"
                 },
                 {
-                  "i128": "0"
+                  "i128": "1000000"
                 }
               ]
             }

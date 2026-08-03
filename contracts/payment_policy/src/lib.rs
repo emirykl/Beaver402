@@ -11,10 +11,12 @@ use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
     contract, contractimpl,
     crypto::Hash,
-    BytesN, Env, Symbol, TryIntoVal, Vec,
+    Address, BytesN, Env, Symbol, TryIntoVal, Vec,
 };
 
-use crate::crypto::verify_ed25519;
+use crate::crypto::{
+    domain_separated_hash, settlement_preimage, verify_ed25519, CHALLENGE_DOMAIN, INTENT_DOMAIN,
+};
 use crate::errors::PolicyError;
 use crate::events::{
     emit_payment_frozen, emit_payment_restored, emit_proof_of_intent, emit_signer_revoked,
@@ -346,20 +348,37 @@ fn check_payment_authorization(
         return Err(PolicyError::UnauthorizedMerchant);
     }
 
-    // 5. Verify the merchant signature over the challenge hash
+    // 5. Rebuild both hashes from the fields the agent supplied. Deriving
+    //    them here rather than accepting them is what turns the merchant
+    //    signature into a statement about this exact settlement. The network
+    //    id comes from the ledger, so a challenge signed for another network
+    //    cannot be replayed here.
+    let network_id = env.ledger().network_id();
+    let preimage = settlement_preimage(
+        env,
+        &signature.request_digest,
+        &signature.recipient,
+        &signature.asset,
+        signature.amount,
+        &network_id,
+        &signature.nonce,
+        signature.expiry,
+    )?;
+    let challenge_hash = domain_separated_hash(env, CHALLENGE_DOMAIN, &preimage).to_bytes();
+    let intent_hash = domain_separated_hash(env, INTENT_DOMAIN, &preimage).to_bytes();
+
+    // 6. Verify the merchant signature over the challenge hash we derived
     verify_ed25519(
         env,
         &signature.merchant_pubkey,
-        &signature.challenge_hash,
+        &challenge_hash,
         &signature.merchant_signature,
     );
 
-    // 6. Merchant terms and buyer intent have to describe the same request
-    if signature.challenge_hash != signature.intent_hash {
-        return Err(PolicyError::ChallengeMismatch);
-    }
+    // 7. The transfer being authorized has to be the one that was agreed
+    check_settlement(env, signature, auth_context)?;
 
-    // 7. Nonce replay check. Temporary storage lets the entries expire on
+    // 8. Nonce replay check. Temporary storage lets the entries expire on
     //    their own instead of growing instance storage forever.
     let nonce_key = DataKey::Nonce(signature.nonce.clone());
     if env.storage().temporary().has(&nonce_key) {
@@ -373,45 +392,94 @@ fn check_payment_authorization(
     let ttl = desired_ttl.min(max_ttl);
     env.storage().temporary().extend_ttl(&nonce_key, ttl, ttl);
 
-    // 8. Expiry. An unset expiry is treated as invalid rather than eternal.
+    // 9. Expiry. An unset expiry is treated as invalid rather than eternal.
     let now = env.ledger().timestamp();
     if signature.expiry == 0 || now > signature.expiry {
         return Err(PolicyError::ChallengeExpired);
     }
 
-    // 9. Pull the payment amount out of the authorized calls for velocity
-    let mut payment_amount: i128 = 0;
-    let transfer_fn = soroban_sdk::symbol_short!("transfer");
-    for context in auth_context.iter() {
-        if let Context::Contract(c) = context {
-            if c.fn_name == transfer_fn && c.args.len() >= 3 {
-                let amount_val = c.args.get(2).unwrap();
-                let amount: Result<i128, _> = amount_val.try_into_val(env);
-                if let Ok(a) = amount {
-                    payment_amount += a;
-                }
-            }
-        }
-    }
-
     // 10. A negative amount would wind the velocity counter backwards
-    if payment_amount < 0 {
+    if signature.amount < 0 {
         return Err(PolicyError::InvalidAmount);
     }
 
-    // 11. Velocity, counted for every authorization and not only transfers
-    if !check_and_update_velocity(env, payment_amount) {
+    // 11. Velocity, measured against the amount both parties signed for
+    if !check_and_update_velocity(env, signature.amount) {
         return Err(PolicyError::VelocityExceeded);
     }
 
     // 12. Announce the proof of intent with hashes rather than request content
     emit_proof_of_intent(
         env,
-        &signature.challenge_hash,
-        &signature.intent_hash,
+        &challenge_hash,
+        &intent_hash,
         &signature.merchant_pubkey,
-        payment_amount,
+        signature.amount,
     );
+
+    Ok(())
+}
+
+/// Confirm that what the account is being asked to authorize is exactly the
+/// transfer the merchant and the agent both signed for.
+///
+/// Every transfer in the batch is checked, not just the first one, and a
+/// batch carrying more than one transfer is refused. Otherwise an agreed
+/// payment could be used as cover for a second, unagreed one.
+fn check_settlement(
+    env: &Env,
+    signature: &AgentSignature,
+    auth_context: &Vec<Context>,
+) -> Result<(), PolicyError> {
+    let transfer_fn = soroban_sdk::symbol_short!("transfer");
+    let this_contract = env.current_contract_address();
+    let mut matched = false;
+
+    for context in auth_context.iter() {
+        let Context::Contract(c) = context else {
+            return Err(PolicyError::SettlementMismatch);
+        };
+
+        if c.fn_name != transfer_fn {
+            return Err(PolicyError::SettlementMismatch);
+        }
+        if matched {
+            return Err(PolicyError::SettlementMismatch);
+        }
+        if c.contract != signature.asset || c.args.len() < 3 {
+            return Err(PolicyError::SettlementMismatch);
+        }
+
+        let from: Address = c
+            .args
+            .get(0)
+            .unwrap()
+            .try_into_val(env)
+            .map_err(|_| PolicyError::SettlementMismatch)?;
+        let to: Address = c
+            .args
+            .get(1)
+            .unwrap()
+            .try_into_val(env)
+            .map_err(|_| PolicyError::SettlementMismatch)?;
+        let amount: i128 = c
+            .args
+            .get(2)
+            .unwrap()
+            .try_into_val(env)
+            .map_err(|_| PolicyError::SettlementMismatch)?;
+
+        // The account may only ever spend its own balance.
+        if from != this_contract || to != signature.recipient || amount != signature.amount {
+            return Err(PolicyError::SettlementMismatch);
+        }
+
+        matched = true;
+    }
+
+    if !matched {
+        return Err(PolicyError::SettlementMismatch);
+    }
 
     Ok(())
 }

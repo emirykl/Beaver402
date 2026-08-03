@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 3,
+    "address": 4,
     "nonce": 0,
     "mux_id": 0
   },
@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "395f94e07c2274968a6e422125e55f8f5cc5c03dc75773d2aacd03f795cfe4e3"
+                  "bytes": "89b55e265e56e0ea5ee1e36ab2e798486ccc4d17cfe407a6be6f8df1d9e9fd6a"
                 }
               ]
             }
@@ -44,33 +44,6 @@
             "contract_data": {
               "ext": "v0",
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "key": {
-                "vec": [
-                  {
-                    "symbol": "Nonce"
-                  },
-                  {
-                    "bytes": "76c523bdc7ce728f32dd2d28802751ff661277a8b53e2a82d6967ab6976aa486"
-                  }
-                ]
-              },
-              "durability": "temporary",
-              "val": {
-                "bool": true
-              }
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 7300
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -88,7 +61,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "c6356a4533b66cd6180a7c3a972c4413e938ad66c2be809b4e61da414afd8668"
+                        "bytes": "2ed62bdd4d8a3410ef91a4356c3cf5a95aaa9f9e03cad0ce793ff6e5fbb30115"
                       }
                     },
                     {
@@ -110,7 +83,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "395f94e07c2274968a6e422125e55f8f5cc5c03dc75773d2aacd03f795cfe4e3"
+                            "bytes": "89b55e265e56e0ea5ee1e36ab2e798486ccc4d17cfe407a6be6f8df1d9e9fd6a"
                           }
                         ]
                       },
@@ -166,43 +139,6 @@
                           }
                         ]
                       }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "VelocityState"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "map": [
-                          {
-                            "key": {
-                              "symbol": "total_amount"
-                            },
-                            "val": {
-                              "i128": "1000000"
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "tx_count"
-                            },
-                            "val": {
-                              "u32": 1
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "window_start"
-                            },
-                            "val": {
-                              "u64": "1000"
-                            }
-                          }
-                        ]
-                      }
                     }
                   ]
                 }
@@ -249,42 +185,5 @@
       }
     ]
   },
-  "events": [
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-        "type_": "contract",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "poi"
-              },
-              {
-                "symbol": "verified"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "bytes": "39c2ae7a800b431d9ab4a6f83835c59847c03d27922423066debd09cd5cbd906"
-                },
-                {
-                  "bytes": "26516a3f8faf2763f7e443e13eda5e94f0eed714c50866a091e644c7217e96ab"
-                },
-                {
-                  "bytes": "395f94e07c2274968a6e422125e55f8f5cc5c03dc75773d2aacd03f795cfe4e3"
-                },
-                {
-                  "i128": "1000000"
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    }
-  ]
+  "events": []
 }

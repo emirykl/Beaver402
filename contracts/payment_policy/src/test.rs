@@ -14,12 +14,23 @@ use soroban_sdk::{
     vec, Address, Bytes, BytesN, Env, Error, IntoVal, Symbol, Val, Vec,
 };
 
+use crate::crypto::CHALLENGE_DOMAIN;
 use crate::types::{AgentSignature, PasskeySignature, PolicySignature, VelocityConfig};
 use crate::{PaymentPolicyContract, PaymentPolicyContractClient};
+
+/// The ledger these tests run against reports this network id, and the
+/// merchant has to sign against the same value for a challenge to verify.
+const TEST_NETWORK_ID: [u8; 32] = [0u8; 32];
 
 fn generate_keypair() -> Keypair {
     Keypair::generate(&mut thread_rng())
 }
+
+fn random_bytes(env: &Env) -> [u8; 32] {
+    BytesN::<32>::random(env).to_array()
+}
+
+// ── Passkey helpers ───────────────────────────────────────────────
 
 /// A deterministic passkey. Tests need the same owner key every run so the
 /// stored owner and the signing key always agree.
@@ -111,14 +122,76 @@ fn owner_context(env: &Env, contract: &Address, function: &str) -> Vec<Context> 
     ]
 }
 
-fn create_policy_signature(
+// ── Payment helpers ───────────────────────────────────────────────
+
+/// The settlement terms a merchant and an agent agree on.
+struct Payment {
+    request_digest: [u8; 32],
+    recipient: Address,
+    asset: Address,
+    amount: i128,
+    nonce: [u8; 32],
+    expiry: u64,
+}
+
+fn address_strkey(address: &Address) -> [u8; 56] {
+    let text = address.to_string();
+    let mut buf = [0u8; 56];
+    text.copy_into_slice(&mut buf);
+    buf
+}
+
+/// The off chain mirror of crypto::settlement_preimage. Keeping an
+/// independent implementation here is deliberate: if the two ever drift, the
+/// merchant signature stops verifying and the tests say so.
+fn settlement_preimage(payment: &Payment, network_id: &[u8; 32]) -> std::vec::Vec<u8> {
+    let mut out = std::vec::Vec::new();
+    out.extend_from_slice(&payment.request_digest);
+    out.extend_from_slice(&address_strkey(&payment.recipient));
+    out.extend_from_slice(&address_strkey(&payment.asset));
+    out.extend_from_slice(&payment.amount.to_be_bytes());
+    out.extend_from_slice(network_id);
+    out.extend_from_slice(&payment.nonce);
+    out.extend_from_slice(&payment.expiry.to_be_bytes());
+    out
+}
+
+fn domain_hash(domain: &str, data: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update([domain.len() as u8]);
+    hasher.update(domain.as_bytes());
+    hasher.update(data);
+    hasher.finalize().into()
+}
+
+fn challenge_hash(payment: &Payment, network_id: &[u8; 32]) -> [u8; 32] {
+    domain_hash(CHALLENGE_DOMAIN, &settlement_preimage(payment, network_id))
+}
+
+fn create_agent_signature(
     env: &Env,
     agent_kp: &Keypair,
     merchant_kp: &Keypair,
     payload: &BytesN<32>,
-    challenge_hash: &BytesN<32>,
-    nonce: &BytesN<32>,
-    expiry: u64,
+    payment: &Payment,
+) -> Val {
+    create_agent_signature_on_network(
+        env,
+        agent_kp,
+        merchant_kp,
+        payload,
+        payment,
+        &TEST_NETWORK_ID,
+    )
+}
+
+fn create_agent_signature_on_network(
+    env: &Env,
+    agent_kp: &Keypair,
+    merchant_kp: &Keypair,
+    payload: &BytesN<32>,
+    payment: &Payment,
+    network_id: &[u8; 32],
 ) -> Val {
     let agent_sig: BytesN<64> = agent_kp
         .sign(payload.to_array().as_slice())
@@ -126,36 +199,106 @@ fn create_policy_signature(
         .into_val(env);
 
     let merchant_sig: BytesN<64> = merchant_kp
-        .sign(challenge_hash.to_array().as_slice())
+        .sign(&challenge_hash(payment, network_id))
         .to_bytes()
         .into_val(env);
 
-    let merchant_pubkey: BytesN<32> = merchant_kp.public.to_bytes().into_val(env);
-
     let agent = AgentSignature {
         agent_signature: agent_sig,
-        merchant_pubkey,
+        merchant_pubkey: merchant_kp.public.to_bytes().into_val(env),
         merchant_signature: merchant_sig,
-        challenge_hash: challenge_hash.clone(),
-        intent_hash: challenge_hash.clone(), // matching = valid PoI
-        nonce: nonce.clone(),
-        expiry,
+        request_digest: BytesN::from_array(env, &payment.request_digest),
+        recipient: payment.recipient.clone(),
+        asset: payment.asset.clone(),
+        amount: payment.amount,
+        nonce: BytesN::from_array(env, &payment.nonce),
+        expiry: payment.expiry,
     };
 
     PolicySignature::Agent(agent).into_val(env)
 }
 
-fn setup_env() -> (
-    Env,
-    PaymentPolicyContractClient<'static>,
-    Keypair,
-    Keypair,
-    Keypair,
-) {
+/// The authorization context Soroban builds when the account transfers a
+/// token to the merchant.
+fn transfer_context(env: &Env, from: &Address, payment: &Payment) -> Vec<Context> {
+    transfer_context_with(env, from, &payment.asset, &payment.recipient, payment.amount)
+}
+
+fn transfer_context_with(
+    env: &Env,
+    from: &Address,
+    asset: &Address,
+    to: &Address,
+    amount: i128,
+) -> Vec<Context> {
+    vec![
+        env,
+        Context::Contract(ContractContext {
+            contract: asset.clone(),
+            fn_name: symbol_short!("transfer"),
+            args: vec![
+                env,
+                from.into_val(env),
+                to.into_val(env),
+                amount.into_val(env),
+            ],
+        }),
+    ]
+}
+
+struct Fixture {
+    env: Env,
+    client: PaymentPolicyContractClient<'static>,
+    agent_kp: Keypair,
+    merchant_kp: Keypair,
+    asset: Address,
+    recipient: Address,
+}
+
+impl Fixture {
+    fn payment(&self) -> Payment {
+        Payment {
+            request_digest: random_bytes(&self.env),
+            recipient: self.recipient.clone(),
+            asset: self.asset.clone(),
+            amount: 1_000_000,
+            nonce: random_bytes(&self.env),
+            expiry: 2000,
+        }
+    }
+
+    fn sign(&self, payload: &BytesN<32>, payment: &Payment) -> Val {
+        create_agent_signature(
+            &self.env,
+            &self.agent_kp,
+            &self.merchant_kp,
+            payload,
+            payment,
+        )
+    }
+
+    fn context(&self, payment: &Payment) -> Vec<Context> {
+        transfer_context(&self.env, &self.client.address, payment)
+    }
+
+    fn authorize(&self, payload: &BytesN<32>, sig: Val, context: &Vec<Context>) -> bool {
+        self.env
+            .try_invoke_contract_check_auth::<Error>(&self.client.address, payload, sig, context)
+            .is_ok()
+    }
+
+    /// Run one complete, well formed payment.
+    fn pay(&self, payment: &Payment) -> bool {
+        let payload = BytesN::random(&self.env);
+        let sig = self.sign(&payload, payment);
+        self.authorize(&payload, sig, &self.context(payment))
+    }
+}
+
+fn setup() -> Fixture {
     let env = Env::default();
     env.mock_all_auths();
 
-    let owner_kp = generate_keypair();
     let agent_kp = generate_keypair();
     let merchant_kp = generate_keypair();
 
@@ -164,8 +307,8 @@ fn setup_env() -> (
 
     let velocity_config = VelocityConfig {
         max_tx_count: 10,
-        max_total_amount: 100_000_000_000, // 10,000 USDC (7 decimals)
-        window_size: 86400,                // 1 day
+        max_total_amount: 100_000_000_000, // 10,000 USDC at 7 decimals
+        window_size: 86400,
     };
 
     let contract_id = env.register(
@@ -177,466 +320,300 @@ fn setup_env() -> (
     let merchant_pub: BytesN<32> = merchant_kp.public.to_bytes().into_val(&env);
     client.add_merchant(&merchant_pub);
 
-    // Set ledger info
     env.ledger().set(LedgerInfo {
         timestamp: 1000,
         protocol_version: 26,
         sequence_number: 100,
-        network_id: [0u8; 32],
+        network_id: TEST_NETWORK_ID,
         base_reserve: 10,
         min_temp_entry_ttl: 100,
         min_persistent_entry_ttl: 100,
         max_entry_ttl: 10000,
     });
 
-    (env, client, owner_kp, agent_kp, merchant_kp)
+    let asset = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    Fixture {
+        env,
+        client,
+        agent_kp,
+        merchant_kp,
+        asset,
+        recipient,
+    }
 }
+
+// ── Agent authorization path ──────────────────────────────────────
 
 #[test]
 fn test_valid_two_party_auth() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
-
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-    let expiry = 2000u64;
-
-    let sig = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload,
-        &challenge_hash,
-        &nonce,
-        expiry,
-    );
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig,
-        &vec![&env],
-    );
-
-    assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
-}
-
-#[test]
-fn test_invalid_merchant_signature() {
-    let (env, client, _owner_kp, agent_kp, _merchant_kp) = setup_env();
-
-    let fake_merchant = generate_keypair();
-    // Use the real merchant's pubkey but sign with the fake one
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    let agent_sig: BytesN<64> = agent_kp
-        .sign(payload.to_array().as_slice())
-        .to_bytes()
-        .into_val(&env);
-
-    // Sign with fake merchant but use real merchant pubkey
-    let merchant_sig: BytesN<64> = fake_merchant
-        .sign(challenge_hash.to_array().as_slice())
-        .to_bytes()
-        .into_val(&env);
-
-    let merchant_pub: BytesN<32> = _merchant_kp.public.to_bytes().into_val(&env);
-
-    let policy_sig = PolicySignature::Agent(AgentSignature {
-        agent_signature: agent_sig,
-        merchant_pubkey: merchant_pub,
-        merchant_signature: merchant_sig,
-        challenge_hash: challenge_hash.clone(),
-        intent_hash: challenge_hash.clone(),
-        nonce,
-        expiry: 2000,
-    });
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        policy_sig.into_val(&env),
-        &vec![&env],
-    );
-
-    assert!(result.is_err());
-}
-
-#[test]
-fn test_challenge_intent_mismatch() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
-
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let intent_hash = BytesN::random(&env); // different!
-    let nonce = BytesN::random(&env);
-
-    let agent_sig: BytesN<64> = agent_kp
-        .sign(payload.to_array().as_slice())
-        .to_bytes()
-        .into_val(&env);
-
-    let merchant_sig: BytesN<64> = merchant_kp
-        .sign(challenge_hash.to_array().as_slice())
-        .to_bytes()
-        .into_val(&env);
-
-    let merchant_pub: BytesN<32> = merchant_kp.public.to_bytes().into_val(&env);
-
-    let policy_sig = PolicySignature::Agent(AgentSignature {
-        agent_signature: agent_sig,
-        merchant_pubkey: merchant_pub,
-        merchant_signature: merchant_sig,
-        challenge_hash,
-        intent_hash,
-        nonce,
-        expiry: 2000,
-    });
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        policy_sig.into_val(&env),
-        &vec![&env],
-    );
-
-    assert!(result.is_err());
-}
-
-#[test]
-fn test_nonce_replay() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
-
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    // First call should succeed
-    let sig1 = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload,
-        &challenge_hash,
-        &nonce,
-        2000,
-    );
-
-    let result1 = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig1,
-        &vec![&env],
-    );
-    assert!(result1.is_ok());
-
-    // Second call with same nonce should fail
-    let payload2 = BytesN::random(&env);
-    let challenge_hash2 = BytesN::random(&env);
-    let sig2 = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload2,
-        &challenge_hash2,
-        &nonce, // same nonce!
-        2000,
-    );
-
-    let result2 = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload2,
-        sig2,
-        &vec![&env],
-    );
-    assert!(result2.is_err());
-}
-
-#[test]
-fn test_expired_challenge() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
-
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    // Set expiry in the past (ledger timestamp is 1000)
-    let sig = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload,
-        &challenge_hash,
-        &nonce,
-        500, // expired
-    );
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig,
-        &vec![&env],
-    );
-
-    assert!(result.is_err());
+    let f = setup();
+    assert!(f.pay(&f.payment()));
 }
 
 #[test]
 fn test_unauthorized_merchant() {
-    let (env, client, _owner_kp, agent_kp, _merchant_kp) = setup_env();
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
 
-    // Use a merchant that's not in the allowlist
-    let unknown_merchant = generate_keypair();
+    let stranger = generate_keypair();
+    let sig = create_agent_signature(&f.env, &f.agent_kp, &stranger, &payload, &payment);
 
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
+    assert!(!f.authorize(&payload, sig, &f.context(&payment)));
+}
 
-    let agent_sig: BytesN<64> = agent_kp
-        .sign(payload.to_array().as_slice())
-        .to_bytes()
-        .into_val(&env);
+#[test]
+fn test_invalid_merchant_signature() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
 
-    let merchant_pub: BytesN<32> = unknown_merchant.public.to_bytes().into_val(&env);
-    let merchant_sig: BytesN<64> = unknown_merchant
-        .sign(challenge_hash.to_array().as_slice())
-        .to_bytes()
-        .into_val(&env);
+    // Signed by an impostor, but presented under the allowlisted merchant's
+    // public key. This is what a forged challenge looks like on chain.
+    let impostor = generate_keypair();
+    let sig = create_agent_signature(&f.env, &f.agent_kp, &impostor, &payload, &payment);
+    let sig = with_merchant_pubkey(&f.env, sig, &f.merchant_kp);
 
-    let policy_sig = PolicySignature::Agent(AgentSignature {
-        agent_signature: agent_sig,
-        merchant_pubkey: merchant_pub,
-        merchant_signature: merchant_sig,
-        challenge_hash: challenge_hash.clone(),
-        intent_hash: challenge_hash.clone(),
-        nonce,
-        expiry: 2000,
-    });
+    assert!(!f.authorize(&payload, sig, &f.context(&payment)));
+}
 
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        policy_sig.into_val(&env),
-        &vec![&env],
-    );
+#[test]
+fn test_wrong_agent_key_is_rejected() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
 
-    assert!(result.is_err());
+    let impostor = generate_keypair();
+    let sig = create_agent_signature(&f.env, &impostor, &f.merchant_kp, &payload, &payment);
+
+    assert!(!f.authorize(&payload, sig, &f.context(&payment)));
+}
+
+#[test]
+fn test_nonce_replay() {
+    let f = setup();
+    let payment = f.payment();
+
+    assert!(f.pay(&payment));
+
+    // Everything freshly signed, but the nonce has been seen before.
+    let replayed = Payment {
+        nonce: payment.nonce,
+        ..f.payment()
+    };
+    assert!(!f.pay(&replayed));
+}
+
+#[test]
+fn test_expired_challenge() {
+    let f = setup();
+    let expired = Payment {
+        expiry: 500, // the ledger is at 1000
+        ..f.payment()
+    };
+    assert!(!f.pay(&expired));
+}
+
+#[test]
+fn test_challenge_without_an_expiry_is_rejected() {
+    let f = setup();
+    let eternal = Payment {
+        expiry: 0,
+        ..f.payment()
+    };
+    assert!(!f.pay(&eternal));
 }
 
 #[test]
 fn test_frozen_account() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
+    let f = setup();
+    f.client.freeze_payments();
+    assert!(f.client.is_frozen());
 
-    // Freeze the account
-    client.freeze_payments();
-
-    assert!(client.is_frozen());
-
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    let sig = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload,
-        &challenge_hash,
-        &nonce,
-        2000,
-    );
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig,
-        &vec![&env],
-    );
-
-    assert!(result.is_err());
-}
-
-#[test]
-fn test_freeze_restore_cycle() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
-
-    // Freeze
-    client.freeze_payments();
-    assert!(client.is_frozen());
-
-    // Restore
-    client.restore_payments();
-    assert!(!client.is_frozen());
-
-    // Should work after restore
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    let sig = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload,
-        &challenge_hash,
-        &nonce,
-        2000,
-    );
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig,
-        &vec![&env],
-    );
-
-    assert!(result.is_ok());
+    assert!(!f.pay(&f.payment()));
 }
 
 #[test]
 fn test_revoked_signer() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
+    let f = setup();
+    f.client.revoke_agent_signer();
 
-    // Revoke the agent signer
-    client.revoke_agent_signer();
-
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    let sig = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload,
-        &challenge_hash,
-        &nonce,
-        2000,
-    );
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig,
-        &vec![&env],
-    );
-
-    assert!(result.is_err());
+    assert!(!f.pay(&f.payment()));
 }
 
 #[test]
 fn test_velocity_auto_freeze() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
-
-    // Update velocity to very low limit
-    let strict_config = VelocityConfig {
+    let f = setup();
+    f.client.update_velocity_config(&VelocityConfig {
         max_tx_count: 2,
         max_total_amount: 100_000_000_000,
         window_size: 86400,
-    };
-    client.update_velocity_config(&strict_config);
+    });
 
-    // Create a fake token contract address for auth context
-    let token_addr = Address::generate(&env);
-    let recipient_addr = Address::generate(&env);
-    let amount: i128 = 1_000_000_000; // 100 USDC
+    assert!(f.pay(&f.payment()));
+    assert!(f.pay(&f.payment()));
 
-    // Make 3 payments (velocity limit is 2)
-    for i in 0..3 {
-        let payload = BytesN::random(&env);
-        let challenge_hash = BytesN::random(&env);
-        let nonce = BytesN::random(&env);
+    // The second payment reached the limit, which freezes the account.
+    assert!(f.client.is_frozen());
+    assert!(!f.pay(&f.payment()));
+}
 
-        let sig = create_policy_signature(
-            &env,
-            &agent_kp,
-            &merchant_kp,
-            &payload,
-            &challenge_hash,
-            &nonce,
-            2000,
-        );
+// ── Settlement binding ────────────────────────────────────────────
+// The merchant signs for one specific transfer. These check that the
+// transfer actually being authorized is that one and nothing else.
 
-        // Build auth context with a transfer call
-        let transfer_context = Context::Contract(ContractContext {
-            contract: token_addr.clone(),
+#[test]
+fn test_recipient_mismatch_is_rejected() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = f.sign(&payload, &payment);
+
+    let elsewhere = Address::generate(&f.env);
+    let context = transfer_context_with(
+        &f.env,
+        &f.client.address,
+        &payment.asset,
+        &elsewhere,
+        payment.amount,
+    );
+
+    assert!(!f.authorize(&payload, sig, &context));
+}
+
+#[test]
+fn test_amount_mismatch_is_rejected() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = f.sign(&payload, &payment);
+
+    let context = transfer_context_with(
+        &f.env,
+        &f.client.address,
+        &payment.asset,
+        &payment.recipient,
+        payment.amount * 1000,
+    );
+
+    assert!(!f.authorize(&payload, sig, &context));
+}
+
+#[test]
+fn test_asset_mismatch_is_rejected() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = f.sign(&payload, &payment);
+
+    let other_token = Address::generate(&f.env);
+    let context = transfer_context_with(
+        &f.env,
+        &f.client.address,
+        &other_token,
+        &payment.recipient,
+        payment.amount,
+    );
+
+    assert!(!f.authorize(&payload, sig, &context));
+}
+
+#[test]
+fn test_transfer_must_spend_this_account() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = f.sign(&payload, &payment);
+
+    let someone_else = Address::generate(&f.env);
+    let context = transfer_context_with(
+        &f.env,
+        &someone_else,
+        &payment.asset,
+        &payment.recipient,
+        payment.amount,
+    );
+
+    assert!(!f.authorize(&payload, sig, &context));
+}
+
+#[test]
+fn test_payment_without_a_transfer_is_rejected() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = f.sign(&payload, &payment);
+
+    assert!(!f.authorize(&payload, sig, &vec![&f.env]));
+}
+
+#[test]
+fn test_a_second_transfer_cannot_ride_along() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = f.sign(&payload, &payment);
+
+    let elsewhere = Address::generate(&f.env);
+    let context = vec![
+        &f.env,
+        Context::Contract(ContractContext {
+            contract: payment.asset.clone(),
             fn_name: symbol_short!("transfer"),
             args: vec![
-                &env,
-                client.address.clone().into_val(&env),
-                recipient_addr.clone().into_val(&env),
-                amount.into_val(&env),
+                &f.env,
+                f.client.address.into_val(&f.env),
+                payment.recipient.into_val(&f.env),
+                payment.amount.into_val(&f.env),
             ],
-        });
+        }),
+        Context::Contract(ContractContext {
+            contract: payment.asset.clone(),
+            fn_name: symbol_short!("transfer"),
+            args: vec![
+                &f.env,
+                f.client.address.into_val(&f.env),
+                elsewhere.into_val(&f.env),
+                payment.amount.into_val(&f.env),
+            ],
+        }),
+    ];
 
-        let result = env.try_invoke_contract_check_auth::<Error>(
-            &client.address,
-            &payload,
-            sig,
-            &vec![&env, transfer_context],
-        );
-
-        if i < 2 {
-            // First 2 payments should succeed (max_tx_count=2)
-            assert!(result.is_ok(), "Payment {} should succeed", i);
-        } else {
-            // 3rd payment should fail (account frozen after 2nd tx)
-            assert!(result.is_err(), "Payment {} should fail (frozen)", i);
-        }
-    }
-
-    // Account should be frozen after hitting velocity limit
-    assert!(client.is_frozen());
+    assert!(!f.authorize(&payload, sig, &context));
 }
 
 #[test]
-fn test_set_new_agent_signer() {
-    let (env, client, _owner_kp, _agent_kp, merchant_kp) = setup_env();
+fn test_challenge_signed_for_another_network_is_rejected() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
 
-    let new_agent = generate_keypair();
-    let new_pub: BytesN<32> = new_agent.public.to_bytes().into_val(&env);
-    client.set_agent_signer(&new_pub);
-
-    // New signer should work
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    let sig = create_policy_signature(
-        &env,
-        &new_agent,
-        &merchant_kp,
+    let other_network = [9u8; 32];
+    let sig = create_agent_signature_on_network(
+        &f.env,
+        &f.agent_kp,
+        &f.merchant_kp,
         &payload,
-        &challenge_hash,
-        &nonce,
-        2000,
+        &payment,
+        &other_network,
     );
 
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig,
-        &vec![&env],
-    );
-
-    assert!(result.is_ok());
+    assert!(!f.authorize(&payload, sig, &f.context(&payment)));
 }
 
 #[test]
-fn test_query_functions() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
+fn test_tampered_request_digest_is_rejected() {
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
 
-    let agent_pub: BytesN<32> = agent_kp.public.to_bytes().into_val(&env);
-    let merchant_pub: BytesN<32> = merchant_kp.public.to_bytes().into_val(&env);
+    // The merchant signed one paid request, the agent presents another.
+    let sig = f.sign(&payload, &payment);
+    let sig = with_request_digest(&f.env, sig, &random_bytes(&f.env));
 
-    assert!(!client.is_frozen());
-    assert_eq!(client.get_agent_signer(), agent_pub);
-    assert!(client.is_merchant(&merchant_pub));
-
-    let unknown_pub = BytesN::random(&env);
-    assert!(!client.is_merchant(&unknown_pub));
+    assert!(!f.authorize(&payload, sig, &f.context(&payment)));
 }
 
 // ── Owner authorization path ──────────────────────────────────────
@@ -645,152 +622,185 @@ fn test_query_functions() {
 
 #[test]
 fn test_owner_can_freeze_with_passkey() {
-    let (env, client, _owner_kp, _agent_kp, _merchant_kp) = setup_env();
+    let f = setup();
+    let payload = BytesN::random(&f.env);
+    let sig = create_owner_signature(&f.env, &payload, true);
+    let context = owner_context(&f.env, &f.client.address, "freeze_payments");
 
-    let payload = BytesN::random(&env);
-    let sig = create_owner_signature(&env, &payload, true);
-    let context = owner_context(&env, &client.address, "freeze_payments");
-
-    let result =
-        env.try_invoke_contract_check_auth::<Error>(&client.address, &payload, sig, &context);
-
-    assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+    assert!(f.authorize(&payload, sig, &context));
 }
 
 #[test]
 fn test_owner_can_restore_a_frozen_account() {
-    let (env, client, _owner_kp, _agent_kp, _merchant_kp) = setup_env();
-
-    client.freeze_payments();
-    assert!(client.is_frozen());
+    let f = setup();
+    f.client.freeze_payments();
+    assert!(f.client.is_frozen());
 
     // The frozen flag must not block the owner, otherwise freezing the
     // account would lock the owner out of unfreezing it.
-    let payload = BytesN::random(&env);
-    let sig = create_owner_signature(&env, &payload, true);
-    let context = owner_context(&env, &client.address, "restore_payments");
+    let payload = BytesN::random(&f.env);
+    let sig = create_owner_signature(&f.env, &payload, true);
+    let context = owner_context(&f.env, &f.client.address, "restore_payments");
 
-    let result =
-        env.try_invoke_contract_check_auth::<Error>(&client.address, &payload, sig, &context);
-
-    assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+    assert!(f.authorize(&payload, sig, &context));
 }
 
 #[test]
 fn test_owner_can_set_a_signer_after_revocation() {
-    let (env, client, _owner_kp, _agent_kp, _merchant_kp) = setup_env();
-
-    client.revoke_agent_signer();
+    let f = setup();
+    f.client.revoke_agent_signer();
 
     // With no agent signer left the account would be bricked if owner
     // actions still went through the agent path.
-    let payload = BytesN::random(&env);
-    let sig = create_owner_signature(&env, &payload, true);
-    let context = owner_context(&env, &client.address, "set_agent_signer");
+    let payload = BytesN::random(&f.env);
+    let sig = create_owner_signature(&f.env, &payload, true);
+    let context = owner_context(&f.env, &f.client.address, "set_agent_signer");
 
-    let result =
-        env.try_invoke_contract_check_auth::<Error>(&client.address, &payload, sig, &context);
-
-    assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+    assert!(f.authorize(&payload, sig, &context));
 }
 
 #[test]
 fn test_agent_cannot_authorize_an_owner_action() {
-    let (env, client, _owner_kp, agent_kp, merchant_kp) = setup_env();
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = f.sign(&payload, &payment);
+    let context = owner_context(&f.env, &f.client.address, "revoke_agent_signer");
 
-    let payload = BytesN::random(&env);
-    let challenge_hash = BytesN::random(&env);
-    let nonce = BytesN::random(&env);
-
-    let sig = create_policy_signature(
-        &env,
-        &agent_kp,
-        &merchant_kp,
-        &payload,
-        &challenge_hash,
-        &nonce,
-        2000,
-    );
-    let context = owner_context(&env, &client.address, "revoke_agent_signer");
-
-    let result =
-        env.try_invoke_contract_check_auth::<Error>(&client.address, &payload, sig, &context);
-
-    assert!(result.is_err());
+    assert!(!f.authorize(&payload, sig, &context));
 }
 
 #[test]
 fn test_owner_signature_cannot_authorize_a_payment() {
-    let (env, client, _owner_kp, _agent_kp, _merchant_kp) = setup_env();
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = create_owner_signature(&f.env, &payload, true);
 
-    let payload = BytesN::random(&env);
-    let sig = create_owner_signature(&env, &payload, true);
-
-    let result = env.try_invoke_contract_check_auth::<Error>(
-        &client.address,
-        &payload,
-        sig,
-        &vec![&env],
-    );
-
-    assert!(result.is_err());
+    assert!(!f.authorize(&payload, sig, &f.context(&payment)));
 }
 
 #[test]
 fn test_owner_action_cannot_ride_along_with_a_transfer() {
-    let (env, client, _owner_kp, _agent_kp, _merchant_kp) = setup_env();
-
-    let token = Address::generate(&env);
-    let payload = BytesN::random(&env);
-    let sig = create_owner_signature(&env, &payload, true);
+    let f = setup();
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = create_owner_signature(&f.env, &payload, true);
 
     let context = vec![
-        &env,
+        &f.env,
         Context::Contract(ContractContext {
-            contract: client.address.clone(),
-            fn_name: Symbol::new(&env, "add_merchant"),
-            args: vec![&env],
+            contract: f.client.address.clone(),
+            fn_name: Symbol::new(&f.env, "add_merchant"),
+            args: vec![&f.env],
         }),
         Context::Contract(ContractContext {
-            contract: token,
+            contract: payment.asset.clone(),
             fn_name: symbol_short!("transfer"),
-            args: vec![&env, 1000i128.into_val(&env)],
+            args: vec![
+                &f.env,
+                f.client.address.into_val(&f.env),
+                payment.recipient.into_val(&f.env),
+                payment.amount.into_val(&f.env),
+            ],
         }),
     ];
 
-    let result =
-        env.try_invoke_contract_check_auth::<Error>(&client.address, &payload, sig, &context);
-
-    assert!(result.is_err());
+    assert!(!f.authorize(&payload, sig, &context));
 }
 
 #[test]
 fn test_passkey_requires_user_presence() {
-    let (env, client, _owner_kp, _agent_kp, _merchant_kp) = setup_env();
+    let f = setup();
+    let payload = BytesN::random(&f.env);
+    let sig = create_owner_signature(&f.env, &payload, false);
+    let context = owner_context(&f.env, &f.client.address, "freeze_payments");
 
-    let payload = BytesN::random(&env);
-    let sig = create_owner_signature(&env, &payload, false);
-    let context = owner_context(&env, &client.address, "freeze_payments");
-
-    let result =
-        env.try_invoke_contract_check_auth::<Error>(&client.address, &payload, sig, &context);
-
-    assert!(result.is_err());
+    assert!(!f.authorize(&payload, sig, &context));
 }
 
 #[test]
 fn test_passkey_assertion_is_bound_to_its_payload() {
-    let (env, client, _owner_kp, _agent_kp, _merchant_kp) = setup_env();
+    let f = setup();
 
     // A perfectly valid assertion, but produced for a different challenge.
     let other_challenge = [9u8; 32];
-    let sig = create_owner_signature_for_challenge(&env, &other_challenge, true);
+    let sig = create_owner_signature_for_challenge(&f.env, &other_challenge, true);
 
-    let payload = BytesN::random(&env);
-    let context = owner_context(&env, &client.address, "freeze_payments");
+    let payload = BytesN::random(&f.env);
+    let context = owner_context(&f.env, &f.client.address, "freeze_payments");
 
-    let result =
-        env.try_invoke_contract_check_auth::<Error>(&client.address, &payload, sig, &context);
+    assert!(!f.authorize(&payload, sig, &context));
+}
 
-    assert!(result.is_err());
+// ── Owner functions and queries ───────────────────────────────────
+
+#[test]
+fn test_freeze_restore_cycle() {
+    let f = setup();
+
+    f.client.freeze_payments();
+    assert!(f.client.is_frozen());
+
+    f.client.restore_payments();
+    assert!(!f.client.is_frozen());
+
+    assert!(f.pay(&f.payment()));
+}
+
+#[test]
+fn test_set_new_agent_signer() {
+    let f = setup();
+
+    let replacement = generate_keypair();
+    let replacement_pub: BytesN<32> = replacement.public.to_bytes().into_val(&f.env);
+    f.client.set_agent_signer(&replacement_pub);
+    assert_eq!(f.client.get_agent_signer(), replacement_pub);
+
+    // The retired key no longer authorizes anything.
+    assert!(!f.pay(&f.payment()));
+
+    let payment = f.payment();
+    let payload = BytesN::random(&f.env);
+    let sig = create_agent_signature(&f.env, &replacement, &f.merchant_kp, &payload, &payment);
+    assert!(f.authorize(&payload, sig, &f.context(&payment)));
+}
+
+#[test]
+fn test_query_functions() {
+    let f = setup();
+
+    let agent_pub: BytesN<32> = f.agent_kp.public.to_bytes().into_val(&f.env);
+    let merchant_pub: BytesN<32> = f.merchant_kp.public.to_bytes().into_val(&f.env);
+
+    assert!(!f.client.is_frozen());
+    assert_eq!(f.client.get_agent_signer(), agent_pub);
+    assert!(f.client.is_merchant(&merchant_pub));
+
+    let unknown = BytesN::random(&f.env);
+    assert!(!f.client.is_merchant(&unknown));
+}
+
+// ── Tampering helpers ─────────────────────────────────────────────
+
+fn with_merchant_pubkey(env: &Env, sig: Val, merchant_kp: &Keypair) -> Val {
+    match sig.into_val(env) {
+        PolicySignature::Agent(agent) => PolicySignature::Agent(AgentSignature {
+            merchant_pubkey: merchant_kp.public.to_bytes().into_val(env),
+            ..agent
+        })
+        .into_val(env),
+        other => other.into_val(env),
+    }
+}
+
+fn with_request_digest(env: &Env, sig: Val, digest: &[u8; 32]) -> Val {
+    match sig.into_val(env) {
+        PolicySignature::Agent(agent) => PolicySignature::Agent(AgentSignature {
+            request_digest: BytesN::from_array(env, digest),
+            ..agent
+        })
+        .into_val(env),
+        other => other.into_val(env),
+    }
 }

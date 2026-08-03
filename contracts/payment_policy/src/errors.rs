@@ -18,4 +18,5 @@ pub enum PolicyError {
     NotInitialized = 15,
     AlreadyInitialized = 16,
     InvalidAmount = 17,
+    SettlementMismatch = 18,
 }

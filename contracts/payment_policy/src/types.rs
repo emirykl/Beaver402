@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Bytes, BytesN};
+use soroban_sdk::{contracttype, Address, Bytes, BytesN};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -29,15 +29,25 @@ pub struct VelocityState {
 }
 
 /// What the delegated agent presents to settle a payment: its own signature
-/// over the Soroban payload, plus the merchant side of the proof of intent.
+/// over the Soroban payload, the merchant signature, and the fields both
+/// sides claim to have agreed on.
+///
+/// The challenge and intent hashes are deliberately absent. The contract
+/// derives them from these fields instead of trusting hashes handed to it,
+/// which is what makes the merchant signature prove agreement about this
+/// exact recipient, asset and amount rather than about an opaque digest.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentSignature {
     pub agent_signature: BytesN<64>,
     pub merchant_pubkey: BytesN<32>,
     pub merchant_signature: BytesN<64>,
-    pub challenge_hash: BytesN<32>,
-    pub intent_hash: BytesN<32>,
+    /// Hash of the HTTP side of the paid request. The endpoint and the body
+    /// stay off the ledger.
+    pub request_digest: BytesN<32>,
+    pub recipient: Address,
+    pub asset: Address,
+    pub amount: i128,
     pub nonce: BytesN<32>,
     pub expiry: u64,
 }

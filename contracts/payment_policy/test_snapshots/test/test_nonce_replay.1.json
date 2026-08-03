@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 1,
+    "address": 3,
     "nonce": 0,
     "mux_id": 0
   },
@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "62aec34132cfcc13ed01ff5b0df46762aaee90a3aa81d1eff4b2469a161f49af"
+                  "bytes": "268717e4a572c91203290f366f7f123e1e6bdda0cfeec8f1796363cb10a4545d"
                 }
               ]
             }
@@ -51,7 +51,7 @@
                     "symbol": "Nonce"
                   },
                   {
-                    "bytes": "7aaeb427443333562856e68b6f68eec22b67dd31ad89197f0e22b05cc7422b1f"
+                    "bytes": "729a49716777bc93474fee691ff70a08bef8f0bfc97567b61ef475913a55360e"
                   }
                 ]
               },
@@ -89,7 +89,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "1298027b50303304e1f50dbe5f538ff1bb4b850a360b30620b2c387a78168c26"
+                        "bytes": "7b2f1fb55b3b197ee6a2e79d0b9d3fdfe70e91b577cbbfeeed18c8b1554e8ca5"
                       }
                     },
                     {
@@ -111,7 +111,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "62aec34132cfcc13ed01ff5b0df46762aaee90a3aa81d1eff4b2469a161f49af"
+                            "bytes": "268717e4a572c91203290f366f7f123e1e6bdda0cfeec8f1796363cb10a4545d"
                           }
                         ]
                       },
@@ -183,7 +183,7 @@
                               "symbol": "total_amount"
                             },
                             "val": {
-                              "i128": "0"
+                              "i128": "1000000"
                             }
                           },
                           {

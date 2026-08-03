@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 1,
+    "address": 3,
     "nonce": 0,
     "mux_id": 0
   },
@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "054269562c64121f6ea437e31b67cbf2137e91c13fbbcb0d846d9a40615d23ec"
+                  "bytes": "31a6bcff8609fb6537d0aea8691358556c023d2c2a929ebb6e2b3cea61a76e70"
                 }
               ]
             }
@@ -61,7 +61,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "ca4fb832520908423f3fe7c9ffc9e0c3bfc9f16dea2b975a2838f99cc52f1b5b"
+                        "bytes": "bbfe395838ccb1189a71ae3e3ccd3a2743e4e8b2422cdede9347a350e99dafda"
                       }
                     },
                     {
@@ -83,7 +83,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "054269562c64121f6ea437e31b67cbf2137e91c13fbbcb0d846d9a40615d23ec"
+                            "bytes": "31a6bcff8609fb6537d0aea8691358556c023d2c2a929ebb6e2b3cea61a76e70"
                           }
                         ]
                       },

@@ -16,7 +16,7 @@
               "function_name": "add_merchant",
               "args": [
                 {
-                  "bytes": "86095a3b04f6bbc5dcb7d6c8c036ca1c28b80b7ac7adf7fa76b8bcdbe59ce5c7"
+                  "bytes": "5810b43e7518d9d61f1c24948013231d901359e8f41d68503e7f96f3a4ed7152"
                 }
               ]
             }
@@ -97,7 +97,7 @@
                     "symbol": "Nonce"
                   },
                   {
-                    "bytes": "8940d52e34a79954b279c8f481b7baf2aea14f171b5bb8a584797c3c720cfd76"
+                    "bytes": "896bdf665f46ff07e3f4eee7a20344004a5ccea40b100f26d880f0289e7cb8b9"
                   }
                 ]
               },
@@ -124,7 +124,7 @@
                     "symbol": "Nonce"
                   },
                   {
-                    "bytes": "a5bda6396c18b86cb536eb297e45744d6aea68bdf3aba71a245901edbe823929"
+                    "bytes": "b0c81d64a7d4c87a00c0d326e295a465d75414630f1241d4a118321a3834b616"
                   }
                 ]
               },
@@ -162,7 +162,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "c1db354c23a7094c32b71b9dd1e3982898a9aba9da8299edb64d01b33808b67a"
+                        "bytes": "04a480237d2a3e3c931df67012ead07e3f078f9af91d4f356d713562963e79a2"
                       }
                     },
                     {
@@ -184,7 +184,7 @@
                             "symbol": "Merchant"
                           },
                           {
-                            "bytes": "86095a3b04f6bbc5dcb7d6c8c036ca1c28b80b7ac7adf7fa76b8bcdbe59ce5c7"
+                            "bytes": "5810b43e7518d9d61f1c24948013231d901359e8f41d68503e7f96f3a4ed7152"
                           }
                         ]
                       },
@@ -256,7 +256,7 @@
                               "symbol": "total_amount"
                             },
                             "val": {
-                              "i128": "2000000000"
+                              "i128": "2000000"
                             }
                           },
                           {
