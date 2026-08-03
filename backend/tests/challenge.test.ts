@@ -11,6 +11,14 @@ import {
 } from "../src/adapter/buyer-intent.js";
 import { hashChallenge, hashIntent } from "../src/shared/hashing.js";
 
+// Settlement fields have to be real Stellar values now: the asset is the
+// token contract the payment goes through and the network is the passphrase
+// whose hash the contract checks against the ledger.
+const USDC = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+const TESTNET = "Test SDF Network ; September 2015";
+const PUBNET = "Public Global Stellar Network ; September 2015";
+
+
 const merchantKp = Keypair.random();
 const recipientKp = Keypair.random();
 
@@ -20,9 +28,9 @@ function makeChallenge() {
     httpMethod: "GET",
     endpoint: "https://api.merchant.com/premium-data",
     recipient: recipientKp.publicKey(),
-    asset: "USDC",
+    asset: USDC,
     amount: "5000000",
-    network: "testnet",
+    network: TESTNET,
     expirySeconds: 300,
   });
 }
@@ -94,9 +102,9 @@ describe("challenge intent mismatch detection", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/premium-data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "9999999",
-      network: "testnet",
+      network: TESTNET,
       nonce: challenge.fields.nonce,
       expiry: challenge.fields.expiry,
     });
@@ -126,9 +134,9 @@ describe("challenge intent mismatch detection", () => {
       endpoint: "https://api.merchant.com/submit",
       body: '{"action": "purchase"}',
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "5000000",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const intent = createIntentFromChallenge(
@@ -152,9 +160,9 @@ describe("challenge intent mismatch detection", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/premium-data",
       recipient: attackerKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "5000000",
-      network: "testnet",
+      network: TESTNET,
       nonce: challenge.fields.nonce,
       expiry: challenge.fields.expiry,
     });
@@ -172,9 +180,9 @@ describe("challenge intent mismatch detection", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/premium-data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "5000000",
-      network: "mainnet",
+      network: PUBNET,
       nonce: challenge.fields.nonce,
       expiry: challenge.fields.expiry,
     });

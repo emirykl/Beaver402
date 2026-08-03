@@ -1,161 +1,155 @@
 import { describe, it, expect } from "vitest";
+import { createHash } from "crypto";
 import {
-  canonicalEncode,
-  hashChallenge,
-  hashIntent,
-  fieldsMatch,
-  normalizeEndpoint,
-  normalizeAmount,
-  hashBody,
-  domainSeparatedHash,
   CHALLENGE_DOMAIN,
   INTENT_DOMAIN,
-  POI_DOMAIN,
+  domainSeparatedHash,
+  hashChallenge,
+  hashIntent,
+  networkId,
+  normalizeAmount,
+  normalizeEndpoint,
+  requestDigest,
+  settlementPreimage,
 } from "../src/shared/hashing.js";
-import { loadTestVectors } from "../src/shared/test-vectors.js";
-import type { ChallengeFields, IntentFields } from "../src/shared/types.js";
+import type { PayloadFields } from "../src/shared/types.js";
 
-const vectors = loadTestVectors();
+const TESTNET = "Test SDF Network ; September 2015";
+const MERCHANT = "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO";
+const RECIPIENT = "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4";
+const USDC = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
-describe("canonical encoding", () => {
-  it("should encode basic payment fields in correct order", () => {
-    const v = vectors.vectors[0]; // basic_payment
-    const encoded = canonicalEncode(v.fields as ChallengeFields);
-    expect(encoded.toString("utf-8")).toBe(v.canonicalEncoded);
+function fields(overrides: Partial<PayloadFields> = {}): PayloadFields {
+  return {
+    version: "1",
+    merchantPubkey: MERCHANT,
+    httpMethod: "GET",
+    normalizedEndpoint: "https://api.merchant.com/data",
+    bodyHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    recipient: RECIPIENT,
+    asset: USDC,
+    amount: "1000000",
+    network: TESTNET,
+    nonce: "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+    expiry: "1700000000",
+    ...overrides,
+  };
+}
+
+describe("settlement preimage", () => {
+  it("lays the fields out in the order the contract reads them", () => {
+    const preimage = settlementPreimage(fields());
+
+    // 32 digest, 56 recipient, 56 asset, 16 amount, 32 network, 32 nonce, 8 expiry
+    expect(preimage.length).toBe(232);
+    expect(preimage.subarray(0, 32)).toEqual(requestDigest(fields()));
+    expect(preimage.subarray(32, 88).toString("ascii")).toBe(RECIPIENT);
+    expect(preimage.subarray(88, 144).toString("ascii")).toBe(USDC);
+    expect(preimage.subarray(144, 160).readBigUInt64BE(8)).toBe(1000000n);
+    expect(preimage.subarray(160, 192)).toEqual(networkId(TESTNET));
+    expect(preimage.subarray(224).readBigUInt64BE(0)).toBe(1700000000n);
   });
 
-  it("should encode post with body fields correctly", () => {
-    const v = vectors.vectors[1]; // post_with_body
-    const encoded = canonicalEncode(v.fields as ChallengeFields);
-    expect(encoded.toString("utf-8")).toBe(v.canonicalEncoded);
+  it("encodes the largest amount i128 can carry", () => {
+    const max = "170141183460469231731687303715884105727";
+    const preimage = settlementPreimage(fields({ amount: max }));
+    const amount = preimage.subarray(144, 160);
+
+    expect(amount[0]).toBe(0x7f);
+    expect(amount.subarray(1).every((b) => b === 0xff)).toBe(true);
   });
 
-  it("should normalize http method to uppercase", () => {
-    const v1 = vectors.vectors[0]; // basic_payment with GET
-    const v2 = vectors.vectors[2]; // case_normalization with get
-
-    const encoded1 = canonicalEncode(v1.fields as ChallengeFields);
-    const encoded2 = canonicalEncode(v2.fields as ChallengeFields);
-
-    expect(encoded1.toString("utf-8")).toBe(encoded2.toString("utf-8"));
+  it("refuses an asset that is not a stellar address", () => {
+    expect(() => settlementPreimage(fields({ asset: "USDC" }))).toThrow(
+      /asset must be a 56 character Stellar address/
+    );
   });
 
-  it("should not include domain separator in canonical encoding", () => {
-    const v = vectors.vectors[0];
-    const encoded = canonicalEncode(v.fields as ChallengeFields);
-    const parts = encoded.toString("utf-8").split("|");
-    // 11 fields: version, merchantPubkey, method, endpoint, bodyHash,
-    // recipient, asset, amount, network, nonce, expiry
-    expect(parts.length).toBe(11);
-    expect(parts[0]).toBe("1"); // version
-    expect(parts[2]).toBe("GET"); // method (3rd, not 4th since no domainSep)
+  it("refuses a recipient that is not a stellar address", () => {
+    expect(() => settlementPreimage(fields({ recipient: "GABC" }))).toThrow(
+      /recipient must be a 56 character Stellar address/
+    );
   });
 });
 
-describe("endpoint normalization", () => {
-  it("should lowercase host and path", () => {
-    expect(normalizeEndpoint("HTTPS://API.MERCHANT.COM/Data")).toBe(
+describe("request digest", () => {
+  it("normalizes method and host casing", () => {
+    const plain = requestDigest(fields());
+    const shouty = requestDigest(
+      fields({ httpMethod: "get", normalizedEndpoint: "https://API.Merchant.COM/data" })
+    );
+
+    expect(shouty).toEqual(plain);
+  });
+
+  it("changes when the body changes", () => {
+    const other = requestDigest(fields({ bodyHash: "00".repeat(32) }));
+    expect(other).not.toEqual(requestDigest(fields()));
+  });
+
+  it("changes when the endpoint changes", () => {
+    const other = requestDigest(
+      fields({ normalizedEndpoint: "https://api.merchant.com/other" })
+    );
+    expect(other).not.toEqual(requestDigest(fields()));
+  });
+});
+
+describe("domain separation", () => {
+  it("gives the challenge and the intent different hashes", () => {
+    expect(hashChallenge(fields())).not.toEqual(hashIntent(fields()));
+  });
+
+  it("derives each hash from the shared preimage", () => {
+    const preimage = settlementPreimage(fields());
+
+    expect(hashChallenge(fields())).toEqual(
+      domainSeparatedHash(CHALLENGE_DOMAIN, preimage)
+    );
+    expect(hashIntent(fields())).toEqual(domainSeparatedHash(INTENT_DOMAIN, preimage));
+  });
+
+  it("writes the domain length ahead of the domain", () => {
+    const data = Buffer.from("payload");
+    const domain = "beaver402:test:v1";
+    const expected = Buffer.concat([
+      Buffer.from([domain.length]),
+      Buffer.from(domain),
+      data,
+    ]);
+
+    // Hashing the assembled preimage directly has to match the helper.
+    expect(domainSeparatedHash(domain, data)).toEqual(
+      createHash("sha256").update(expected).digest()
+    );
+  });
+
+  it("produces a 32 byte hash", () => {
+    expect(hashChallenge(fields()).length).toBe(32);
+    expect(hashIntent(fields()).length).toBe(32);
+  });
+});
+
+describe("normalization helpers", () => {
+  it("lowercases the host and path but keeps the scheme", () => {
+    expect(normalizeEndpoint("HTTPS://API.Merchant.COM/Data")).toBe(
       "https://api.merchant.com/data"
     );
   });
 
-  it("should preserve protocol", () => {
-    expect(normalizeEndpoint("https://example.com/path")).toBe(
-      "https://example.com/path"
-    );
-  });
-});
-
-describe("amount normalization", () => {
-  it("should convert number to string", () => {
-    expect(normalizeAmount(1000000)).toBe("1000000");
-  });
-
-  it("should keep string as is", () => {
-    expect(normalizeAmount("5000000")).toBe("5000000");
-  });
-});
-
-describe("body hashing", () => {
-  it("should hash empty body to sha256 of empty string", () => {
-    const emptyHash = hashBody("");
-    expect(emptyHash).toBe(
-      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  it("strips query strings from the endpoint", () => {
+    expect(normalizeEndpoint("https://api.merchant.com/data?page=2")).toBe(
+      "https://api.merchant.com/data"
     );
   });
 
-  it("should hash non-empty body", () => {
-    const h = hashBody("hello world");
-    expect(h).toHaveLength(64);
-    expect(h).not.toBe(
-      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    );
-  });
-});
-
-describe("domain separated hashing", () => {
-  it("should produce identical hashes for matching challenge and intent fields", () => {
-    const fields = vectors.vectors[0].fields as ChallengeFields;
-
-    const challengeFields: ChallengeFields = { ...fields };
-    const intentFields: IntentFields = { ...fields };
-
-    const challengeHash = hashChallenge(challengeFields);
-    const intentHash = hashIntent(intentFields);
-
-    // both use the same POI domain for contract comparison, so matching
-    // fields produce matching hashes regardless of domainSeparator value
-    expect(challengeHash.toString("hex")).toBe(intentHash.toString("hex"));
+  it("normalizes amounts to a plain decimal string", () => {
+    expect(normalizeAmount("0001000")).toBe("1000");
+    expect(normalizeAmount(1000)).toBe("1000");
   });
 
-  it("should produce different hashes with different raw domains", () => {
-    const data = Buffer.from("test");
-    const h1 = domainSeparatedHash(CHALLENGE_DOMAIN, data);
-    const h2 = domainSeparatedHash(INTENT_DOMAIN, data);
-    expect(h1.toString("hex")).not.toBe(h2.toString("hex"));
-  });
-
-  it("should produce consistent hash for same input", () => {
-    const fields = vectors.vectors[0].fields as ChallengeFields;
-    const hash1 = hashChallenge(fields);
-    const hash2 = hashChallenge(fields);
-    expect(hash1.toString("hex")).toBe(hash2.toString("hex"));
-  });
-
-  it("should produce 32 byte hash", () => {
-    const fields = vectors.vectors[0].fields as ChallengeFields;
-    const hash = hashChallenge(fields);
-    expect(hash.length).toBe(32);
-  });
-});
-
-describe("case normalization produces same hash", () => {
-  it("should hash identically regardless of http method and endpoint casing", () => {
-    const v1 = vectors.vectors[0]; // basic_payment
-    const v2 = vectors.vectors[2]; // case_normalization
-
-    const hash1 = hashChallenge(v1.fields as ChallengeFields);
-    const hash2 = hashChallenge(v2.fields as ChallengeFields);
-
-    expect(hash1.toString("hex")).toBe(hash2.toString("hex"));
-  });
-});
-
-describe("fields match detection", () => {
-  it("should detect matching fields between challenge and intent", () => {
-    const fields = vectors.vectors[0].fields;
-    const challenge: ChallengeFields = { ...fields };
-    const intent: IntentFields = { ...fields };
-    expect(fieldsMatch(challenge, intent)).toBe(true);
-  });
-
-  it("should reject mismatched amount", () => {
-    const v = vectors.vectors[3]; // mismatched_amount
-    expect(fieldsMatch(v.challenge, v.intent)).toBe(false);
-  });
-
-  it("should reject mismatched endpoint", () => {
-    const v = vectors.vectors[4]; // mismatched_endpoint
-    expect(fieldsMatch(v.challenge, v.intent)).toBe(false);
+  it("hashes the network passphrase the way stellar does", () => {
+    expect(networkId(TESTNET).length).toBe(32);
+    expect(networkId(TESTNET)).not.toEqual(networkId("other passphrase"));
   });
 });

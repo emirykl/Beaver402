@@ -1,102 +1,94 @@
 import { describe, it, expect } from "vitest";
 import {
-  canonicalEncode,
-  domainSeparatedHash,
-  CHALLENGE_DOMAIN,
-  INTENT_DOMAIN,
-  POI_DOMAIN,
+  fieldsMatch,
+  hashChallenge,
+  hashIntent,
+  requestDigest,
+  settlementPreimage,
 } from "../src/shared/hashing.js";
 import { loadTestVectors } from "../src/shared/test-vectors.js";
-import type { ChallengeFields } from "../src/shared/types.js";
+import type { PayloadFields } from "../src/shared/types.js";
 
-const vectors = loadTestVectors();
+interface EncodingVector {
+  name: string;
+  note: string;
+  fields: PayloadFields;
+  requestDigest: string;
+  settlementPreimage: string;
+  challengeHash: string;
+  intentHash: string;
+}
 
-describe("cross language vector compatibility", () => {
-  it("should produce deterministic canonical encoding for basic payment", () => {
-    const v = vectors.vectors[0];
-    const encoded = canonicalEncode(v.fields as ChallengeFields);
-    const encodedStr = encoded.toString("utf-8");
+interface MatchVector {
+  name: string;
+  note: string;
+  challenge: PayloadFields;
+  intent: PayloadFields;
+  shouldMatch: boolean;
+}
 
-    // verify pipe-separated format (11 fields, domainSeparator excluded)
-    const parts = encodedStr.split("|");
-    expect(parts.length).toBe(11);
-    expect(parts[0]).toBe("1"); // version
-    expect(parts[2]).toBe("GET"); // method normalized
-    expect(parts[7]).toBe("1000000"); // amount
+const vectors = loadTestVectors() as {
+  version: string;
+  domains: Record<string, string>;
+  vectors: EncodingVector[];
+  matchVectors: MatchVector[];
+};
+
+// The same file is read by the Rust test suite. If either implementation
+// drifts, one of the two stops reproducing these bytes.
+describe("shared encoding vectors", () => {
+  it("carries the vectors both languages check against", () => {
+    expect(vectors.version).toBe("2");
+    expect(vectors.vectors.length).toBeGreaterThan(0);
+    expect(vectors.matchVectors.length).toBeGreaterThan(0);
   });
 
-  it("should produce stable hash output for same input across runs", () => {
-    const v = vectors.vectors[0];
-    const encoded = canonicalEncode(v.fields as ChallengeFields);
+  for (const vector of vectors.vectors) {
+    describe(vector.name, () => {
+      it("reproduces the request digest", () => {
+        expect(requestDigest(vector.fields).toString("hex")).toBe(vector.requestDigest);
+      });
 
-    const hash1 = domainSeparatedHash(POI_DOMAIN, encoded);
-    const hash2 = domainSeparatedHash(POI_DOMAIN, encoded);
+      it("reproduces the settlement preimage", () => {
+        expect(settlementPreimage(vector.fields).toString("hex")).toBe(
+          vector.settlementPreimage
+        );
+      });
 
-    expect(hash1.toString("hex")).toBe(hash2.toString("hex"));
+      it("reproduces the challenge hash", () => {
+        expect(hashChallenge(vector.fields).toString("hex")).toBe(vector.challengeHash);
+      });
+
+      it("reproduces the intent hash", () => {
+        expect(hashIntent(vector.fields).toString("hex")).toBe(vector.intentHash);
+      });
+
+      it("keeps the two domains apart", () => {
+        expect(vector.challengeHash).not.toBe(vector.intentHash);
+      });
+    });
+  }
+
+  it("gives normalized fields the same hash as the plain ones", () => {
+    const basic = vectors.vectors.find((v) => v.name === "basic_payment");
+    const normalized = vectors.vectors.find((v) => v.name === "case_normalization");
+
+    expect(basic).toBeDefined();
+    expect(normalized).toBeDefined();
+    expect(normalized!.challengeHash).toBe(basic!.challengeHash);
   });
+});
 
-  it("should produce different hashes for challenge vs intent domain", () => {
-    const v = vectors.vectors[0];
-    const encoded = canonicalEncode(v.fields as ChallengeFields);
+describe("challenge and intent agreement vectors", () => {
+  for (const vector of vectors.matchVectors) {
+    it(`${vector.name}: ${vector.note}`, () => {
+      expect(fieldsMatch(vector.challenge, vector.intent)).toBe(vector.shouldMatch);
 
-    const challengeHash = domainSeparatedHash(CHALLENGE_DOMAIN, encoded);
-    const intentHash = domainSeparatedHash(INTENT_DOMAIN, encoded);
-
-    expect(challengeHash.toString("hex")).not.toBe(intentHash.toString("hex"));
-  });
-
-  it("should produce same encoding regardless of method casing", () => {
-    const v1 = vectors.vectors[0]; // GET
-    const v2 = vectors.vectors[2]; // get (lowercase)
-
-    const enc1 = canonicalEncode(v1.fields as ChallengeFields);
-    const enc2 = canonicalEncode(v2.fields as ChallengeFields);
-
-    expect(enc1.toString("hex")).toBe(enc2.toString("hex"));
-  });
-
-  it("should detect mismatched amount in negative vector", () => {
-    const v = vectors.vectors[3]; // mismatched_amount
-    const challengeEncoded = canonicalEncode(v.challenge as ChallengeFields);
-    const intentEncoded = canonicalEncode(v.intent as ChallengeFields);
-
-    const challengeHash = domainSeparatedHash(POI_DOMAIN, challengeEncoded);
-    const intentHash = domainSeparatedHash(POI_DOMAIN, intentEncoded);
-
-    // different amounts must produce different hashes
-    expect(challengeHash.toString("hex")).not.toBe(intentHash.toString("hex"));
-  });
-
-  it("should detect mismatched endpoint in negative vector", () => {
-    const v = vectors.vectors[4]; // mismatched_endpoint
-    const challengeEncoded = canonicalEncode(v.challenge as ChallengeFields);
-    const intentEncoded = canonicalEncode(v.intent as ChallengeFields);
-
-    // encodings themselves should differ
-    expect(challengeEncoded.toString("hex")).not.toBe(intentEncoded.toString("hex"));
-  });
-
-  it("domain separator prefix length byte should match domain string length", () => {
-    // this verifies the length-prefixed domain format used in both TS and Rust
-    const domain = CHALLENGE_DOMAIN;
-    const data = Buffer.from("test");
-
-    const hash = domainSeparatedHash(domain, data);
-    expect(hash.length).toBe(32); // sha256 output is 32 bytes
-
-    // domain is 22 bytes ("beaver402:challenge:v1")
-    expect(Buffer.from(domain).length).toBe(22);
-  });
-
-  it("POI domain should produce matching hashes for same canonical encoding", () => {
-    const v = vectors.vectors[0];
-    const encoded = canonicalEncode(v.fields as ChallengeFields);
-
-    // both challenge and intent use POI domain for contract hash comparison
-    const hash1 = domainSeparatedHash(POI_DOMAIN, encoded);
-    const hash2 = domainSeparatedHash(POI_DOMAIN, encoded);
-
-    expect(hash1.toString("hex")).toBe(hash2.toString("hex"));
-    expect(POI_DOMAIN).toBe("beaver402:poi:v1");
-  });
+      // Agreement on the fields has to mean agreement on the hashes.
+      const sameHash =
+        hashChallenge(vector.challenge).toString("hex") ===
+        hashChallenge(vector.intent).toString("hex");
+      expect(sameHash).toBe(vector.shouldMatch);
+    });
+  }
 });

@@ -14,11 +14,18 @@ import {
   isPaymentRequired,
 } from "../src/mcp/mcp-tool-handler.js";
 import {
-  canonicalEncode,
-  domainSeparatedHash,
-  POI_DOMAIN,
+  hashChallenge,
+  hashIntent,
 } from "../src/shared/hashing.js";
 import type { IntentFields } from "../src/shared/types.js";
+
+// Settlement fields have to be real Stellar values now: the asset is the
+// token contract the payment goes through and the network is the passphrase
+// whose hash the contract checks against the ledger.
+const USDC = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+const TESTNET = "Test SDF Network ; September 2015";
+const PUBNET = "Public Global Stellar Network ; September 2015";
+
 
 const merchantKp = Keypair.random();
 const agentKp = Keypair.random();
@@ -31,9 +38,9 @@ describe("end to end x402 payment flow", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "1000000",
-      network: "testnet",
+      network: TESTNET,
       expirySeconds: 300,
     });
 
@@ -49,13 +56,16 @@ describe("end to end x402 payment flow", () => {
     expect(matchResult.matches).toBe(true);
 
     // both use the same POI domain, so hashes match when fields match
-    expect(challenge.hash).toBe(intent.hash);
+    // Domain separation means the two hashes differ by construction. What
+    // has to hold is that they describe the same fields.
+    expect(challenge.hash).not.toBe(intent.hash);
+    expect(hashChallenge(intent.fields).toString("hex")).toBe(challenge.hash);
 
     expect(intent.fields.method || intent.fields.httpMethod).toBeTruthy();
     expect(intent.fields.recipient).toBe(recipientKp.publicKey());
-    expect(intent.fields.asset).toBe("USDC");
+    expect(intent.fields.asset).toBe(USDC);
     expect(intent.fields.amount).toBe("1000000");
-    expect(intent.fields.network).toBe("testnet");
+    expect(intent.fields.network).toBe(TESTNET);
   });
 
   it("should reject when agent observes different endpoint", async () => {
@@ -64,15 +74,15 @@ describe("end to end x402 payment flow", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "1000000",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const result = await adapter.processPayment(
@@ -92,15 +102,15 @@ describe("end to end x402 payment flow", () => {
       endpoint: "https://api.merchant.com/submit",
       body: '{"action":"buy"}',
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "1000000",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const result = await adapter.processPayment(
@@ -120,16 +130,16 @@ describe("end to end x402 payment flow", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "1000000",
-      network: "testnet",
+      network: TESTNET,
       expirySeconds: -100,
     });
 
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const result = await adapter.processPayment(
@@ -148,9 +158,9 @@ describe("end to end x402 payment flow", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "1000000",
-      network: "testnet",
+      network: TESTNET,
     });
 
     challenge.merchantSignature = Buffer.from("invalid").toString("base64");
@@ -158,7 +168,7 @@ describe("end to end x402 payment flow", () => {
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const result = await adapter.processPayment(
@@ -178,9 +188,9 @@ describe("end to end x402 payment flow", () => {
       endpoint: "https://api.merchant.com/submit",
       body: '{"task":"analyze_data","priority":"high"}',
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "5000000",
-      network: "testnet",
+      network: TESTNET,
       expirySeconds: 600,
     });
 
@@ -193,7 +203,10 @@ describe("end to end x402 payment flow", () => {
 
     const match = verifyChallengeIntentMatch(challenge, intent);
     expect(match.matches).toBe(true);
-    expect(challenge.hash).toBe(intent.hash);
+    // Domain separation means the two hashes differ by construction. What
+    // has to hold is that they describe the same fields.
+    expect(challenge.hash).not.toBe(intent.hash);
+    expect(hashChallenge(intent.fields).toString("hex")).toBe(challenge.hash);
     expect(challenge.hash).toBeTruthy();
     expect(challenge.hash.length).toBe(64);
   });
@@ -204,9 +217,9 @@ describe("end to end x402 payment flow", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "1000000",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const intent = createIntentFromChallenge(
@@ -217,8 +230,7 @@ describe("end to end x402 payment flow", () => {
 
     // tamper with the amount
     intent.fields.amount = "9999999";
-    const encoded = canonicalEncode(intent.fields as IntentFields);
-    intent.hash = domainSeparatedHash(POI_DOMAIN, encoded).toString("hex");
+    intent.hash = hashIntent(intent.fields as IntentFields).toString("hex");
 
     const match = verifyChallengeIntentMatch(challenge, intent);
     expect(match.matches).toBe(false);
@@ -230,9 +242,9 @@ describe("end to end x402 payment flow", () => {
       httpMethod: "GET",
       endpoint: "https://api.merchant.com/data",
       recipient: recipientKp.publicKey(),
-      asset: "USDC",
+      asset: USDC,
       amount: "1000000",
-      network: "testnet",
+      network: TESTNET,
     });
 
     const intent = createIntentFromChallenge(

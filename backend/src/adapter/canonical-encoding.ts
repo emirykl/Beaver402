@@ -1,1 +1,6 @@
-export { canonicalEncode, normalizeEndpoint, normalizeAmount } from "../shared/hashing.js";
+export {
+  normalizeAmount,
+  normalizeEndpoint,
+  requestDigest,
+  settlementPreimage,
+} from "../shared/hashing.js";

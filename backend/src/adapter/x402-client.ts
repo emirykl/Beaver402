@@ -4,6 +4,7 @@ import {
   verifyChallengeIntentMatch,
 } from "./buyer-intent.js";
 import { verifyMerchantSignature } from "../merchant/challenge-signer.js";
+import { normalizeAmount, requestDigest } from "../shared/hashing.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import type {
   SignedChallenge,
@@ -133,16 +134,17 @@ export class Beaver402Adapter {
     challenge: SignedChallenge,
     intentHash: string
   ): PolicySignaturePayload {
-    // agent signs the challenge hash to prove authorization
-    const challengeBytes = Buffer.from(challenge.hash, "hex");
-    const agentSig = this.config.agentKeypair.sign(challengeBytes);
-
+    // The agent signature covers the Soroban authorization payload, which is
+    // only known once the transaction is assembled. It is filled in when the
+    // authorization entry is signed; see submitPayment.
     return {
-      agentSignature: agentSig.toString("base64"),
+      agentSignature: "",
       merchantPubkey: challenge.merchantPubkey,
       merchantSignature: challenge.merchantSignature,
-      challengeHash: challenge.hash,
-      intentHash,
+      requestDigest: requestDigest(challenge.fields).toString("hex"),
+      recipient: challenge.fields.recipient,
+      asset: challenge.fields.asset,
+      amount: normalizeAmount(challenge.fields.amount),
       nonce: challenge.fields.nonce,
       expiry: challenge.fields.expiry,
     };

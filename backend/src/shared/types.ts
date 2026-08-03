@@ -3,15 +3,23 @@
 // challenge and buyer intent for proof of intent verification.
 export interface PayloadFields {
   version: string;
+  /** Merchant signing key, as a Stellar G address. */
   merchantPubkey: string;
   httpMethod: string;
   normalizedEndpoint: string;
   bodyHash: string;
+  /** Where the payment lands, as a 56 character Stellar address. */
   recipient: string;
+  /** Token contract address, as a 56 character C address. */
   asset: string;
+  /** Stroops, as a decimal string. */
   amount: string;
+  /** Network passphrase. The contract compares its sha256 against the
+   *  network id reported by the ledger. */
   network: string;
+  /** 32 random bytes, hex encoded. */
   nonce: string;
+  /** Unix seconds, as a decimal string. */
   expiry: string;
 }
 
@@ -31,12 +39,20 @@ export interface SignedIntent {
   hash: string;
 }
 
+/**
+ * The signature payload the contract expects for the agent path.
+ *
+ * The challenge and intent hashes are absent on purpose: the contract
+ * rebuilds them from these fields rather than trusting hashes handed to it.
+ */
 export interface PolicySignaturePayload {
   agentSignature: string;
   merchantPubkey: string;
   merchantSignature: string;
-  challengeHash: string;
-  intentHash: string;
+  requestDigest: string;
+  recipient: string;
+  asset: string;
+  amount: string;
   nonce: string;
   expiry: string;
 }

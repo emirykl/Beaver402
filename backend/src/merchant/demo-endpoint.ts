@@ -13,8 +13,12 @@ if (!MERCHANT_SECRET) {
 }
 const MERCHANT_KEYPAIR = Keypair.fromSecret(MERCHANT_SECRET);
 const RECIPIENT = process.env.RECIPIENT_ADDRESS || MERCHANT_KEYPAIR.publicKey();
-const ASSET = "USDC";
-const NETWORK = "testnet";
+// The asset is the token contract the payment settles through, and the
+// network is the passphrase whose hash the contract compares against the
+// network id the ledger reports. Both are covered by the challenge signature.
+const ASSET =
+  process.env.USDC_ISSUER || "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+const NETWORK = process.env.NETWORK_PASSPHRASE || "Test SDF Network ; September 2015";
 const PRICE = "1000000"; // 0.1 USDC in stroops (7 decimals)
 
 export function createMerchantRouter() {

@@ -1,120 +1,273 @@
 {
-  "description": "Cross-language test vectors for Beaver402 canonical encoding and hashing",
-  "version": "1",
+  "description": "Shared vectors for the Beaver402 canonical encoding. Generated from the TypeScript implementation and verified from Rust.",
+  "version": "2",
+  "domains": {
+    "request": "beaver402:request:v1",
+    "challenge": "beaver402:challenge:v1",
+    "intent": "beaver402:intent:v1"
+  },
   "vectors": [
     {
       "name": "basic_payment",
+      "note": "A plain GET with no request body.",
       "fields": {
         "version": "1",
-        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
         "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
-        "asset": "USDC",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
         "amount": "1000000",
-        "network": "testnet",
-        "nonce": "abc123def456",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
         "expiry": "1700000000"
       },
-      "canonicalEncoded": "1|GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT|GET|https://api.merchant.com/data|e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT|USDC|1000000|testnet|abc123def456|1700000000"
+      "requestDigest": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45",
+      "settlementPreimage": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45474142514d4c344a584853585033365a44325341585650414b4a435553494f5958525537594951534a3747323637555733574c4232474934434249454c544b3659425a4a5535555032575751455543594b4c50553641554e5a324251345757464549453355534349484d585144414d41000000000000000000000000000f4240cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4729f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "71bdfab2d50b254f72c0643b93ce0ea64291d76046cf4731e3547e2ea4a24b0e",
+      "intentHash": "495b6594f2f17988718d90989a47dab6ba7a2ce7ba81f13281faeabb091dd0b5"
     },
     {
       "name": "post_with_body",
+      "note": "A POST whose body is covered by the request digest.",
       "fields": {
         "version": "1",
-        "merchantPubkey": "GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
         "httpMethod": "POST",
-        "normalizedEndpoint": "https://api.example.com/submit",
-        "bodyHash": "a948904f2f0f479b8f8564e9f2a7c5d35e2b9e5a6e8b5f5e3a1d8c7b6a5f4e3d",
-        "recipient": "GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX",
-        "asset": "USDC",
-        "amount": "5000000",
-        "network": "testnet",
-        "nonce": "xyz789ghi012",
-        "expiry": "1700001000"
+        "normalizedEndpoint": "https://api.merchant.com/query",
+        "bodyHash": "61533431961900f37492f0662134930261b04ce4b7d984cd18a7662fa42b7128",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "1000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
       },
-      "canonicalEncoded": "1|GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX|POST|https://api.example.com/submit|a948904f2f0f479b8f8564e9f2a7c5d35e2b9e5a6e8b5f5e3a1d8c7b6a5f4e3d|GDLAJ6KPZBMJ3YUORE7QSCGXDQMPXFPYG5OUMSDWKE3J5O7GHHAZ5MBX|USDC|5000000|testnet|xyz789ghi012|1700001000"
+      "requestDigest": "1254f845eb1a402dbc8b63fe5120fa5dc55e7801a3459862d562d454f5428a44",
+      "settlementPreimage": "1254f845eb1a402dbc8b63fe5120fa5dc55e7801a3459862d562d454f5428a44474142514d4c344a584853585033365a44325341585650414b4a435553494f5958525537594951534a3747323637555733574c4232474934434249454c544b3659425a4a5535555032575751455543594b4c50553641554e5a324251345757464549453355534349484d585144414d41000000000000000000000000000f4240cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4729f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "de23e457b9540a16e006c0fbd2a5b6f7a2e588638f6f2b9a555a6991473d3211",
+      "intentHash": "47b57dcb5fee979b93b46c023bc210564f41a756cdc3ccc61fc45c4ac9a095cd"
     },
     {
       "name": "case_normalization",
+      "note": "Method and host casing are normalized, so this matches basic_payment.",
       "fields": {
         "version": "1",
-        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
         "httpMethod": "get",
-        "normalizedEndpoint": "HTTPS://API.MERCHANT.COM/Data",
+        "normalizedEndpoint": "https://API.Merchant.COM/data",
         "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
-        "asset": "USDC",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
         "amount": "1000000",
-        "network": "testnet",
-        "nonce": "abc123def456",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
         "expiry": "1700000000"
       },
-      "expectedSameHashAs": "basic_payment",
-      "note": "http method and endpoint should normalize to same values as basic_payment"
+      "requestDigest": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45",
+      "settlementPreimage": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45474142514d4c344a584853585033365a44325341585650414b4a435553494f5958525537594951534a3747323637555733574c4232474934434249454c544b3659425a4a5535555032575751455543594b4c50553641554e5a324251345757464549453355534349484d585144414d41000000000000000000000000000f4240cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4729f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "71bdfab2d50b254f72c0643b93ce0ea64291d76046cf4731e3547e2ea4a24b0e",
+      "intentHash": "495b6594f2f17988718d90989a47dab6ba7a2ce7ba81f13281faeabb091dd0b5"
+    },
+    {
+      "name": "large_amount",
+      "note": "An amount near the top of the range i128 has to carry.",
+      "fields": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "170141183460469231731687303715884105727",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "requestDigest": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45",
+      "settlementPreimage": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45474142514d4c344a584853585033365a44325341585650414b4a435553494f5958525537594951534a3747323637555733574c4232474934434249454c544b3659425a4a5535555032575751455543594b4c50553641554e5a324251345757464549453355534349484d585144414d417fffffffffffffffffffffffffffffffcee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4729f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "1feafd6bc01d0caa7a1f0443293737bc29a225d8adbd56a310149ed1e996b6cb",
+      "intentHash": "8b1228f4df3a24d77d4cfd45d2fe11d2e727682b072d4c0bbeeabf9fc03465b3"
+    },
+    {
+      "name": "zero_amount",
+      "note": "A zero amount still has to encode to a stable hash.",
+      "fields": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "0",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "requestDigest": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45",
+      "settlementPreimage": "8db90a2e48ef7fd269e8b7add3276ff0f8a4cd42e1dbcb42c10f5e5ffd154c45474142514d4c344a584853585033365a44325341585650414b4a435553494f5958525537594951534a3747323637555733574c4232474934434249454c544b3659425a4a5535555032575751455543594b4c50553641554e5a324251345757464549453355534349484d585144414d4100000000000000000000000000000000cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd4729f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "71188335b08c98c4908aba3fdde43e985bd2529f4d858f75ff7a97f9d3b9a8b9",
+      "intentHash": "fdf6f2bc4ba36e735a531dbe4a28082c9ac5cd5dac888455adc17454d9c07a9f"
+    }
+  ],
+  "matchVectors": [
+    {
+      "name": "matching_pair",
+      "note": "The buyer observed exactly what the merchant signed.",
+      "challenge": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "1000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "intent": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "1000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "shouldMatch": true
     },
     {
       "name": "mismatched_amount",
+      "note": "The buyer was asked to pay more than the merchant quoted.",
       "challenge": {
         "version": "1",
-        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
         "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
-        "asset": "USDC",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
         "amount": "1000000",
-        "network": "testnet",
-        "nonce": "abc123def456",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
         "expiry": "1700000000"
       },
       "intent": {
         "version": "1",
-        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
         "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
-        "asset": "USDC",
-        "amount": "2000000",
-        "network": "testnet",
-        "nonce": "abc123def456",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "9000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
         "expiry": "1700000000"
       },
-      "shouldMatch": false,
-      "note": "challenge says 1 USDC, intent says 2 USDC, hashes must differ"
+      "shouldMatch": false
     },
     {
       "name": "mismatched_endpoint",
+      "note": "The request was redirected to a different endpoint.",
       "challenge": {
         "version": "1",
-        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
         "httpMethod": "GET",
         "normalizedEndpoint": "https://api.merchant.com/data",
         "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
-        "asset": "USDC",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
         "amount": "1000000",
-        "network": "testnet",
-        "nonce": "abc123def456",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
         "expiry": "1700000000"
       },
       "intent": {
         "version": "1",
-        "merchantPubkey": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
         "httpMethod": "GET",
-        "normalizedEndpoint": "https://evil.com/steal",
+        "normalizedEndpoint": "https://api.merchant.com/other",
         "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "recipient": "GBCZ3DAHNFXQKNPRQVXPQ7GAKPAC3FMJ2HCZYRRWQNPQE7YKQCFGPRINT",
-        "asset": "USDC",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
         "amount": "1000000",
-        "network": "testnet",
-        "nonce": "abc123def456",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
         "expiry": "1700000000"
       },
-      "shouldMatch": false,
-      "note": "endpoint tampered by attacker, hashes must differ"
+      "shouldMatch": false
+    },
+    {
+      "name": "mismatched_recipient",
+      "note": "The payment was rerouted to a different account.",
+      "challenge": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "1000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "intent": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GCNMK2LORF3QTG3LMFV7KWQIILL6OUPLY5G6VGFQYBQY7VCXPAAG3FSL",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "1000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "shouldMatch": false
+    },
+    {
+      "name": "mismatched_body",
+      "note": "The request body was altered after the merchant signed it.",
+      "challenge": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "1000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "intent": {
+        "version": "1",
+        "merchantPubkey": "GBBGXTNC63DX4INOE5IFEG5JIVSFSLMZXL676T7Y5E7DDZXJMQWBIBBO",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "61533431961900f37492f0662134930261b04ce4b7d984cd18a7662fa42b7128",
+        "recipient": "GABQML4JXHSXP36ZD2SAXVPAKJCUSIOYXRU7YIQSJ7G267UW3WLB2GI4",
+        "asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "amount": "1000000",
+        "network": "Test SDF Network ; September 2015",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "shouldMatch": false
     }
   ]
 }
