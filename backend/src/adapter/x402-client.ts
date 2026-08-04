@@ -5,6 +5,7 @@ import {
 } from "./buyer-intent.js";
 import { verifyMerchantSignature } from "../merchant/challenge-signer.js";
 import { normalizeAmount, requestDigest } from "../shared/hashing.js";
+import { buildAgentSignatureScVal } from "./policy-signature.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import type {
   SignedChallenge,
@@ -14,6 +15,11 @@ import type {
 const SOROBAN_RPC_URL =
   process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
+const BASE_FEE = "10000000";
+
+/// How long a signed authorization stays usable, in ledgers. Roughly five
+/// minutes, which is well inside the challenge expiry the merchant sets.
+const AUTH_VALIDITY_LEDGERS = 60;
 
 export interface Beaver402AdapterConfig {
   agentKeypair: StellarSdk.Keypair;
@@ -150,6 +156,35 @@ export class Beaver402Adapter {
     };
   }
 
+  /**
+   * Sign one authorization entry on behalf of the smart account.
+   *
+   * The host hands us the payload it will pass to __check_auth as
+   * signature_payload. The agent signs exactly that, and the merchant side of
+   * the proof of intent rides along in the same value, so the contract sees
+   * both halves at once.
+   */
+  private async signAuthorizationEntry(
+    entry: StellarSdk.xdr.SorobanAuthorizationEntry,
+    policyPayload: PolicySignaturePayload,
+    validUntil: number
+  ): Promise<StellarSdk.xdr.SorobanAuthorizationEntry> {
+    return StellarSdk.authorizeEntry(
+      entry,
+      async (_preimage, payload) => {
+        const agentSignature = this.config.agentKeypair.sign(payload);
+        return {
+          signatureScVal: buildAgentSignatureScVal({
+            ...policyPayload,
+            agentSignature: agentSignature.toString("base64"),
+          }),
+        };
+      },
+      validUntil,
+      NETWORK_PASSPHRASE
+    );
+  }
+
   private async submitPayment(
     challenge: SignedChallenge,
     policyPayload: PolicySignaturePayload
@@ -158,51 +193,87 @@ export class Beaver402Adapter {
     const agentPubkey = this.config.agentKeypair.publicKey();
     const sourceAccount = await server.getAccount(agentPubkey);
 
-    // build the USDC transfer invocation through the policy contract
-    // the policy contract's __check_auth will be triggered as part of
-    // the authorization chain when the smart account transfers USDC
-    const recipientAddress = StellarSdk.Address.fromString(
-      challenge.fields.recipient
-    );
-    const amount = BigInt(challenge.fields.amount);
+    // The money moves out of the smart account, not out of the agent's own
+    // account. That is what puts the policy contract in the authorization
+    // chain and gets __check_auth called before anything settles. The agent
+    // is only the source of the transaction, which means it pays the fee and
+    // nothing more.
+    const transfer = () =>
+      StellarSdk.Operation.invokeContractFunction({
+        contract: challenge.fields.asset,
+        function: "transfer",
+        args: [
+          StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
+          StellarSdk.Address.fromString(challenge.fields.recipient).toScVal(),
+          StellarSdk.nativeToScVal(BigInt(policyPayload.amount), { type: "i128" }),
+        ],
+      });
 
-    // find testnet USDC issuer
-    const usdcIssuer =
-      process.env.USDC_ISSUER ||
-      "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+    const draft = new StellarSdk.TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(transfer())
+      .setTimeout(300)
+      .build();
 
-    const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
-      fee: "10000000",
+    // The first simulation tells us which authorization entries the host
+    // wants. They come back unsigned.
+    const probe = await server.simulateTransaction(draft);
+    if (StellarSdk.rpc.Api.isSimulationError(probe)) {
+      return { success: false, error: `simulation failed: ${probe.error}` };
+    }
+
+    const entries = probe.result?.auth ?? [];
+    if (entries.length === 0) {
+      return {
+        success: false,
+        error: "the transfer produced no authorization entry for the policy account",
+      };
+    }
+
+    const { sequence } = await server.getLatestLedger();
+    const validUntil = sequence + AUTH_VALIDITY_LEDGERS;
+
+    let signedEntries: StellarSdk.xdr.SorobanAuthorizationEntry[];
+    try {
+      signedEntries = await Promise.all(
+        entries.map((entry) =>
+          this.signAuthorizationEntry(entry, policyPayload, validUntil)
+        )
+      );
+    } catch (err) {
+      return { success: false, error: `authorization signing failed: ${err}` };
+    }
+
+    // Rebuild the call carrying the signed entries, then simulate once more
+    // so the footprint and resource fees account for running __check_auth.
+    const authorized = new StellarSdk.TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
     })
       .addOperation(
         StellarSdk.Operation.invokeContractFunction({
-          contract: usdcIssuer,
+          contract: challenge.fields.asset,
           function: "transfer",
           args: [
-            StellarSdk.Address.fromString(agentPubkey).toScVal(),
-            recipientAddress.toScVal(),
-            StellarSdk.nativeToScVal(amount, { type: "i128" }),
+            StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
+            StellarSdk.Address.fromString(challenge.fields.recipient).toScVal(),
+            StellarSdk.nativeToScVal(BigInt(policyPayload.amount), { type: "i128" }),
           ],
+          auth: signedEntries,
         })
       )
       .setTimeout(300)
       .build();
 
-    // simulate to get auth requirements
-    const simulated = await server.simulateTransaction(tx);
+    const simulated = await server.simulateTransaction(authorized);
     if (StellarSdk.rpc.Api.isSimulationError(simulated)) {
-      return {
-        success: false,
-        error: `simulation failed: ${simulated.error}`,
-      };
+      // A policy rejection surfaces here, before anything is submitted.
+      return { success: false, error: `policy rejected the payment: ${simulated.error}` };
     }
 
-    const prepared = StellarSdk.rpc.assembleTransaction(
-      tx,
-      simulated as StellarSdk.rpc.Api.SimulateTransactionSuccessResponse
-    ).build();
-
+    const prepared = StellarSdk.rpc.assembleTransaction(authorized, simulated).build();
     prepared.sign(this.config.agentKeypair);
 
     const sendResponse = await server.sendTransaction(prepared);
@@ -239,6 +310,15 @@ export function createAdapter(
   policyContractId: string,
   network = "testnet"
 ): Beaver402Adapter {
+  // Without a deployed policy there is nothing to authorize against, and the
+  // failure would otherwise surface as an unhelpful address parse error deep
+  // inside the payment.
+  if (!policyContractId) {
+    throw new Error(
+      "POLICY_CONTRACT_ID is required. Deploy the policy contract first with scripts/deploy.sh"
+    );
+  }
+
   return new Beaver402Adapter({
     agentKeypair: StellarSdk.Keypair.fromSecret(agentSecret),
     policyContractId,
