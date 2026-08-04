@@ -2,6 +2,7 @@ import express from "express";
 import { createMerchantRouter } from "./merchant/demo-endpoint.js";
 import { createPasskeyRouter } from "./passkey/passkey-routes.js";
 import { createPolicyRouter, markAuthenticated } from "./policy/policy-routes.js";
+import { createAgentRouter } from "./agent/agent-routes.js";
 import {
   extractRequestFromToolCall,
   isPaymentRequired,
@@ -22,6 +23,9 @@ app.use(createPasskeyRouter());
 
 // policy management routes (freeze, restore, revoke, state)
 app.use(createPolicyRouter());
+
+// the agent facing route that pays for a resource when asked to
+app.use(createAgentRouter());
 
 // MCP tool call interception endpoint
 app.post("/api/mcp/extract", (req, res) => {
