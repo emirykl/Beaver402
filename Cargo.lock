@@ -528,6 +528,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
 dependencies = [
  "const-oid",
+ "pem-rfc7468",
  "zeroize",
 ]
 
@@ -620,6 +621,7 @@ dependencies = [
  "elliptic-curve",
  "rfc6979",
  "signature 2.2.0",
+ "spki",
 ]
 
 [[package]]
@@ -700,6 +702,8 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
+ "pem-rfc7468",
+ "pkcs8",
  "rand_core 0.6.4",
  "sec1",
  "subtle",
@@ -1148,9 +1152,20 @@ name = "payment_policy"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek 1.0.1",
+ "p256",
  "rand 0.7.3",
+ "sha2 0.10.9",
  "soroban-sdk",
  "soroban-token-sdk",
+]
+
+[[package]]
+name = "pem-rfc7468"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88b39c9bfcfc231068454382784bb460aae594343fb030d46e9f50a645418412"
+dependencies = [
+ "base64ct",
 ]
 
 [[package]]
@@ -1381,6 +1396,7 @@ dependencies = [
  "base16ct",
  "der",
  "generic-array",
+ "pkcs8",
  "subtle",
  "zeroize",
 ]
