@@ -1,6 +1,12 @@
 import express, { type Request, type Response } from "express";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
+import {
+  isOwnerAction,
+  prepareOwnerAction,
+  submitOwnerAction,
+  OWNER_ACTIONS,
+} from "./owner-actions.js";
 
 const SOROBAN_RPC_URL =
   process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
@@ -118,66 +124,6 @@ function extractMap(sim: Awaited<ReturnType<typeof callContractView>>): Map<stri
   return result;
 }
 
-async function submitContractCall(
-  functionName: string,
-  args: StellarSdk.xdr.ScVal[] = []
-) {
-  const sourceSecret = process.env.OWNER_SECRET;
-  if (!sourceSecret) {
-    throw new Error("OWNER_SECRET environment variable is required");
-  }
-
-  const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
-  const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
-  const sourceAccount = await server.getAccount(sourceKeypair.publicKey());
-
-  const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
-    fee: "10000000",
-    networkPassphrase: NETWORK_PASSPHRASE,
-  })
-    .addOperation(
-      StellarSdk.Operation.invokeContractFunction({
-        contract: CONTRACT_ID,
-        function: functionName,
-        args,
-      })
-    )
-    .setTimeout(300)
-    .build();
-
-  const simulated = await server.simulateTransaction(tx);
-  if (StellarSdk.rpc.Api.isSimulationError(simulated)) {
-    throw new Error(`simulation failed: ${simulated.error}`);
-  }
-
-  const prepared = StellarSdk.rpc.assembleTransaction(
-    tx,
-    simulated as StellarSdk.rpc.Api.SimulateTransactionSuccessResponse
-  ).build();
-  prepared.sign(sourceKeypair);
-
-  const sendResponse = await server.sendTransaction(prepared);
-
-  if (sendResponse.status === "ERROR") {
-    throw new Error(`send failed: ${JSON.stringify(sendResponse)}`);
-  }
-
-  // poll for confirmation (max 30 attempts)
-  let getResponse = await server.getTransaction(sendResponse.hash);
-  let attempts = 0;
-  while (getResponse.status === "NOT_FOUND" && attempts < 30) {
-    await new Promise((r) => setTimeout(r, 1000));
-    getResponse = await server.getTransaction(sendResponse.hash);
-    attempts++;
-  }
-
-  if (getResponse.status !== "SUCCESS") {
-    throw new Error(`transaction failed: ${getResponse.status}`);
-  }
-
-  return { txHash: sendResponse.hash };
-}
-
 export function createPolicyRouter() {
   const router = express.Router();
 
@@ -228,45 +174,57 @@ export function createPolicyRouter() {
     }
   });
 
-  router.post("/api/policy/freeze", async (req: Request, res: Response) => {
+  // Owner actions take two calls. The first works out what the passkey has
+  // to sign, the second carries the assertion back. The session check is a
+  // gate on the interface; the authority itself comes from the passkey, and
+  // the contract is what enforces that.
+  router.post("/api/policy/prepare", async (req: Request, res: Response) => {
     const session = getSessionId(req);
     if (!(await isAuthenticated(session))) {
       res.status(401).json({ success: false, error: "authentication required" });
       return;
     }
 
+    const action = String(req.body?.action ?? "");
+    if (!isOwnerAction(action)) {
+      res.status(400).json({
+        success: false,
+        error: `action must be one of ${OWNER_ACTIONS.join(", ")}`,
+      });
+      return;
+    }
+
     try {
-      const result = await submitContractCall("freeze_payments");
-      res.json({ success: true, txHash: result.txHash });
+      const prepared = await prepareOwnerAction(action, CONTRACT_ID, feeSource());
+      res.json({ success: true, prepared });
     } catch (err) {
       res.status(500).json({ success: false, error: String(err) });
     }
   });
 
-  router.post("/api/policy/restore", async (req: Request, res: Response) => {
+  router.post("/api/policy/submit", async (req: Request, res: Response) => {
     const session = getSessionId(req);
     if (!(await isAuthenticated(session))) {
       res.status(401).json({ success: false, error: "authentication required" });
       return;
     }
 
-    try {
-      const result = await submitContractCall("restore_payments");
-      res.json({ success: true, txHash: result.txHash });
-    } catch (err) {
-      res.status(500).json({ success: false, error: String(err) });
-    }
-  });
-
-  router.post("/api/policy/revoke", async (req: Request, res: Response) => {
-    const session = getSessionId(req);
-    if (!(await isAuthenticated(session))) {
-      res.status(401).json({ success: false, error: "authentication required" });
+    const { prepared, assertion } = req.body ?? {};
+    if (!prepared?.authEntry || !assertion?.signature) {
+      res.status(400).json({
+        success: false,
+        error: "prepared action and passkey assertion are both required",
+      });
       return;
     }
 
     try {
-      const result = await submitContractCall("revoke_agent_signer");
+      const result = await submitOwnerAction(
+        prepared,
+        assertion,
+        CONTRACT_ID,
+        StellarSdk.Keypair.fromSecret(requireFeeSecret())
+      );
       res.json({ success: true, txHash: result.txHash });
     } catch (err) {
       res.status(500).json({ success: false, error: String(err) });
@@ -274,4 +232,20 @@ export function createPolicyRouter() {
   });
 
   return router;
+}
+
+/**
+ * The account that pays for owner actions. It funds the transaction and
+ * nothing else, so it cannot approve anything on the owner's behalf.
+ */
+function requireFeeSecret(): string {
+  const secret = process.env.FEE_SOURCE_SECRET || process.env.OWNER_SECRET;
+  if (!secret) {
+    throw new Error("FEE_SOURCE_SECRET is required to pay for owner actions");
+  }
+  return secret;
+}
+
+function feeSource(): string {
+  return StellarSdk.Keypair.fromSecret(requireFeeSecret()).publicKey();
 }
