@@ -7,6 +7,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "vectors": "tsx scripts/generate-vectors.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -19,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@simplewebauthn/server": "^13.3.2",
     "@stellar/stellar-sdk": "^16.2.0",
     "@supabase/supabase-js": "^2.112.2",
@@ -27,6 +30,7 @@
     "express": "^5.2.1",
     "tsx": "^4.23.11",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "zod": "^4.4.3"
   }
 }
