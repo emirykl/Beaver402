@@ -8,8 +8,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
-    "outDir": "./dist",
-    "declaration": true
+    "noEmit": true
   },
   "include": ["src/**/*"]
 }
