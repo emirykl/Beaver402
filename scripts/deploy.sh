@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────
 # Beaver402 — Deploy payment_policy contract to Stellar testnet
+#
+# The account owner is a passkey, so a passkey has to be registered
+# before the contract can be created. Register one in the control
+# panel, then run this.
 # ──────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -14,9 +18,19 @@ RPC_URL="https://soroban-testnet.stellar.org"
 NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-# stellar CLI v27+ uses wasm32v1-none target
+# stellar CLI v27+ uses the wasm32v1-none target
 WASM_PATH="$ROOT_DIR/target/wasm32v1-none/release/payment_policy.wasm"
 ENV_FILE="$ROOT_DIR/backend/.env"
+
+# Testnet USDC. Override with USDC_CONTRACT to settle in another token.
+USDC_CONTRACT="${USDC_CONTRACT:-CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA}"
+
+# Velocity budget the account starts with.
+MAX_TX_COUNT="${MAX_TX_COUNT:-10}"
+MAX_TOTAL_AMOUNT="${MAX_TOTAL_AMOUNT:-100000000000}"
+WINDOW_SIZE="${WINDOW_SIZE:-86400}"
+
+PASSKEY_USER="${PASSKEY_USER:-owner}"
 
 # ── Colors ────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -28,221 +42,148 @@ info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
-# ── Pre-checks ───────────────────────────────────────────────────
-command -v stellar >/dev/null 2>&1 || error "stellar CLI not found. Install: https://soroban.stellar.org/docs/getting-started/setup"
+# ── Pre-checks ────────────────────────────────────────────────────
+command -v stellar >/dev/null 2>&1 \
+    || error "stellar CLI not found. Install it from https://developers.stellar.org/docs/tools/cli"
 
-# ── Step 1: Build the contract ────────────────────────────────────
-info "Building payment_policy contract..."
-cd "$ROOT_DIR"
-stellar contract build 2>&1
+# ── Step 1: The owner passkey ─────────────────────────────────────
+# Read this first. Everything below is wasted work if there is no
+# passkey to own the account.
+info "Reading the owner passkey..."
+OWNER_KEY=$(cd "$ROOT_DIR/backend" && npm run --silent owner:key "$PASSKEY_USER") \
+    || error "Could not read the owner passkey. Register one in the control panel first."
 
-if [ ! -f "$WASM_PATH" ]; then
-    error "WASM not found at $WASM_PATH — build failed"
+if [ ${#OWNER_KEY} -ne 130 ]; then
+    error "Owner key should be 130 hex characters, got ${#OWNER_KEY}"
 fi
+info "Owner passkey: ${OWNER_KEY:0:16}..."
 
-info "WASM built: $(du -h "$WASM_PATH" | cut -f1) — $WASM_PATH"
+# ── Step 2: Build ─────────────────────────────────────────────────
+info "Building the contract..."
+cd "$ROOT_DIR"
+stellar contract build
 
-# ── Step 2: Generate keys if needed ──────────────────────────────
-generate_key() {
+[ -f "$WASM_PATH" ] || error "WASM not found at $WASM_PATH"
+info "Built $(du -h "$WASM_PATH" | cut -f1) at $WASM_PATH"
+
+# ── Step 3: Keys ──────────────────────────────────────────────────
+ensure_key() {
     local name=$1
     if stellar keys address "$name" >/dev/null 2>&1; then
         info "Key '$name' already exists"
     else
-        info "Generating key '$name'..."
-        stellar keys generate "$name" --network $NETWORK 2>&1
-        # Fund from friendbot
-        info "Funding '$name' from friendbot..."
-        stellar keys fund "$name" --network $NETWORK 2>&1 || warn "Funding failed — may already be funded"
+        info "Generating and funding '$name'..."
+        stellar keys generate "$name" --network "$NETWORK"
+        stellar keys fund "$name" --network "$NETWORK" \
+            || warn "Funding '$name' failed, it may already be funded"
     fi
 }
 
-generate_key "beaver402-owner"
-generate_key "beaver402-agent"
-generate_key "beaver402-merchant"
+ensure_key "beaver402-deployer"
+ensure_key "beaver402-agent"
+ensure_key "beaver402-merchant"
 
-OWNER_ADDR=$(stellar keys address beaver402-owner)
+DEPLOYER_ADDR=$(stellar keys address beaver402-deployer)
 AGENT_ADDR=$(stellar keys address beaver402-agent)
 MERCHANT_ADDR=$(stellar keys address beaver402-merchant)
 
-OWNER_SECRET=$(stellar keys show beaver402-owner)
+DEPLOYER_SECRET=$(stellar keys show beaver402-deployer)
 AGENT_SECRET=$(stellar keys show beaver402-agent)
 MERCHANT_SECRET=$(stellar keys show beaver402-merchant)
 
-info "Owner:    $OWNER_ADDR"
+info "Deployer: $DEPLOYER_ADDR"
 info "Agent:    $AGENT_ADDR"
 info "Merchant: $MERCHANT_ADDR"
 
-# ── Step 3: Deploy the contract ───────────────────────────────────
-info "Deploying contract to testnet..."
+# The contract stores the agent as a raw ed25519 key, not as an address.
+strkey_to_hex() {
+    python3 -c "
+import base64, sys
+print(base64.b32decode(sys.argv[1])[1:33].hex())
+" "$1"
+}
+
+AGENT_HEX=$(strkey_to_hex "$AGENT_ADDR")
+MERCHANT_HEX=$(strkey_to_hex "$MERCHANT_ADDR")
+
+# ── Step 4: Deploy ────────────────────────────────────────────────
+# One deploy, with the constructor arguments. If this fails the script
+# stops, rather than leaving a half configured contract behind.
+info "Deploying to $NETWORK..."
 
 CONTRACT_ID=$(stellar contract deploy \
     --wasm "$WASM_PATH" \
-    --source beaver402-owner \
-    --network $NETWORK \
-    2>&1)
+    --source beaver402-deployer \
+    --network "$NETWORK" \
+    -- \
+    --owner "$OWNER_KEY" \
+    --agent_signer "$AGENT_HEX" \
+    --velocity_config "{\"max_tx_count\":$MAX_TX_COUNT,\"max_total_amount\":$MAX_TOTAL_AMOUNT,\"window_size\":$WINDOW_SIZE}")
 
+[ -n "$CONTRACT_ID" ] || error "Deploy produced no contract id"
 info "Contract deployed: $CONTRACT_ID"
 
-# ── Step 4: Initialize the contract ──────────────────────────────
-# Convert public keys to bytes32 format for the constructor
-# The constructor takes: owner (bytes32), agent_signer (bytes32), velocity_config
+# ── Step 5: Allowlist the demo merchant ───────────────────────────
+# Adding a merchant is an owner action, so it needs the passkey. The
+# control panel does that; here we only report what still has to happen.
+warn "The demo merchant is not allowlisted yet."
+warn "Adding a merchant is an owner action and needs the passkey."
+warn "Do it from the control panel, or run the add_merchant scenario."
+info "Merchant key to allowlist: $MERCHANT_HEX"
 
-# Get raw public key bytes (32 bytes hex)
-owner_pk_hex=$(stellar keys address beaver402-owner | stellar contract invoke --id $CONTRACT_ID --source beaver402-owner --network $NETWORK -- 2>&1 || true)
+# ── Step 6: Verify ────────────────────────────────────────────────
+info "Verifying..."
 
-info "Initializing contract with constructor..."
-# Contract was already initialized during deploy since soroban v26 uses __constructor
-# We need to deploy with constructor args
+FROZEN=$(stellar contract invoke --id "$CONTRACT_ID" --source beaver402-deployer \
+    --network "$NETWORK" -- is_frozen)
+info "is_frozen: $FROZEN"
 
-# Re-deploy with constructor args
-info "Re-deploying with constructor arguments..."
+AGENT_ON_CHAIN=$(stellar contract invoke --id "$CONTRACT_ID" --source beaver402-deployer \
+    --network "$NETWORK" -- get_agent_signer)
+info "agent_signer: $AGENT_ON_CHAIN"
 
-# Convert Stellar addresses to raw 32-byte public keys
-owner_hex=$(echo "$OWNER_ADDR" | python3 -c "
-import sys, base64, struct
-addr = sys.stdin.read().strip()
-# Stellar public key: version byte (0x30) + 32 bytes + 2 byte checksum
-import hashlib
-def decode_stellar_key(key):
-    # Base32 decode
-    import base64
-    decoded = base64.b32decode(key)
-    return decoded[1:33].hex()
-print(decode_stellar_key(addr))
-")
+# ── Step 7: Write backend/.env ────────────────────────────────────
+info "Writing $ENV_FILE..."
 
-agent_hex=$(echo "$AGENT_ADDR" | python3 -c "
-import sys, base64
-addr = sys.stdin.read().strip()
-def decode_stellar_key(key):
-    decoded = base64.b32decode(key)
-    return decoded[1:33].hex()
-print(decode_stellar_key(addr))
-")
+preserve() {
+    # Keep a value that is already in the env file, if there is one.
+    [ -f "$ENV_FILE" ] && grep "^$1=" "$ENV_FILE" | head -1 | cut -d'=' -f2- || true
+}
 
-merchant_hex=$(echo "$MERCHANT_ADDR" | python3 -c "
-import sys, base64
-addr = sys.stdin.read().strip()
-def decode_stellar_key(key):
-    decoded = base64.b32decode(key)
-    return decoded[1:33].hex()
-print(decode_stellar_key(addr))
-")
-
-# Deploy with __constructor args
-# First, remove the contract we just deployed (it failed to init)
-info "Deploying contract with initialization parameters..."
-
-CONTRACT_ID=$(stellar contract deploy \
-    --wasm "$WASM_PATH" \
-    --source beaver402-owner \
-    --network $NETWORK \
-    -- \
-    --owner "$owner_hex" \
-    --agent_signer "$agent_hex" \
-    --velocity_config '{"max_tx_count": 10, "max_total_amount": 100000000000, "window_size": 86400}' \
-    2>&1) || true
-
-# If the above fails, try the invoke-based approach
-if [ -z "$CONTRACT_ID" ] || [[ "$CONTRACT_ID" == *"error"* ]]; then
-    warn "Constructor-based deploy not available, using two-step approach..."
-
-    CONTRACT_ID=$(stellar contract deploy \
-        --wasm "$WASM_PATH" \
-        --source beaver402-owner \
-        --network $NETWORK \
-        2>&1)
-
-    info "Contract deployed: $CONTRACT_ID"
-
-    stellar contract invoke \
-        --id "$CONTRACT_ID" \
-        --source beaver402-owner \
-        --network $NETWORK \
-        -- \
-        __constructor \
-        --owner "$owner_hex" \
-        --agent_signer "$agent_hex" \
-        --velocity_config '{"max_tx_count": 10, "max_total_amount": 100000000000, "window_size": 86400}' \
-        2>&1 || warn "Constructor may have been called during deploy"
-fi
-
-info "Contract ID: $CONTRACT_ID"
-
-# ── Step 5: Add merchant to allowlist ─────────────────────────────
-info "Adding merchant to allowlist..."
-stellar contract invoke \
-    --id "$CONTRACT_ID" \
-    --source beaver402-owner \
-    --network $NETWORK \
-    -- \
-    add_merchant \
-    --merchant_pubkey "$merchant_hex" \
-    2>&1 || warn "add_merchant failed (may need auth)"
-
-# ── Step 6: Verify deployment ─────────────────────────────────────
-info "Verifying deployment..."
-
-FROZEN=$(stellar contract invoke \
-    --id "$CONTRACT_ID" \
-    --source beaver402-owner \
-    --network $NETWORK \
-    -- \
-    is_frozen 2>&1) || true
-
-info "is_frozen: ${FROZEN:-unknown}"
-
-AGENT=$(stellar contract invoke \
-    --id "$CONTRACT_ID" \
-    --source beaver402-owner \
-    --network $NETWORK \
-    -- \
-    get_agent_signer 2>&1) || true
-
-info "agent_signer: ${AGENT:-unknown}"
-
-# ── Step 7: Write .env file (preserve existing Supabase keys) ────
-info "Writing backend/.env..."
-
-# Read existing Supabase values before overwriting
-EXISTING_SUPABASE_URL=""
-EXISTING_SUPABASE_ANON_KEY=""
-EXISTING_SUPABASE_SERVICE_KEY=""
-if [ -f "$ENV_FILE" ]; then
-    EXISTING_SUPABASE_URL=$(grep '^SUPABASE_URL=' "$ENV_FILE" | cut -d'=' -f2- || true)
-    EXISTING_SUPABASE_ANON_KEY=$(grep '^SUPABASE_ANON_KEY=' "$ENV_FILE" | cut -d'=' -f2- || true)
-    EXISTING_SUPABASE_SERVICE_KEY=$(grep '^SUPABASE_SERVICE_KEY=' "$ENV_FILE" | cut -d'=' -f2- || true)
-fi
+SUPABASE_URL=$(preserve SUPABASE_URL)
+SUPABASE_ANON_KEY=$(preserve SUPABASE_ANON_KEY)
+SUPABASE_SERVICE_KEY=$(preserve SUPABASE_SERVICE_KEY)
+RP_ID=$(preserve RP_ID)
+ORIGIN=$(preserve ORIGIN)
 
 cat > "$ENV_FILE" <<EOF
 SOROBAN_RPC_URL=$RPC_URL
 NETWORK_PASSPHRASE=$NETWORK_PASSPHRASE
 POLICY_CONTRACT_ID=$CONTRACT_ID
-OWNER_SECRET=$OWNER_SECRET
-MERCHANT_SECRET=$MERCHANT_SECRET
+FEE_SOURCE_SECRET=$DEPLOYER_SECRET
 AGENT_SECRET=$AGENT_SECRET
+MERCHANT_SECRET=$MERCHANT_SECRET
 RECIPIENT_ADDRESS=$MERCHANT_ADDR
-USDC_ISSUER=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
-RP_ID=localhost
-ORIGIN=http://localhost:5173
-CREDENTIAL_STORE=.beaver402-credentials.json
-SUPABASE_URL=${EXISTING_SUPABASE_URL}
-SUPABASE_ANON_KEY=${EXISTING_SUPABASE_ANON_KEY}
-SUPABASE_SERVICE_KEY=${EXISTING_SUPABASE_SERVICE_KEY}
+USDC_ISSUER=$USDC_CONTRACT
+RP_ID=${RP_ID:-localhost}
+ORIGIN=${ORIGIN:-http://localhost:5173}
+SUPABASE_URL=$SUPABASE_URL
+SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY
 PORT=3000
 EOF
 
 info "──────────────────────────────────────────────"
-info "Deployment complete!"
+info "Done"
 info "──────────────────────────────────────────────"
-info "Contract ID:  $CONTRACT_ID"
-info "Owner:        $OWNER_ADDR"
-info "Agent:        $AGENT_ADDR"
-info "Merchant:     $MERCHANT_ADDR"
-info ".env written: $ENV_FILE"
-info "──────────────────────────────────────────────"
+info "Contract:  $CONTRACT_ID"
+info "Explorer:  https://stellar.expert/explorer/testnet/contract/$CONTRACT_ID"
+info "Owner:     the registered passkey"
+info "Agent:     $AGENT_ADDR"
+info "Merchant:  $MERCHANT_ADDR"
 echo ""
 echo "Next steps:"
-echo "  1. cd backend && npm run dev"
-echo "  2. cd frontend && npm run dev"
-echo "  3. Open http://localhost:5173"
+echo "  1. Fund the account with testnet USDC: $CONTRACT_ID"
+echo "  2. Allowlist the merchant from the control panel"
+echo "  3. cd backend && npm run dev"
+echo "  4. cd frontend && npm run dev"
