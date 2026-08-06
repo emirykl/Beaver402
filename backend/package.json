@@ -9,6 +9,7 @@
     "dev": "tsx src/index.ts",
     "mcp": "tsx src/mcp/server.ts",
     "vectors": "tsx scripts/generate-vectors.ts",
+    "owner:key": "tsx scripts/owner-key.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
