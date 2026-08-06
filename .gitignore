@@ -7,3 +7,6 @@ dist/
 *.log
 .DS_Store
 beaver-allinfo.pdf
+
+# Soroban regenerates these on every test run with fresh random keys
+test_snapshots/
