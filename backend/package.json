@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/index.ts",
-    "mcp": "tsx src/mcp/server.ts",
+    "dev": "tsx --env-file-if-exists=.env src/index.ts",
+    "mcp": "tsx --env-file-if-exists=.env src/mcp/server.ts",
     "vectors": "tsx scripts/generate-vectors.ts",
-    "owner:key": "tsx scripts/owner-key.ts",
+    "owner:key": "tsx --env-file-if-exists=.env scripts/owner-key.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
