@@ -15,7 +15,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/backend/.env"
 
 USDC_CONTRACT="${USDC_CONTRACT:-CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA}"
-BACKEND_PORT="${BACKEND_PORT:-3000}"
+BACKEND_PORT="${BACKEND_PORT:-5402}"
+FRONTEND_PORT="${FRONTEND_PORT:-5403}"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -79,9 +80,12 @@ set_var RECIPIENT_ADDRESS "$MERCHANT_ADDR"
 set_var USDC_ISSUER "$USDC_CONTRACT"
 set_var PORT "$BACKEND_PORT"
 
-# Only set these when they are missing, so a deployed setup keeps its own.
+# A passkey is bound to the origin it was registered on, so a deployed
+# setup keeps whatever it has. Local ones follow the frontend port.
+if ! grep -q "^ORIGIN=" "$ENV_FILE" || grep -q "^ORIGIN=http://localhost" "$ENV_FILE"; then
+    set_var ORIGIN "http://localhost:$FRONTEND_PORT"
+fi
 grep -q "^RP_ID=" "$ENV_FILE" || set_var RP_ID "localhost"
-grep -q "^ORIGIN=" "$ENV_FILE" || set_var ORIGIN "http://localhost:5173"
 grep -q "^POLICY_CONTRACT_ID=" "$ENV_FILE" || set_var POLICY_CONTRACT_ID ""
 
 info "──────────────────────────────────────────────"

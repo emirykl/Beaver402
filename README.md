@@ -90,7 +90,7 @@ cd backend && npm run dev
 cd frontend && npm run dev
 ```
 
-The frontend runs at `http://localhost:5173` and proxies API requests to the backend on port 3000.
+The frontend runs at `http://localhost:5403` and proxies API requests to the backend on port 5402. Both can be moved with `FRONTEND_PORT` and `BACKEND_PORT` if something else already holds them.
 
 ## Smart Contract
 
