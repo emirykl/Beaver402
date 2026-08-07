@@ -90,6 +90,10 @@ export async function startRegistration(userId: string, userName: string) {
     rpID: RP_ID,
     userName,
     attestationType: "direct",
+    // The contract verifies secp256r1 and nothing else, so only ES256 is
+    // offered. Left to its own devices an authenticator may hand back an
+    // Ed25519 or RSA key, and the passkey would be useless as an owner.
+    supportedAlgorithmIDs: [-7],
     authenticatorSelection: {
       residentKey: "required",
       userVerification: "required",
