@@ -67,29 +67,16 @@ stellar contract build
 info "Built $(du -h "$WASM_PATH" | cut -f1) at $WASM_PATH"
 
 # ── Step 3: Keys ──────────────────────────────────────────────────
-ensure_key() {
-    local name=$1
-    if stellar keys address "$name" >/dev/null 2>&1; then
-        info "Key '$name' already exists"
-    else
-        info "Generating and funding '$name'..."
-        stellar keys generate "$name" --network "$NETWORK"
-        stellar keys fund "$name" --network "$NETWORK" \
-            || warn "Funding '$name' failed, it may already be funded"
-    fi
-}
-
-ensure_key "beaver402-deployer"
-ensure_key "beaver402-agent"
-ensure_key "beaver402-merchant"
+# setup-keys.sh made these before the backend was ever started, which
+# it had to be for the passkey above to exist.
+for key in beaver402-deployer beaver402-agent beaver402-merchant; do
+    stellar keys address "$key" >/dev/null 2>&1 \
+        || error "Key '$key' is missing. Run scripts/setup-keys.sh first."
+done
 
 DEPLOYER_ADDR=$(stellar keys address beaver402-deployer)
 AGENT_ADDR=$(stellar keys address beaver402-agent)
 MERCHANT_ADDR=$(stellar keys address beaver402-merchant)
-
-DEPLOYER_SECRET=$(stellar keys show beaver402-deployer)
-AGENT_SECRET=$(stellar keys show beaver402-agent)
-MERCHANT_SECRET=$(stellar keys show beaver402-merchant)
 
 info "Deployer: $DEPLOYER_ADDR"
 info "Agent:    $AGENT_ADDR"
@@ -142,36 +129,26 @@ AGENT_ON_CHAIN=$(stellar contract invoke --id "$CONTRACT_ID" --source beaver402-
     --network "$NETWORK" -- get_agent_signer)
 info "agent_signer: $AGENT_ON_CHAIN"
 
-# ── Step 7: Write backend/.env ────────────────────────────────────
-info "Writing $ENV_FILE..."
+# ── Step 7: Record the contract id ────────────────────────────────
+# Only this one value changes. Everything else in the file was put
+# there by setup-keys.sh and is still correct.
+info "Recording the contract id in $ENV_FILE..."
 
-preserve() {
-    # Keep a value that is already in the env file, if there is one.
-    [ -f "$ENV_FILE" ] && grep "^$1=" "$ENV_FILE" | head -1 | cut -d'=' -f2- || true
-}
-
-SUPABASE_URL=$(preserve SUPABASE_URL)
-SUPABASE_ANON_KEY=$(preserve SUPABASE_ANON_KEY)
-SUPABASE_SERVICE_KEY=$(preserve SUPABASE_SERVICE_KEY)
-RP_ID=$(preserve RP_ID)
-ORIGIN=$(preserve ORIGIN)
-
-cat > "$ENV_FILE" <<EOF
-SOROBAN_RPC_URL=$RPC_URL
-NETWORK_PASSPHRASE=$NETWORK_PASSPHRASE
-POLICY_CONTRACT_ID=$CONTRACT_ID
-FEE_SOURCE_SECRET=$DEPLOYER_SECRET
-AGENT_SECRET=$AGENT_SECRET
-MERCHANT_SECRET=$MERCHANT_SECRET
-RECIPIENT_ADDRESS=$MERCHANT_ADDR
-USDC_ISSUER=$USDC_CONTRACT
-RP_ID=${RP_ID:-localhost}
-ORIGIN=${ORIGIN:-http://localhost:5173}
-SUPABASE_URL=$SUPABASE_URL
-SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
-SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY
-PORT=3000
-EOF
+python3 - "$ENV_FILE" "$CONTRACT_ID" <<'PY'
+import sys
+path, contract_id = sys.argv[1], sys.argv[2]
+lines = open(path).read().splitlines() if __import__("os").path.exists(path) else []
+if any(line.startswith("POLICY_CONTRACT_ID=") for line in lines):
+    lines = [
+        f"POLICY_CONTRACT_ID={contract_id}"
+        if line.startswith("POLICY_CONTRACT_ID=")
+        else line
+        for line in lines
+    ]
+else:
+    lines.append(f"POLICY_CONTRACT_ID={contract_id}")
+open(path, "w").write("\n".join(lines) + "\n")
+PY
 
 info "──────────────────────────────────────────────"
 info "Done"
