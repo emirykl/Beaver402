@@ -1,12 +1,24 @@
 target/
 node_modules/
 dist/
-.env
 *.wasm
 .soroban/
 *.log
 .DS_Store
 beaver-allinfo.pdf
+
+# Anything holding a key stays out. The example file is the only one
+# that ships, and it carries names without values.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.beaver402-credentials.json
+
+# Local tooling and hosting state
+.vercel/
+.claude/settings.local.json
 
 # Soroban regenerates these on every test run with fresh random keys
 test_snapshots/
