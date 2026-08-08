@@ -15,8 +15,25 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/backend/.env"
 
 USDC_CONTRACT="${USDC_CONTRACT:-CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA}"
-BACKEND_PORT="${BACKEND_PORT:-5402}"
-FRONTEND_PORT="${FRONTEND_PORT:-5403}"
+# Ports are searched for rather than fixed, because whatever number we
+# picked would eventually collide with something else on the machine.
+port_is_free() {
+    ! (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+}
+
+find_free_port() {
+    local port=$1
+    local limit=$((port + 50))
+    while [ "$port" -lt "$limit" ]; do
+        if port_is_free "$port"; then
+            echo "$port"
+            return 0
+        fi
+        port=$((port + 1))
+    done
+    echo "no free port between $1 and $limit" >&2
+    return 1
+}
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -29,6 +46,14 @@ error() { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
 command -v stellar >/dev/null 2>&1 \
     || error "stellar CLI not found. Install it from https://developers.stellar.org/docs/tools/cli"
+
+BACKEND_PORT=$(find_free_port "${BACKEND_PORT:-3000}") \
+    || error "Could not find a free port for the backend"
+FRONTEND_PORT=$(find_free_port "${FRONTEND_PORT:-5173}") \
+    || error "Could not find a free port for the control panel"
+
+info "Backend port:  $BACKEND_PORT"
+info "Frontend port: $FRONTEND_PORT"
 
 # ── Keys ──────────────────────────────────────────────────────────
 ensure_key() {
@@ -79,6 +104,9 @@ set_var MERCHANT_SECRET "$(stellar keys show beaver402-merchant)"
 set_var RECIPIENT_ADDRESS "$MERCHANT_ADDR"
 set_var USDC_ISSUER "$USDC_CONTRACT"
 set_var PORT "$BACKEND_PORT"
+# The control panel reads this so its proxy and the passkey origin agree
+# with whichever ports were free.
+set_var FRONTEND_PORT "$FRONTEND_PORT"
 
 # A passkey is bound to the origin it was registered on, so a deployed
 # setup keeps whatever it has. Local ones follow the frontend port.
