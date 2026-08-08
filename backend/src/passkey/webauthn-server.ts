@@ -8,7 +8,11 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
 } from "@simplewebauthn/server";
-import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
+import {
+  decodeStoredBytes,
+  getSupabase,
+  isSupabaseConfigured,
+} from "../lib/supabase.js";
 
 const RP_NAME = "Beaver402";
 const RP_ID = process.env.RP_ID || "localhost";
@@ -41,7 +45,7 @@ async function getUserCredentials(userId: string): Promise<StoredCredential[]> {
 
   return data.map((row) => ({
     credentialID: row.credential_id,
-    credentialPublicKey: Array.from(Buffer.from(row.public_key, "base64")),
+    credentialPublicKey: Array.from(decodeStoredBytes(row.public_key)),
     counter: row.counter,
     transports: row.transports ?? undefined,
   }));

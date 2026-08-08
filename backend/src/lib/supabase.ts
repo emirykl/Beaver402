@@ -20,3 +20,21 @@ export function getSupabase(): SupabaseClient {
 export function isSupabaseConfigured(): boolean {
   return !!(SUPABASE_URL && SUPABASE_SERVICE_KEY);
 }
+
+/**
+ * Recover bytes from a value that came back out of a bytea column.
+ *
+ * A passkey public key is written as base64 text, but the column holding it
+ * is bytea, so Postgres stores the characters of that text and hands them
+ * back as a hex escape. Reading it as plain base64 yields nonsense, which is
+ * how a perfectly good passkey ends up looking corrupt.
+ *
+ * Both shapes are accepted so credentials registered either way still work.
+ */
+export function decodeStoredBytes(value: string): Buffer {
+  if (value.startsWith("\\x")) {
+    const asText = Buffer.from(value.slice(2), "hex").toString("utf-8");
+    return Buffer.from(asText, "base64");
+  }
+  return Buffer.from(value, "base64");
+}

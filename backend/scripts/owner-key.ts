@@ -8,7 +8,11 @@
  *
  * Run with: npm run owner:key [userId]
  */
-import { getSupabase, isSupabaseConfigured } from "../src/lib/supabase.js";
+import {
+  decodeStoredBytes,
+  getSupabase,
+  isSupabaseConfigured,
+} from "../src/lib/supabase.js";
 import { ownerKeyToHex } from "../src/passkey/owner-key.js";
 
 const userId = process.argv[2] || "owner";
@@ -46,7 +50,7 @@ async function main() {
   }
 
   const newest = data[0]!;
-  const cose = new Uint8Array(Buffer.from(newest.public_key, "base64"));
+  const cose = new Uint8Array(decodeStoredBytes(newest.public_key));
 
   // Only the hex goes to stdout, so the deploy script can read it directly.
   console.error(`passkey ${newest.credential_id} registered for ${userId}`);
