@@ -30,7 +30,8 @@ MAX_TX_COUNT="${MAX_TX_COUNT:-10}"
 MAX_TOTAL_AMOUNT="${MAX_TOTAL_AMOUNT:-100000000000}"
 WINDOW_SIZE="${WINDOW_SIZE:-86400}"
 
-PASSKEY_USER="${PASSKEY_USER:-owner}"
+# Matches the identifier the control panel registers under.
+PASSKEY_USER="${PASSKEY_USER:-beaver402-owner}"
 
 # ── Colors ────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -50,7 +51,7 @@ command -v stellar >/dev/null 2>&1 \
 # Read this first. Everything below is wasted work if there is no
 # passkey to own the account.
 info "Reading the owner passkey..."
-OWNER_KEY=$(cd "$ROOT_DIR/backend" && npm run --silent owner:key "$PASSKEY_USER") \
+OWNER_KEY=$(cd "$ROOT_DIR/backend" && npm run --silent owner:key "$PASSKEY_USER" 2>/dev/null) \
     || error "Could not read the owner passkey. Register one in the control panel first."
 
 if [ ${#OWNER_KEY} -ne 130 ]; then
