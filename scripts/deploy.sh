@@ -27,6 +27,7 @@ USDC_CONTRACT="${USDC_CONTRACT:-CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCI
 
 # Velocity budget the account starts with.
 MAX_TX_COUNT="${MAX_TX_COUNT:-10}"
+# A 128 bit amount has to be quoted, it does not fit a JSON number.
 MAX_TOTAL_AMOUNT="${MAX_TOTAL_AMOUNT:-100000000000}"
 WINDOW_SIZE="${WINDOW_SIZE:-86400}"
 
@@ -106,7 +107,7 @@ CONTRACT_ID=$(stellar contract deploy \
     -- \
     --owner "$OWNER_KEY" \
     --agent_signer "$AGENT_HEX" \
-    --velocity_config "{\"max_tx_count\":$MAX_TX_COUNT,\"max_total_amount\":$MAX_TOTAL_AMOUNT,\"window_size\":$WINDOW_SIZE}")
+    --velocity_config "{\"max_tx_count\":$MAX_TX_COUNT,\"max_total_amount\":\"$MAX_TOTAL_AMOUNT\",\"window_size\":$WINDOW_SIZE}")
 
 [ -n "$CONTRACT_ID" ] || error "Deploy produced no contract id"
 info "Contract deployed: $CONTRACT_ID"
