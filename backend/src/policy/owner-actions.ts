@@ -18,6 +18,8 @@ export const OWNER_ACTIONS = [
   "freeze_payments",
   "restore_payments",
   "revoke_agent_signer",
+  "add_merchant",
+  "remove_merchant",
 ] as const;
 
 export type OwnerAction = (typeof OWNER_ACTIONS)[number];
@@ -26,8 +28,32 @@ export function isOwnerAction(value: string): value is OwnerAction {
   return (OWNER_ACTIONS as readonly string[]).includes(value);
 }
 
+/** Some owner actions name a merchant, the rest take nothing. */
+export function argsFor(
+  action: OwnerAction,
+  merchantPubkey?: string
+): StellarSdk.xdr.ScVal[] {
+  if (action !== "add_merchant" && action !== "remove_merchant") {
+    return [];
+  }
+
+  if (!merchantPubkey) {
+    throw new Error(`${action} needs a merchant public key`);
+  }
+
+  const raw = /^[0-9a-fA-F]{64}$/.test(merchantPubkey)
+    ? Buffer.from(merchantPubkey, "hex")
+    : Buffer.from(
+        StellarSdk.StrKey.decodeEd25519PublicKey(merchantPubkey)
+      );
+
+  return [StellarSdk.xdr.ScVal.scvBytes(raw)];
+}
+
 export interface PreparedOwnerAction {
   action: OwnerAction;
+  /** Carried back on submit so the same call is rebuilt exactly. */
+  args: string[];
   /** What the passkey has to sign, ready to hand to navigator.credentials. */
   challenge: string;
   /** The unsigned authorization entry, carried back on submit. */
@@ -45,8 +71,10 @@ export interface PreparedOwnerAction {
 export async function prepareOwnerAction(
   action: OwnerAction,
   contractId: string,
-  feeSource: string
+  feeSource: string,
+  merchantPubkey?: string
 ): Promise<PreparedOwnerAction> {
+  const args = argsFor(action, merchantPubkey);
   const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
   const account = await server.getAccount(feeSource);
 
@@ -58,7 +86,7 @@ export async function prepareOwnerAction(
       StellarSdk.Operation.invokeContractFunction({
         contract: contractId,
         function: action,
-        args: [],
+        args,
       })
     )
     .setTimeout(300)
@@ -87,6 +115,7 @@ export async function prepareOwnerAction(
 
   return {
     action,
+    args: args.map((arg) => arg.toXDR("base64")),
     challenge: toWebAuthnChallenge(Buffer.from(payload)),
     authEntry: entry.toXDR("base64"),
     validUntilLedger,
@@ -128,7 +157,9 @@ export async function submitOwnerAction(
       StellarSdk.Operation.invokeContractFunction({
         contract: contractId,
         function: prepared.action,
-        args: [],
+        args: prepared.args.map((arg) =>
+          StellarSdk.xdr.ScVal.fromXDR(arg, "base64")
+        ),
         auth: [signed],
       })
     )

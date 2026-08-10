@@ -195,7 +195,12 @@ export function createPolicyRouter() {
     }
 
     try {
-      const prepared = await prepareOwnerAction(action, CONTRACT_ID, feeSource());
+      const prepared = await prepareOwnerAction(
+        action,
+        CONTRACT_ID,
+        feeSource(),
+        req.body?.merchantPubkey
+      );
       res.json({ success: true, prepared });
     } catch (err) {
       res.status(500).json({ success: false, error: String(err) });
