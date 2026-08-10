@@ -29,7 +29,9 @@ export async function fetchPolicyState(): Promise<PolicyState> {
 export type OwnerAction =
   | "freeze_payments"
   | "restore_payments"
-  | "revoke_agent_signer";
+  | "revoke_agent_signer"
+  | "add_merchant"
+  | "remove_merchant";
 
 export interface OwnerActionResult {
   success: boolean;
@@ -39,6 +41,7 @@ export interface OwnerActionResult {
 
 interface PreparedAction {
   action: OwnerAction;
+  args: string[];
   challenge: string;
   authEntry: string;
   validUntilLedger: number;
@@ -57,12 +60,15 @@ const JSON_HEADERS = {
  * Stellar key, and the backend cannot approve the action on its own, so
  * touching the authenticator is what actually moves the account.
  */
-async function runOwnerAction(action: OwnerAction): Promise<OwnerActionResult> {
+async function runOwnerAction(
+  action: OwnerAction,
+  merchantPubkey?: string
+): Promise<OwnerActionResult> {
   try {
     const prepareRes = await fetch(`${API_BASE}/prepare`, {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, merchantPubkey }),
     });
     const preparation = await prepareRes.json();
 
@@ -112,6 +118,31 @@ export async function restorePayments(): Promise<OwnerActionResult> {
 
 export async function revokeAgentSigner(): Promise<OwnerActionResult> {
   return runOwnerAction("revoke_agent_signer");
+}
+
+export async function allowMerchant(
+  merchantPubkey: string
+): Promise<OwnerActionResult> {
+  return runOwnerAction("add_merchant", merchantPubkey);
+}
+
+export interface MerchantInfo {
+  merchantPubkey: string;
+  recipient: string;
+  asset: string;
+  network: string;
+  price: string;
+}
+
+/** Who the demo merchant is, so the owner can see what they are approving. */
+export async function fetchMerchantInfo(): Promise<MerchantInfo | null> {
+  try {
+    const res = await fetch("/api/merchant-info");
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 export interface Transaction {

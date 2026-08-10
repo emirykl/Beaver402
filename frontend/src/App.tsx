@@ -2,6 +2,9 @@ import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   fetchPolicyState,
+  type MerchantInfo,
+  allowMerchant,
+  fetchMerchantInfo,
   freezePayments,
   restorePayments,
   revokeAgentSigner,
@@ -36,6 +39,7 @@ export default function App() {
   const [loading, setLoading] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<"idle" | "registering" | "authenticating">("idle");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [merchantInfo, setMerchantInfo] = useState<MerchantInfo | null>(null);
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
@@ -57,6 +61,7 @@ export default function App() {
     setPolicyState(state);
     const txs = await fetchTransactions();
     setTransactions(txs);
+    setMerchantInfo(await fetchMerchantInfo());
   }, []);
 
   const handleAuth = useCallback(async () => {
@@ -281,6 +286,21 @@ export default function App() {
               desc="Resume normal payment operations"
               loading={loading === "restore"}
               onClick={() => handleAction("restore", restorePayments)}
+            />
+            <ActionRow
+              label="Allowlist Demo Merchant"
+              desc={
+                merchantInfo
+                  ? `Approve ${merchantInfo.merchantPubkey.slice(0, 8)}...${merchantInfo.merchantPubkey.slice(-6)} to request payments`
+                  : "Approve the demo merchant to request payments"
+              }
+              loading={loading === "allowlist"}
+              onClick={() =>
+                merchantInfo &&
+                handleAction("allowlist", () =>
+                  allowMerchant(merchantInfo.merchantPubkey)
+                )
+              }
             />
             <ActionRow
               label="Revoke Agent Signer"
