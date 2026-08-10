@@ -46,13 +46,18 @@ export function buildAgentSignatureScVal(
 }
 
 /**
- * Merchant keys and signatures arrive base64 or hex depending on where they
- * were produced, so both are accepted and the length is what is enforced.
+ * The same value reaches us written three different ways depending on who
+ * produced it. A merchant identifies itself with a Stellar address, keys
+ * copied out of a config tend to be hex, and signatures come back from the
+ * signer as base64. The contract wants raw bytes in every case.
  */
 function toBuffer(value: string, expectedLength: number): Buffer {
+  if (expectedLength === 32 && /^G[A-Z2-7]{55}$/.test(value)) {
+    return Buffer.from(StellarSdk.StrKey.decodeEd25519PublicKey(value));
+  }
+
   const looksHex = /^[0-9a-fA-F]+$/.test(value) && value.length === expectedLength * 2;
-  const decoded = looksHex ? Buffer.from(value, "hex") : Buffer.from(value, "base64");
-  return decoded;
+  return looksHex ? Buffer.from(value, "hex") : Buffer.from(value, "base64");
 }
 
 function bytes(value: string, expectedLength: number, label: string): StellarSdk.xdr.ScVal {

@@ -112,3 +112,23 @@ describe("agent signature encoding", () => {
     );
   });
 });
+
+describe("the merchant public key", () => {
+  it("accepts a stellar address, which is how a merchant identifies itself", () => {
+    const address = "GC4QFRPN67VUCLBZ3SXT5XHKVZWY2PDR3O66J4IUIIK4KPZPAOW5FNFU";
+    const value = buildAgentSignatureScVal(payload({ merchantPubkey: address }));
+
+    const fields = new Map(
+      value
+        .vec()![1]!
+        .map()!
+        .map((entry) => [entry.key().sym().toString(), entry.val()])
+    );
+    const raw = fields.get("merchant_pubkey")!.bytes();
+
+    expect(raw.length).toBe(32);
+    expect(Buffer.from(raw)).toEqual(
+      Buffer.from(StellarSdk.StrKey.decodeEd25519PublicKey(address))
+    );
+  });
+});
