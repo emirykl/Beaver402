@@ -21,6 +21,19 @@ const BASE_FEE = "10000000";
 /// minutes, which is well inside the challenge expiry the merchant sets.
 const AUTH_VALIDITY_LEDGERS = 60;
 
+/// Seconds to wait for a ledger to close on the transaction. Testnet is
+/// usually a few seconds but has been slower under load.
+const CONFIRMATION_ATTEMPTS = 60;
+
+/// How many times to rebuild when the node hands back a sequence the network
+/// has already moved past.
+const SEND_ATTEMPTS = 3;
+
+/** Did the network refuse this because the sequence was stale? */
+function isStaleSequence(response: { errorResult?: unknown }): boolean {
+  return JSON.stringify(response.errorResult ?? "").includes("txBadSeq");
+}
+
 export interface Beaver402AdapterConfig {
   agentKeypair: StellarSdk.Keypair;
   policyContractId: string;
@@ -249,53 +262,70 @@ export class Beaver402Adapter {
     // Rebuild the call carrying the signed entries, then simulate once more
     // so the footprint and resource fees account for the policy running.
     //
-    // The account is read again because building the probe already advanced
-    // the sequence on the copy we were holding, and that probe was never
-    // submitted. Reusing it would send a transaction from a sequence the
-    // network has not reached.
-    const freshAccount = await server.getAccount(agentPubkey);
+    // The account is read again each time round, because building the probe
+    // advanced the sequence on the copy we were holding and that probe was
+    // never submitted. The node can also still be a ledger behind after an
+    // earlier payment, which shows up as a rejected sequence, so a stale one
+    // is worth one more try rather than reporting the payment as refused.
+    let sendResponse: Awaited<ReturnType<typeof server.sendTransaction>> | null = null;
 
-    const authorized = new StellarSdk.TransactionBuilder(freshAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: NETWORK_PASSPHRASE,
-    })
-      .addOperation(
-        StellarSdk.Operation.invokeContractFunction({
-          contract: challenge.fields.asset,
-          function: "transfer",
-          args: [
-            StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
-            StellarSdk.Address.fromString(challenge.fields.recipient).toScVal(),
-            StellarSdk.nativeToScVal(BigInt(policyPayload.amount), { type: "i128" }),
-          ],
-          auth: signedEntries,
-        })
-      )
-      .setTimeout(300)
-      .build();
+    for (let attempt = 0; attempt < SEND_ATTEMPTS; attempt += 1) {
+      const account = await server.getAccount(agentPubkey);
 
-    const simulated = await server.simulateTransaction(authorized);
-    if (StellarSdk.rpc.Api.isSimulationError(simulated)) {
-      // A policy rejection surfaces here, before anything is submitted.
-      return { success: false, error: `policy rejected the payment: ${simulated.error}` };
+      const authorized = new StellarSdk.TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          StellarSdk.Operation.invokeContractFunction({
+            contract: challenge.fields.asset,
+            function: "transfer",
+            args: [
+              StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
+              StellarSdk.Address.fromString(challenge.fields.recipient).toScVal(),
+              StellarSdk.nativeToScVal(BigInt(policyPayload.amount), { type: "i128" }),
+            ],
+            auth: signedEntries,
+          })
+        )
+        .setTimeout(300)
+        .build();
+
+      const simulated = await server.simulateTransaction(authorized);
+      if (StellarSdk.rpc.Api.isSimulationError(simulated)) {
+        // A policy refusal surfaces here, before anything is submitted.
+        return {
+          success: false,
+          error: `policy rejected the payment: ${simulated.error}`,
+        };
+      }
+
+      const prepared = StellarSdk.rpc.assembleTransaction(authorized, simulated).build();
+      prepared.sign(this.config.agentKeypair);
+
+      sendResponse = await server.sendTransaction(prepared);
+      if (sendResponse.status !== "ERROR") {
+        break;
+      }
+
+      if (!isStaleSequence(sendResponse) || attempt === SEND_ATTEMPTS - 1) {
+        return {
+          success: false,
+          error: `send failed: ${JSON.stringify(sendResponse)}`,
+        };
+      }
+
+      await new Promise((r) => setTimeout(r, 3000));
     }
 
-    const prepared = StellarSdk.rpc.assembleTransaction(authorized, simulated).build();
-    prepared.sign(this.config.agentKeypair);
-
-    const sendResponse = await server.sendTransaction(prepared);
-    if (sendResponse.status === "ERROR") {
-      return {
-        success: false,
-        error: `send failed: ${JSON.stringify(sendResponse)}`,
-      };
+    if (!sendResponse) {
+      return { success: false, error: "the transaction was never submitted" };
     }
 
-    // poll for result
+    // Wait for the network to say what happened.
     let getResponse = await server.getTransaction(sendResponse.hash);
-    const maxAttempts = 30;
     let attempt = 0;
-    while (getResponse.status === "NOT_FOUND" && attempt < maxAttempts) {
+    while (getResponse.status === "NOT_FOUND" && attempt < CONFIRMATION_ATTEMPTS) {
       await new Promise((r) => setTimeout(r, 1000));
       getResponse = await server.getTransaction(sendResponse.hash);
       attempt++;
@@ -305,9 +335,23 @@ export class Beaver402Adapter {
       return { success: true, txHash: sendResponse.hash };
     }
 
+    // Running out of patience is not the same as being refused. The
+    // transaction may still land, so this reports that the outcome is
+    // unknown rather than claiming nothing was paid.
+    if (getResponse.status === "NOT_FOUND") {
+      return {
+        success: false,
+        error:
+          `the network did not confirm ${sendResponse.hash} within ` +
+          `${CONFIRMATION_ATTEMPTS} seconds, so the outcome is unknown`,
+        txHash: sendResponse.hash,
+      };
+    }
+
     return {
       success: false,
       error: `transaction ${getResponse.status}`,
+      txHash: sendResponse.hash,
     };
   }
 }
