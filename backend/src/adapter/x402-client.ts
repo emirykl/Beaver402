@@ -247,8 +247,15 @@ export class Beaver402Adapter {
     }
 
     // Rebuild the call carrying the signed entries, then simulate once more
-    // so the footprint and resource fees account for running __check_auth.
-    const authorized = new StellarSdk.TransactionBuilder(sourceAccount, {
+    // so the footprint and resource fees account for the policy running.
+    //
+    // The account is read again because building the probe already advanced
+    // the sequence on the copy we were holding, and that probe was never
+    // submitted. Reusing it would send a transaction from a sequence the
+    // network has not reached.
+    const freshAccount = await server.getAccount(agentPubkey);
+
+    const authorized = new StellarSdk.TransactionBuilder(freshAccount, {
       fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
     })
