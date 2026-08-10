@@ -1,7 +1,9 @@
 import {
-  hashIntent,
-  hashBody,
   fieldsMatch,
+  hashBody,
+  hashIntent,
+  normalizeAmount,
+  normalizeEndpoint,
 } from "../shared/hashing.js";
 import type {
   IntentFields,
@@ -70,29 +72,37 @@ export function verifyChallengeIntentMatch(
   intent: SignedIntent
 ): { matches: boolean; reason?: string } {
   if (!fieldsMatch(challenge.fields, intent.fields)) {
-    const mismatches: string[] = [];
+    // Every field the two sides have to agree on is named here, so a refusal
+    // says which one disagreed rather than just that something did.
+    const comparisons: Array<[string, string, string]> = [
+      ["version", challenge.fields.version, intent.fields.version],
+      ["merchantPubkey", challenge.fields.merchantPubkey, intent.fields.merchantPubkey],
+      [
+        "httpMethod",
+        challenge.fields.httpMethod.toUpperCase(),
+        intent.fields.httpMethod.toUpperCase(),
+      ],
+      [
+        "endpoint",
+        normalizeEndpoint(challenge.fields.normalizedEndpoint),
+        normalizeEndpoint(intent.fields.normalizedEndpoint),
+      ],
+      ["bodyHash", challenge.fields.bodyHash, intent.fields.bodyHash],
+      ["recipient", challenge.fields.recipient, intent.fields.recipient],
+      ["asset", challenge.fields.asset, intent.fields.asset],
+      [
+        "amount",
+        normalizeAmount(challenge.fields.amount),
+        normalizeAmount(intent.fields.amount),
+      ],
+      ["network", challenge.fields.network, intent.fields.network],
+      ["nonce", challenge.fields.nonce, intent.fields.nonce],
+      ["expiry", challenge.fields.expiry, intent.fields.expiry],
+    ];
 
-    if (
-      challenge.fields.httpMethod.toUpperCase() !==
-      intent.fields.httpMethod.toUpperCase()
-    ) {
-      mismatches.push("httpMethod");
-    }
-    if (challenge.fields.bodyHash !== intent.fields.bodyHash) {
-      mismatches.push("bodyHash");
-    }
-    if (challenge.fields.recipient !== intent.fields.recipient) {
-      mismatches.push("recipient");
-    }
-    if (challenge.fields.asset !== intent.fields.asset) {
-      mismatches.push("asset");
-    }
-    if (challenge.fields.amount !== intent.fields.amount) {
-      mismatches.push("amount");
-    }
-    if (challenge.fields.network !== intent.fields.network) {
-      mismatches.push("network");
-    }
+    const mismatches = comparisons
+      .filter(([, left, right]) => left !== right)
+      .map(([field]) => field);
 
     return {
       matches: false,
