@@ -11,7 +11,8 @@
     "vectors": "tsx scripts/generate-vectors.ts",
     "owner:key": "tsx --env-file-if-exists=.env scripts/owner-key.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "scenarios": "tsx --env-file-if-exists=.env scripts/scenarios.ts"
   },
   "keywords": [
     "stellar",
