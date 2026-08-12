@@ -78,6 +78,7 @@ signer existing, so revoking it cannot brick the account.
 
 | | |
 |---|---|
+| [Evidence](docs/evidence.md) | what the deployed contract did, with transactions |
 | [Canonical encoding](docs/canonical-encoding.md) | how a challenge and an intent become bytes, and the domain rules |
 | [Threat model](docs/threat-model.md) | what is defended against, and what is not |
 
