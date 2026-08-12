@@ -124,6 +124,35 @@ function extractMap(sim: Awaited<ReturnType<typeof callContractView>>): Map<stri
   return result;
 }
 
+/** Whether the owner has approved the merchant this backend demonstrates. */
+async function isDemoMerchantApproved(): Promise<boolean> {
+  const secret = process.env.MERCHANT_SECRET;
+  if (!secret) return false;
+
+  try {
+    const raw = StellarSdk.StrKey.decodeEd25519PublicKey(
+      StellarSdk.Keypair.fromSecret(secret).publicKey()
+    );
+    const sim = await callContractView("is_merchant", [
+      StellarSdk.xdr.ScVal.scvBytes(Buffer.from(raw)),
+    ]);
+    const retval = getRetval(sim);
+    return retval?.switch().name === "scvBool" && retval.value() === true;
+  } catch {
+    return false;
+  }
+}
+
+async function readMaxTxCount(): Promise<number> {
+  try {
+    const sim = await callContractView("get_velocity_config");
+    const parsed = extractMap(sim);
+    return Number(parsed.get("max_tx_count") ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
 export function createPolicyRouter() {
   const router = express.Router();
 
@@ -135,6 +164,8 @@ export function createPolicyRouter() {
         velocityTxCount: 0,
         velocityTotalAmount: "0",
         contractId: "not deployed",
+        merchantApproved: false,
+        velocityMaxTxCount: 0,
       });
       return;
     }
@@ -162,12 +193,19 @@ export function createPolicyRouter() {
         // use defaults
       }
 
+      // The control panel needs these to tell the owner what is still to do
+      // and how much of the budget is left.
+      const merchantApproved = await isDemoMerchantApproved();
+      const velocityMaxTxCount = await readMaxTxCount();
+
       res.json({
         frozen,
         agentSigner,
         velocityTxCount,
         velocityTotalAmount,
         contractId: CONTRACT_ID,
+        merchantApproved,
+        velocityMaxTxCount,
       });
     } catch (err) {
       res.status(500).json({ error: String(err) });
