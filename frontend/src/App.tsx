@@ -34,6 +34,8 @@ export default function App() {
     velocityTxCount: 0,
     velocityTotalAmount: "0",
     contractId: "not connected",
+    merchantApproved: false,
+    velocityMaxTxCount: 0,
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
@@ -150,6 +152,10 @@ export default function App() {
     [authenticated, addLog, refresh]
   );
 
+  const stepsDone =
+    (authenticated ? 1 : 0) + (policyState.merchantApproved ? 1 : 0);
+  const setupDone = stepsDone === 2;
+
   return (
     <div style={page}>
       <motion.div
@@ -169,66 +175,59 @@ export default function App() {
             visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease } },
           }}
         >
+          <img src="/beaver402-logo.png" alt="" style={logo} />
           <h1 style={title}>Beaver402</h1>
-          <p style={subtitle}>Payment Policy</p>
+          <p style={subtitle}>Your agent can only pay for what you approved</p>
         </motion.header>
 
-        {/* Auth */}
-        <Card delay={0}>
-          <div style={sectionHeader}>
-            <div style={dot(authenticated ? "#34c759" : "#8e8e93")} />
-            <span style={sectionTitle}>
-              {authenticated ? "Connected" : "Authentication"}
-            </span>
-          </div>
-          <AnimatePresence mode="wait">
-            {!authenticated ? (
-              <motion.div
-                key="unauth"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, ease }}
-              >
-                <p style={bodyText}>
-                  Use your passkey to manage this payment policy.
-                </p>
-                <motion.button
-                  style={{
-                    ...btnPrimary,
-                    opacity: authMode !== "idle" ? 0.6 : 1,
-                  }}
-                  whileHover={authMode === "idle" ? { scale: 1.015 } : {}}
-                  whileTap={authMode === "idle" ? { scale: 0.985 } : {}}
-                  onClick={authMode === "idle" ? handleAuth : undefined}
-                >
-                  {authMode === "authenticating"
-                    ? "Verifying..."
-                    : authMode === "registering"
-                      ? "Registering..."
-                      : "Continue with Passkey"}
-                </motion.button>
-              </motion.div>
-            ) : (
-              <motion.p
-                key="auth"
-                style={bodyTextMuted}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                Passkey verified. Owner permissions active.
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </Card>
+        {/* Getting started */}
+        {!setupDone && (
+          <Card delay={0}>
+            <div style={sectionHeader}>
+              <span style={sectionTitle}>Getting started</span>
+              <span style={countBadge}>
+                {stepsDone} of 2
+              </span>
+            </div>
+            <p style={bodyText}>
+              Two things once, and the account is ready to protect payments.
+            </p>
+            <div style={actionList}>
+              <StepRow
+                number={1}
+                label="Sign in with your passkey"
+                desc="Touch ID proves you own this account. Nothing leaves your device."
+                done={authenticated}
+                busy={authMode !== "idle"}
+                onClick={handleAuth}
+              />
+              <StepRow
+                number={2}
+                label="Approve the demo merchant"
+                desc={
+                  policyState.merchantApproved
+                    ? "Approved. This merchant may now ask to be paid."
+                    : "Until you approve one, every payment is refused."
+                }
+                done={policyState.merchantApproved}
+                waiting={!authenticated}
+                busy={loading === "approve"}
+                onClick={() =>
+                  merchantInfo &&
+                  handleAction("approve", () =>
+                    allowMerchant(merchantInfo.merchantPubkey)
+                  )
+                }
+                last
+              />
+            </div>
+          </Card>
+        )}
 
         {/* Status */}
         <Card delay={1}>
           <div style={sectionHeader}>
-            <div
-              style={dot(policyState.frozen ? "#ff3b30" : "#34c759")}
-            />
+            <div style={dot(policyState.frozen ? "#ff3b30" : "#34c759")} />
             <span style={sectionTitle}>Status</span>
             <motion.span
               style={{
@@ -241,77 +240,76 @@ export default function App() {
               layout
               transition={{ duration: 0.3, ease }}
             >
-              {policyState.frozen ? "Frozen" : "Active"}
+              {policyState.frozen ? "Payments stopped" : "Payments active"}
             </motion.span>
           </div>
 
+          <p style={bodyText}>
+            {policyState.frozen
+              ? "Nothing can be paid until you resume. The account stopped either because you asked it to, or because it hit its daily limit."
+              : policyState.agentSigner
+                ? "The agent can pay approved merchants, up to the daily limit."
+                : "The agent has no signing authority left, so nothing can be paid."}
+          </p>
+
           <div style={infoList}>
-            <Row label="Contract" value={trunc(policyState.contractId)} />
             <Row
-              label="Agent Signer"
-              value={
-                policyState.agentSigner
-                  ? trunc(policyState.agentSigner)
-                  : "Revoked"
-              }
+              label="Agent"
+              value={policyState.agentSigner ? "Can pay" : "Revoked"}
               muted={!policyState.agentSigner}
             />
             <Row
-              label="Transactions"
-              value={String(policyState.velocityTxCount)}
+              label="Used today"
+              value={
+                policyState.velocityMaxTxCount > 0
+                  ? `${policyState.velocityTxCount} of ${policyState.velocityMaxTxCount} payments`
+                  : `${policyState.velocityTxCount} payments`
+              }
             />
-            <Row
-              label="Volume"
-              value={`${policyState.velocityTotalAmount} stroops`}
-              last
-            />
+            <Row label="Account" value={trunc(policyState.contractId, 18)} last />
           </div>
         </Card>
 
-        {/* Actions */}
-        <Card delay={2}>
-          <div style={sectionHeader}>
-            <span style={sectionTitle}>Actions</span>
-          </div>
-          <div style={actionList}>
-            <ActionRow
-              label="Freeze Payments"
-              desc="Stop all outgoing payments immediately"
-              destructive
-              loading={loading === "freeze"}
-              onClick={() => handleAction("freeze", freezePayments)}
-            />
-            <ActionRow
-              label="Restore Payments"
-              desc="Resume normal payment operations"
-              loading={loading === "restore"}
-              onClick={() => handleAction("restore", restorePayments)}
-            />
-            <ActionRow
-              label="Allowlist Demo Merchant"
-              desc={
-                merchantInfo
-                  ? `Approve ${merchantInfo.merchantPubkey.slice(0, 8)}...${merchantInfo.merchantPubkey.slice(-6)} to request payments`
-                  : "Approve the demo merchant to request payments"
-              }
-              loading={loading === "allowlist"}
-              onClick={() =>
-                merchantInfo &&
-                handleAction("allowlist", () =>
-                  allowMerchant(merchantInfo.merchantPubkey)
-                )
-              }
-            />
-            <ActionRow
-              label="Revoke Agent Signer"
-              desc="Permanently remove the agent's signing authority"
-              destructive
-              loading={loading === "revoke"}
-              onClick={() => handleAction("revoke", revokeAgentSigner)}
-              last
-            />
-          </div>
-        </Card>
+        {/* Controls */}
+        {setupDone && (
+          <Card delay={2}>
+            <div style={sectionHeader}>
+              <span style={sectionTitle}>Controls</span>
+            </div>
+            <p style={bodyText}>
+              Each of these asks for Touch ID, because only you can authorize
+              them.
+            </p>
+            <div style={actionList}>
+              {policyState.frozen ? (
+                <ActionRow
+                  label="Resume payments"
+                  desc="Let the agent pay again, and clear the daily counter"
+                  loading={loading === "resume"}
+                  onClick={() => handleAction("resume", restorePayments)}
+                />
+              ) : (
+                <ActionRow
+                  label="Stop all payments"
+                  desc="Refuse every payment from now on, until you resume"
+                  destructive
+                  loading={loading === "stop"}
+                  onClick={() => handleAction("stop", freezePayments)}
+                />
+              )}
+              {policyState.agentSigner && (
+                <ActionRow
+                  label="Revoke the agent"
+                  desc="Take away its signing key for good. This cannot be undone."
+                  destructive
+                  loading={loading === "revoke"}
+                  onClick={() => handleAction("revoke", revokeAgentSigner)}
+                  last
+                />
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Transactions */}
         <Card delay={3}>
@@ -453,6 +451,87 @@ function Row({
   );
 }
 
+function StepRow({
+  number,
+  label,
+  desc,
+  done,
+  waiting,
+  busy,
+  onClick,
+  last,
+}: {
+  number: number;
+  label: string;
+  desc: string;
+  done: boolean;
+  waiting?: boolean;
+  busy?: boolean;
+  onClick: () => void;
+  last?: boolean;
+}) {
+  const blocked = done || waiting || busy;
+
+  return (
+    <motion.div
+      style={{
+        ...actionRow,
+        ...(last ? { border: "none" } : {}),
+        opacity: waiting ? 0.4 : busy ? 0.6 : 1,
+        cursor: blocked ? "default" : "pointer",
+      }}
+      whileHover={blocked ? {} : { backgroundColor: "rgba(255,255,255,0.03)" }}
+      whileTap={blocked ? {} : { scale: 0.995 }}
+      onClick={blocked ? undefined : onClick}
+    >
+      <div style={stepBody}>
+        <div style={done ? stepMarkDone : stepMark}>
+          {done ? (
+            <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path
+                d="M1 4.5L4 7.5L10 1.5"
+                stroke="#000"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            number
+          )}
+        </div>
+        <div>
+          <div style={actionLabel}>{label}</div>
+          <div style={actionDesc}>{desc}</div>
+        </div>
+      </div>
+      {!done && !waiting && (
+        <span style={chevron}>
+          {busy ? (
+            <motion.span
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+              style={{ display: "inline-block" }}
+            >
+              &bull;
+            </motion.span>
+          ) : (
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
+              <path
+                d="M1 1l5 5-5 5"
+                stroke="#3a3a3c"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </span>
+      )}
+    </motion.div>
+  );
+}
+
 function ActionRow({
   label,
   desc,
@@ -531,6 +610,41 @@ const ff =
   "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 const mono =
   "'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, monospace";
+
+const logo: React.CSSProperties = {
+  width: 56,
+  height: 56,
+  borderRadius: 14,
+  objectFit: "cover",
+  marginBottom: 14,
+};
+
+const stepBody: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 12,
+};
+
+const stepMark: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 11,
+  border: "1px solid #3a3a3c",
+  color: "#8e8e93",
+  fontSize: 12,
+  fontWeight: 600,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+  marginTop: 1,
+};
+
+const stepMarkDone: React.CSSProperties = {
+  ...stepMark,
+  border: "none",
+  background: "#34c759",
+};
 
 const page: React.CSSProperties = {
   minHeight: "100vh",
