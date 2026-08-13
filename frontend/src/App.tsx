@@ -43,12 +43,7 @@ export default function App() {
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
-      const time = new Date().toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
+      const time = new Date().toLocaleTimeString("en-GB", { hour12: false });
       setLogs((prev) => [{ id: ++logId, time, message, type }, ...prev].slice(0, 30));
     },
     []
@@ -63,7 +58,7 @@ export default function App() {
   const handleAuth = useCallback(async () => {
     const userId = "beaver402-owner";
     setAuthMode("authenticating");
-    addLog("Waiting for your passkey");
+    addLog("awaiting passkey");
 
     try {
       if (await authenticatePasskey(userId)) {
@@ -73,17 +68,17 @@ export default function App() {
           body: JSON.stringify({ sessionId: "default" }),
         });
         setAuthenticated(true);
-        addLog("Signed in", "success");
+        addLog("owner verified", "success");
         refresh();
         setAuthMode("idle");
         return;
       }
     } catch {
-      // No passkey on this device yet, so make one.
+      // No passkey on this device yet, so enrol one.
     }
 
     setAuthMode("registering");
-    addLog("No passkey here yet, creating one");
+    addLog("no passkey on this device, enrolling");
     try {
       if (await registerPasskey(userId)) {
         await fetch("/api/auth/session", {
@@ -92,13 +87,13 @@ export default function App() {
           body: JSON.stringify({ sessionId: "default" }),
         });
         setAuthenticated(true);
-        addLog("Passkey created, signed in", "success");
+        addLog("passkey enrolled, owner verified", "success");
         refresh();
       } else {
-        addLog("Could not create a passkey", "error");
+        addLog("enrolment refused", "error");
       }
     } catch {
-      addLog("This browser refused the passkey", "error");
+      addLog("this browser refused the passkey", "error");
     }
     setAuthMode("idle");
   }, [addLog, refresh]);
@@ -113,90 +108,90 @@ export default function App() {
       fn: () => Promise<{ success: boolean; txHash?: string; error?: string }>
     ) => {
       setLoading(action);
-      addLog(`${action}: waiting for your passkey`);
+      addLog(`${action} :: awaiting passkey`);
       try {
         const result = await fn();
         if (result.success) {
           addLog(
-            `${action}: done${result.txHash ? ` ${result.txHash.slice(0, 10)}` : ""}`,
+            `${action} :: confirmed${result.txHash ? ` ${result.txHash.slice(0, 12)}` : ""}`,
             "success"
           );
           await refresh();
         } else {
-          addLog(`${action}: ${result.error ?? "refused"}`, "error");
+          addLog(`${action} :: ${result.error ?? "refused"}`, "error");
         }
       } catch {
-        addLog(`${action}: something went wrong`, "error");
+        addLog(`${action} :: failed`, "error");
       }
       setLoading(null);
     },
     [addLog, refresh]
   );
 
-  // ── Sign in ─────────────────────────────────────────────────────
+  // ── Authentication gate ─────────────────────────────────────────
   if (!authenticated) {
     return (
       <div style={{ ...page, ...gateLayout }}>
-        <Frame style={gateBox}>
+        <Panel style={gateBox}>
           <img src="/beaver402-logo.png" alt="" style={gateLogo} />
-          <h1 style={gateTitle}>BEAVER402</h1>
-          <div style={rule} />
-          <p style={gateText}>
-            YOUR AGENT CAN ONLY PAY
-            <br />
-            FOR WHAT YOU APPROVED
-          </p>
+          <div>
+            <h1 style={gateTitle}>BEAVER402</h1>
+            <div style={gateTag}>PAYMENT AUTHORITY CONSOLE</div>
+          </div>
+
+          <div style={gateBrief}>
+            <Line label="ROLE" value="ACCOUNT OWNER" />
+            <Line label="METHOD" value="WEBAUTHN / SECP256R1" />
+            <Line label="NETWORK" value="STELLAR TESTNET" />
+          </div>
+
           <Button
             label={
               authMode === "authenticating"
-                ? "CHECKING"
+                ? "VERIFYING"
                 : authMode === "registering"
-                  ? "CREATING"
+                  ? "ENROLLING"
                   : "SIGN IN WITH PASSKEY"
             }
-            disabled={authMode !== "idle"}
+            busy={authMode !== "idle"}
             onClick={handleAuth}
           />
-          <p style={gateHint}>TOUCH ID CONFIRMS YOU OWN THIS ACCOUNT</p>
-        </Frame>
+          <div style={gateNote}>
+            Your key never leaves this device. Touch ID authorizes every action.
+          </div>
+        </Panel>
       </div>
     );
   }
 
   const needsMerchant = !policyState.merchantApproved;
+  const live = !policyState.frozen && policyState.agentSigner !== null;
 
-  // ── Control panel ───────────────────────────────────────────────
+  // ── Console ─────────────────────────────────────────────────────
   return (
     <div style={page}>
       <div style={shell}>
-        <Frame style={topBar}>
+        <Panel style={topBar}>
           <img src="/beaver402-logo.png" alt="" style={topLogo} />
-          <div style={topText}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={topTitle}>BEAVER402</div>
-            <div style={topSub}>{shorten(policyState.contractId, 22)}</div>
+            <div style={topSub}>{policyState.contractId}</div>
           </div>
-          <div
-            style={{
-              ...chip,
-              color: policyState.frozen ? red : green,
-              borderColor: policyState.frozen ? red : green,
-            }}
-          >
-            {policyState.frozen ? "STOPPED" : "RUNNING"}
-          </div>
-        </Frame>
+          <Indicator on={live} label={policyState.frozen ? "HALTED" : "ARMED"} />
+        </Panel>
 
         <div style={columns}>
-          {/* Left: state and controls */}
+          {/* Left: state and command */}
           <div style={column}>
             {needsMerchant && (
-              <Frame>
-                <Title>ONE STEP LEFT</Title>
+              <Panel accent={amber}>
+                <Header text="ACTION REQUIRED" tone={amber} />
                 <p style={body}>
-                  No merchant is approved yet, so every payment is refused.
+                  No merchant is approved. Every payment is refused until one is.
                 </p>
                 <Button
-                  label={loading === "approve" ? "WAITING" : "APPROVE MERCHANT"}
+                  label="APPROVE MERCHANT"
+                  busy={loading === "approve"}
                   disabled={loading !== null || !merchantInfo}
                   onClick={() =>
                     merchantInfo &&
@@ -205,20 +200,20 @@ export default function App() {
                     )
                   }
                 />
-              </Frame>
+              </Panel>
             )}
 
-            <Frame>
-              <Title>STATUS</Title>
-              <Readout
+            <Panel>
+              <Header text="STATUS" />
+              <Line
                 label="PAYMENTS"
-                value={policyState.frozen ? "STOPPED" : "RUNNING"}
-                tone={policyState.frozen ? "red" : "green"}
+                value={policyState.frozen ? "HALTED" : "ACTIVE"}
+                tone={policyState.frozen ? red : green}
               />
-              <Readout
+              <Line
                 label="AGENT"
-                value={policyState.agentSigner ? "CAN PAY" : "REVOKED"}
-                tone={policyState.agentSigner ? "green" : "red"}
+                value={policyState.agentSigner ? "AUTHORIZED" : "REVOKED"}
+                tone={policyState.agentSigner ? green : red}
               />
               <Meter
                 used={policyState.velocityTxCount}
@@ -226,51 +221,52 @@ export default function App() {
               />
               <p style={body}>
                 {policyState.frozen
-                  ? "Nothing can be paid until you resume."
+                  ? "The account refuses every payment until it is resumed."
                   : policyState.agentSigner
-                    ? "The agent can pay approved merchants, up to the daily limit."
-                    : "The agent has no key left, so nothing can be paid."}
+                    ? "The agent may pay approved merchants, within the daily limit."
+                    : "The agent holds no key, so nothing can be paid."}
               </p>
-            </Frame>
+            </Panel>
 
             {!needsMerchant && (
-              <Frame>
-                <Title>CONTROLS</Title>
+              <Panel>
+                <Header text="COMMAND" />
                 {policyState.frozen ? (
                   <Button
-                    label={loading === "resume" ? "WAITING" : "RESUME PAYMENTS"}
+                    label="RESUME PAYMENTS"
+                    busy={loading === "resume"}
                     disabled={loading !== null}
                     onClick={() => handleAction("resume", restorePayments)}
                   />
                 ) : (
                   <Button
-                    label={loading === "stop" ? "WAITING" : "STOP ALL PAYMENTS"}
+                    label="HALT ALL PAYMENTS"
                     danger
+                    busy={loading === "stop"}
                     disabled={loading !== null}
                     onClick={() => handleAction("stop", freezePayments)}
                   />
                 )}
                 {policyState.agentSigner && (
                   <Button
-                    label={loading === "revoke" ? "WAITING" : "REVOKE THE AGENT"}
+                    label="REVOKE AGENT KEY"
                     danger
+                    busy={loading === "revoke"}
                     disabled={loading !== null}
                     onClick={() => handleAction("revoke", revokeAgentSigner)}
                   />
                 )}
-                <p style={body}>Each one asks for Touch ID.</p>
-              </Frame>
+                <p style={body}>Each command requires Touch ID.</p>
+              </Panel>
             )}
           </div>
 
-          {/* Right: what happened */}
+          {/* Right: record */}
           <div style={column}>
-            <Frame>
-              <Title>
-                PAYMENTS <span style={count}>{transactions.length}</span>
-              </Title>
+            <Panel>
+              <Header text="SETTLEMENTS" badge={String(transactions.length)} />
               {transactions.length === 0 ? (
-                <p style={body}>Nothing paid yet.</p>
+                <p style={body}>No settlements recorded.</p>
               ) : (
                 <div style={scroller}>
                   {transactions.map((tx) => (
@@ -278,12 +274,12 @@ export default function App() {
                   ))}
                 </div>
               )}
-            </Frame>
+            </Panel>
 
-            <Frame>
-              <Title>LOG</Title>
+            <Panel>
+              <Header text="LOG" />
               {logs.length === 0 ? (
-                <p style={body}>Nothing yet.</p>
+                <p style={body}>Standing by.</p>
               ) : (
                 <div style={logScroller}>
                   {logs.map((entry) => (
@@ -296,7 +292,7 @@ export default function App() {
                   ))}
                 </div>
               )}
-            </Frame>
+            </Panel>
           </div>
         </div>
       </div>
@@ -306,30 +302,81 @@ export default function App() {
 
 /* ---- Pieces ---- */
 
-/** A panel with the corner brackets, wood body and raised edge. */
-function Frame({
+/** A bordered section with tick marks at the corners. */
+function Panel({
   children,
   style,
+  accent,
 }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
+  accent?: string;
 }) {
   return (
-    <section style={{ ...frame, ...style }}>
-      <span style={{ ...corner, top: 6, left: 6, borderWidth: "2px 0 0 2px" }} />
-      <span style={{ ...corner, top: 6, right: 6, borderWidth: "2px 2px 0 0" }} />
-      <span style={{ ...corner, bottom: 6, left: 6, borderWidth: "0 0 2px 2px" }} />
-      <span style={{ ...corner, bottom: 6, right: 6, borderWidth: "0 2px 2px 0" }} />
+    <section
+      style={{
+        ...panel,
+        ...(accent ? { borderColor: `${accent}55` } : {}),
+        ...style,
+      }}
+    >
+      <span style={{ ...tick, top: -1, left: -1, borderWidth: "1px 0 0 1px" }} />
+      <span style={{ ...tick, top: -1, right: -1, borderWidth: "1px 1px 0 0" }} />
+      <span style={{ ...tick, bottom: -1, left: -1, borderWidth: "0 0 1px 1px" }} />
+      <span style={{ ...tick, bottom: -1, right: -1, borderWidth: "0 1px 1px 0" }} />
       {children}
     </section>
   );
 }
 
-function Title({ children }: { children: React.ReactNode }) {
+function Header({
+  text,
+  badge,
+  tone,
+}: {
+  text: string;
+  badge?: string;
+  tone?: string;
+}) {
   return (
-    <div>
-      <div style={titleText}>{children}</div>
-      <div style={rule} />
+    <div style={headerRow}>
+      <span style={{ ...headerText, color: tone ?? dim }}>{text}</span>
+      <span style={headerLine} />
+      {badge && <span style={headerBadge}>{badge}</span>}
+    </div>
+  );
+}
+
+function Line({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <div style={lineRow}>
+      <span style={lineLabel}>{label}</span>
+      <span style={lineDots} />
+      <span style={{ ...lineValue, color: tone ?? text }}>{value}</span>
+    </div>
+  );
+}
+
+/** A pulsing lamp, the way a console shows whether it is live. */
+function Indicator({ on, label }: { on: boolean; label: string }) {
+  return (
+    <div style={indicator}>
+      <span
+        style={{
+          ...lamp,
+          background: on ? green : red,
+          boxShadow: `0 0 10px ${on ? green : red}`,
+        }}
+      />
+      <span style={{ ...indicatorText, color: on ? green : red }}>{label}</span>
     </div>
   );
 }
@@ -339,91 +386,59 @@ function Button({
   onClick,
   disabled,
   danger,
+  busy,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
+  busy?: boolean;
 }) {
   const [hover, setHover] = useState(false);
-  const [held, setHeld] = useState(false);
-
-  const face = disabled
-    ? "#3a2c1e"
-    : danger
-      ? hover
-        ? "#a8452f"
-        : "#8a3626"
-      : hover
-        ? "#8a6a3c"
-        : "#70552f";
+  const off = disabled || busy;
+  const colour = danger ? red : green;
 
   return (
     <button
       style={{
         ...button,
-        background: face,
-        color: disabled ? "#7a6650" : "#fff3dc",
-        cursor: disabled ? "default" : "pointer",
-        boxShadow: held && !disabled ? bevelPressed : bevel,
-        transform: held && !disabled ? "translateY(2px)" : "none",
+        borderColor: off ? "#2a332b" : hover ? colour : `${colour}77`,
+        color: off ? dim : colour,
+        background: hover && !off ? `${colour}14` : "transparent",
+        cursor: off ? "default" : "pointer",
       }}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => {
-        setHover(false);
-        setHeld(false);
-      }}
-      onMouseDown={() => setHeld(true)}
-      onMouseUp={() => setHeld(false)}
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
+      onMouseLeave={() => setHover(false)}
+      onClick={off ? undefined : onClick}
+      disabled={off}
     >
-      {label}
+      <span style={buttonBracket}>[</span>
+      {busy ? `${label} ...` : label}
+      <span style={buttonBracket}>]</span>
     </button>
   );
 }
 
-function Readout({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "green" | "red";
-}) {
-  return (
-    <div style={readout}>
-      <span style={readoutLabel}>{label}</span>
-      <span style={{ ...readoutValue, color: tone === "green" ? green : red }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-/** The daily budget drawn as blocks, so what is left can be seen at a glance. */
+/** The daily budget as segments, so what remains is visible at a glance. */
 function Meter({ used, total }: { used: number; total: number }) {
-  const blocks = total > 0 ? total : 10;
-  const filled = Math.min(used, blocks);
-  const full = filled >= blocks;
+  const segments = total > 0 ? total : 10;
+  const filled = Math.min(used, segments);
+  const full = filled >= segments;
 
   return (
     <div>
-      <div style={readout}>
-        <span style={readoutLabel}>TODAY</span>
-        <span style={{ ...readoutValue, color: full ? red : amber }}>
-          {used}
-          {total > 0 ? ` / ${total}` : ""}
-        </span>
-      </div>
+      <Line
+        label="DAILY BUDGET"
+        value={`${used}${total > 0 ? ` / ${total}` : ""}`}
+        tone={full ? red : amber}
+      />
       <div style={meterTrack}>
-        {Array.from({ length: blocks }, (_, i) => (
+        {Array.from({ length: segments }, (_, i) => (
           <span
             key={i}
             style={{
-              ...meterBlock,
-              background: i < filled ? (full ? red : amber) : "#241a12",
+              ...meterSegment,
+              background: i < filled ? (full ? red : amber) : "#1a211b",
             }}
           />
         ))}
@@ -435,10 +450,10 @@ function Meter({ used, total }: { used: number; total: number }) {
 function TxRow({ tx }: { tx: Transaction }) {
   const ok = tx.status === "success";
   return (
-    <div style={txRow}>
+    <div style={{ ...txRow, borderLeftColor: ok ? green : red }}>
       <div style={txHead}>
         <span style={{ ...txState, color: ok ? green : red }}>
-          {ok ? "PAID" : "REFUSED"}
+          {ok ? "SETTLED" : "REFUSED"}
         </span>
         <span style={txAmount}>{formatAmount(tx.amount)} USDC</span>
       </div>
@@ -449,10 +464,10 @@ function TxRow({ tx }: { tx: Transaction }) {
           target="_blank"
           rel="noreferrer"
         >
-          {tx.tx_hash.slice(0, 20)}
+          {tx.tx_hash.slice(0, 32)}
         </a>
       ) : (
-        <span style={txWhy}>{shorten(tx.error ?? "", 52)}</span>
+        <span style={txWhy}>{shorten(tx.error ?? "", 72)}</span>
       )}
     </div>
   );
@@ -462,103 +477,110 @@ function TxRow({ tx }: { tx: Transaction }) {
 
 /** Stroops carry seven decimals, which is not a number anyone reads. */
 function formatAmount(raw: string | null): string {
-  if (!raw) return "0";
+  if (!raw) return "0.00";
   try {
-    const value = Number(BigInt(raw)) / 10_000_000;
-    return value.toFixed(2);
+    return (Number(BigInt(raw)) / 10_000_000).toFixed(2);
   } catch {
     return raw;
   }
 }
 
-function shorten(text: string, n: number): string {
-  return text.length <= n ? text : `${text.slice(0, n - 1)}…`;
+function shorten(value: string, n: number): string {
+  return value.length <= n ? value : `${value.slice(0, n - 1)}…`;
 }
 
 function toneColor(type: LogEntry["type"]): string {
   if (type === "success") return green;
   if (type === "error") return red;
-  return "#a8916f";
+  return dim;
 }
 
 /* ---- Styles ---- */
 
-const pixel = "'Press Start 2P', 'Courier New', monospace";
+const mono = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
-const green = "#8ed94f";
-const red = "#e05a43";
-const amber = "#e0a33c";
-const parchment = "#f0e2cc";
-
-const bevel =
-  "inset 4px 4px 0 rgba(255,225,180,0.16), inset -4px -4px 0 rgba(0,0,0,0.5)";
-const bevelPressed =
-  "inset -4px -4px 0 rgba(255,225,180,0.1), inset 4px 4px 0 rgba(0,0,0,0.5)";
-const sunken =
-  "inset 4px 4px 0 rgba(0,0,0,0.55), inset -4px -4px 0 rgba(255,225,180,0.07)";
+const green = "#5dd47f";
+const red = "#e0574a";
+const amber = "#d9a441";
+const text = "#d2dad3";
+const dim = "#6f7d72";
+const edge = "#242e26";
 
 const page: React.CSSProperties = {
   minHeight: "100vh",
-  background: "#1a120b",
+  background: "#080b09",
   backgroundImage:
-    "repeating-linear-gradient(0deg, rgba(255,200,140,0.02) 0 2px, transparent 2px 5px)",
-  color: parchment,
-  fontFamily: pixel,
-  fontSize: 12,
-  lineHeight: 2,
-  padding: 24,
+    "linear-gradient(rgba(93,212,127,0.028) 1px, transparent 1px)," +
+    "linear-gradient(90deg, rgba(93,212,127,0.028) 1px, transparent 1px)",
+  backgroundSize: "48px 48px",
+  color: text,
+  fontFamily: mono,
+  fontSize: 14,
+  lineHeight: 1.75,
+  padding: 28,
 };
 
 const shell: React.CSSProperties = {
-  maxWidth: 1240,
+  maxWidth: 1280,
   margin: "0 auto",
   display: "flex",
   flexDirection: "column",
-  gap: 22,
+  gap: 20,
 };
 
-const frame: React.CSSProperties = {
+const panel: React.CSSProperties = {
   position: "relative",
-  background: "#4a3524",
-  boxShadow: bevel,
+  background: "rgba(14,19,15,0.86)",
+  border: `1px solid ${edge}`,
   padding: 24,
   display: "flex",
   flexDirection: "column",
   gap: 18,
 };
 
-const corner: React.CSSProperties = {
+const tick: React.CSSProperties = {
   position: "absolute",
-  width: 12,
-  height: 12,
+  width: 10,
+  height: 10,
   borderStyle: "solid",
-  borderColor: amber,
-  opacity: 0.75,
+  borderColor: green,
+  opacity: 0.55,
   pointerEvents: "none",
 };
 
-const rule: React.CSSProperties = {
-  height: 3,
-  background: "rgba(224,163,60,0.35)",
-  marginTop: 12,
+const headerRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
 };
 
-const titleText: React.CSSProperties = {
-  fontSize: 14,
-  color: amber,
-  letterSpacing: 2,
-  textShadow: "3px 3px 0 rgba(0,0,0,0.55)",
+const headerText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: 3,
+  flexShrink: 0,
 };
 
-const count: React.CSSProperties = { color: "#a8916f", fontSize: 12 };
+const headerLine: React.CSSProperties = {
+  flex: 1,
+  height: 1,
+  background: edge,
+};
+
+const headerBadge: React.CSSProperties = {
+  fontSize: 12,
+  color: dim,
+  border: `1px solid ${edge}`,
+  padding: "1px 8px",
+};
 
 const body: React.CSSProperties = {
-  fontSize: 10,
-  color: "#c9b394",
-  lineHeight: 2.2,
+  fontSize: 13,
+  color: dim,
+  lineHeight: 1.85,
 };
 
-/* Sign in */
+/* Gate */
 
 const gateLayout: React.CSSProperties = {
   display: "flex",
@@ -568,37 +590,42 @@ const gateLayout: React.CSSProperties = {
 
 const gateBox: React.CSSProperties = {
   width: "min(520px, 100%)",
-  textAlign: "center",
   alignItems: "center",
+  textAlign: "center",
   padding: "48px 40px",
-  gap: 20,
+  gap: 22,
 };
 
-const gateLogo: React.CSSProperties = {
-  width: 104,
-  height: 104,
-  imageRendering: "pixelated",
-};
+const gateLogo: React.CSSProperties = { width: 88, height: 88 };
 
 const gateTitle: React.CSSProperties = {
   fontSize: 30,
-  color: parchment,
-  textShadow: "4px 4px 0 rgba(0,0,0,0.6)",
-  letterSpacing: 3,
+  fontWeight: 700,
+  letterSpacing: 8,
+  color: text,
 };
 
-const gateText: React.CSSProperties = {
+const gateTag: React.CSSProperties = {
   fontSize: 11,
-  color: "#c9b394",
-  lineHeight: 2.4,
-  letterSpacing: 1,
+  letterSpacing: 4,
+  color: green,
+  marginTop: 8,
 };
 
-const gateHint: React.CSSProperties = {
-  fontSize: 9,
-  color: "#a8916f",
-  letterSpacing: 1,
-  lineHeight: 2,
+const gateBrief: React.CSSProperties = {
+  width: "100%",
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  borderTop: `1px solid ${edge}`,
+  borderBottom: `1px solid ${edge}`,
+  padding: "16px 0",
+};
+
+const gateNote: React.CSSProperties = {
+  fontSize: 12,
+  color: dim,
+  lineHeight: 1.8,
 };
 
 /* Top bar */
@@ -610,33 +637,39 @@ const topBar: React.CSSProperties = {
   padding: "18px 24px",
 };
 
-const topLogo: React.CSSProperties = {
-  width: 44,
-  height: 44,
-  imageRendering: "pixelated",
-};
-
-const topText: React.CSSProperties = { flex: 1, minWidth: 0 };
+const topLogo: React.CSSProperties = { width: 40, height: 40 };
 
 const topTitle: React.CSSProperties = {
   fontSize: 18,
-  color: parchment,
-  letterSpacing: 2,
-  textShadow: "3px 3px 0 rgba(0,0,0,0.6)",
+  fontWeight: 700,
+  letterSpacing: 5,
+  color: text,
 };
 
 const topSub: React.CSSProperties = {
-  fontSize: 9,
-  color: "#a8916f",
-  marginTop: 8,
+  fontSize: 11,
+  color: dim,
+  marginTop: 4,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
-const chip: React.CSSProperties = {
-  fontSize: 11,
-  padding: "10px 16px",
-  border: "2px solid",
-  letterSpacing: 2,
+const indicator: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  border: `1px solid ${edge}`,
+  padding: "8px 14px",
   flexShrink: 0,
+};
+
+const lamp: React.CSSProperties = { width: 8, height: 8, borderRadius: 4 };
+
+const indicatorText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: 2,
 };
 
 /* Layout */
@@ -644,80 +677,91 @@ const chip: React.CSSProperties = {
 const columns: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
-  gap: 22,
+  gap: 20,
   alignItems: "start",
 };
 
 const column: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 22,
+  gap: 20,
   minWidth: 0,
-};
-
-/* Controls */
-
-const button: React.CSSProperties = {
-  fontFamily: pixel,
-  fontSize: 12,
-  width: "100%",
-  padding: "20px 18px",
-  border: "none",
-  textShadow: "2px 2px 0 rgba(0,0,0,0.6)",
-  letterSpacing: 2,
-  lineHeight: 1.6,
 };
 
 /* Readouts */
 
-const readout: React.CSSProperties = {
+const lineRow: React.CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
-  background: "#3a2a1c",
-  boxShadow: sunken,
-  padding: "14px 16px",
+  alignItems: "baseline",
+  gap: 10,
 };
 
-const readoutLabel: React.CSSProperties = {
-  fontSize: 10,
-  color: "#a8916f",
+const lineLabel: React.CSSProperties = {
+  fontSize: 12,
+  color: dim,
   letterSpacing: 1,
+  flexShrink: 0,
 };
 
-const readoutValue: React.CSSProperties = { fontSize: 12, letterSpacing: 1 };
+const lineDots: React.CSSProperties = {
+  flex: 1,
+  height: 1,
+  background: `repeating-linear-gradient(90deg, ${edge} 0 2px, transparent 2px 6px)`,
+};
+
+const lineValue: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 500,
+  letterSpacing: 1,
+  flexShrink: 0,
+};
 
 const meterTrack: React.CSSProperties = {
   display: "flex",
-  gap: 4,
-  background: "#3a2a1c",
-  boxShadow: sunken,
-  padding: 6,
+  gap: 3,
   marginTop: 10,
 };
 
-const meterBlock: React.CSSProperties = { flex: 1, height: 16 };
+const meterSegment: React.CSSProperties = { flex: 1, height: 8 };
 
-/* Lists */
+/* Command */
+
+const button: React.CSSProperties = {
+  fontFamily: mono,
+  fontSize: 13,
+  fontWeight: 700,
+  letterSpacing: 3,
+  width: "100%",
+  padding: "16px 18px",
+  border: "1px solid",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 10,
+  transition: "background 120ms linear, border-color 120ms linear",
+};
+
+const buttonBracket: React.CSSProperties = { opacity: 0.45 };
+
+/* Record */
 
 const scroller: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 10,
-  maxHeight: 380,
+  maxHeight: 400,
   overflowY: "auto",
 };
 
-const logScroller: React.CSSProperties = { ...scroller, maxHeight: 220 };
+const logScroller: React.CSSProperties = { ...scroller, maxHeight: 230 };
 
 const txRow: React.CSSProperties = {
-  background: "#3a2a1c",
-  boxShadow: sunken,
-  padding: "14px 16px",
+  background: "rgba(255,255,255,0.015)",
+  borderLeft: "2px solid",
+  padding: "12px 14px",
   display: "flex",
   flexDirection: "column",
-  gap: 10,
+  gap: 8,
 };
 
 const txHead: React.CSSProperties = {
@@ -726,28 +770,33 @@ const txHead: React.CSSProperties = {
   gap: 12,
 };
 
-const txState: React.CSSProperties = { fontSize: 11, letterSpacing: 1 };
-const txAmount: React.CSSProperties = { fontSize: 11, color: parchment };
+const txState: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: 2,
+};
+
+const txAmount: React.CSSProperties = { fontSize: 13, color: text };
 
 const txLink: React.CSSProperties = {
-  fontSize: 9,
-  color: "#7fb0e0",
+  fontSize: 12,
+  color: "#6fa8dc",
   textDecoration: "none",
   wordBreak: "break-all",
 };
 
-const txWhy: React.CSSProperties = { fontSize: 9, color: "#d09a8a", lineHeight: 2 };
+const txWhy: React.CSSProperties = {
+  fontSize: 12,
+  color: "#c98b80",
+  lineHeight: 1.7,
+};
 
 const logRow: React.CSSProperties = { display: "flex", gap: 12 };
 
-const logTime: React.CSSProperties = {
-  fontSize: 9,
-  color: "#8a7355",
-  flexShrink: 0,
-};
+const logTime: React.CSSProperties = { fontSize: 12, color: "#4e5a51", flexShrink: 0 };
 
 const logMsg: React.CSSProperties = {
-  fontSize: 9,
-  lineHeight: 2,
+  fontSize: 12,
+  lineHeight: 1.7,
   wordBreak: "break-word",
 };
