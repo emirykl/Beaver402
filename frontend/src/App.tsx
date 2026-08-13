@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   fetchPolicyState,
   type MerchantInfo,
@@ -13,9 +12,6 @@ import {
   type Transaction,
 } from "./stellar-ops.js";
 import { registerPasskey, authenticatePasskey } from "./passkey-auth.js";
-
-const ease = [0.25, 0.1, 0.25, 1] as [number, number, number, number];
-const stagger = { staggerChildren: 0.08 };
 
 interface LogEntry {
   id: number;
@@ -39,7 +35,9 @@ export default function App() {
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"idle" | "registering" | "authenticating">("idle");
+  const [authMode, setAuthMode] = useState<"idle" | "registering" | "authenticating">(
+    "idle"
+  );
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [merchantInfo, setMerchantInfo] = useState<MerchantInfo | null>(null);
 
@@ -51,69 +49,60 @@ export default function App() {
         second: "2-digit",
         hour12: false,
       });
-      setLogs((prev) =>
-        [{ id: ++logId, time, message, type }, ...prev].slice(0, 30)
-      );
+      setLogs((prev) => [{ id: ++logId, time, message, type }, ...prev].slice(0, 40));
     },
     []
   );
 
   const refresh = useCallback(async () => {
-    const state = await fetchPolicyState();
-    setPolicyState(state);
-    const txs = await fetchTransactions();
-    setTransactions(txs);
+    setPolicyState(await fetchPolicyState());
+    setTransactions(await fetchTransactions());
     setMerchantInfo(await fetchMerchantInfo());
   }, []);
 
   const handleAuth = useCallback(async () => {
     const userId = "beaver402-owner";
     setAuthMode("authenticating");
-    addLog("Authenticating with passkey...");
+    addLog("Waiting for your passkey");
 
     try {
-      // try authentication first (user already registered)
-      const authOk = await authenticatePasskey(userId);
-      if (authOk) {
-        // notify backend of successful auth session
+      if (await authenticatePasskey(userId)) {
         await fetch("/api/auth/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId: "default" }),
         });
         setAuthenticated(true);
-        addLog("Passkey authenticated", "success");
+        addLog("Signed in", "success");
         refresh();
         setAuthMode("idle");
         return;
       }
     } catch {
-      // authentication failed, try registration
+      // No passkey on this device yet, so make one.
     }
 
     setAuthMode("registering");
-    addLog("No passkey found, registering new one...");
+    addLog("No passkey here yet, creating one");
     try {
-      const regOk = await registerPasskey(userId);
-      if (regOk) {
+      if (await registerPasskey(userId)) {
         await fetch("/api/auth/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId: "default" }),
         });
         setAuthenticated(true);
-        addLog("Passkey registered and authenticated", "success");
+        addLog("Passkey created, signed in", "success");
         refresh();
       } else {
-        addLog("Passkey registration failed", "error");
+        addLog("Could not create a passkey", "error");
       }
-    } catch (err) {
-      addLog("Passkey error: check browser support", "error");
+    } catch {
+      addLog("This browser refused the passkey", "error");
     }
     setAuthMode("idle");
   }, [addLog, refresh]);
 
-  // load policy state on mount
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -121,759 +110,667 @@ export default function App() {
   const handleAction = useCallback(
     async (
       action: string,
-      fn: () => Promise<{
-        success: boolean;
-        txHash?: string;
-        error?: string;
-      }>
+      fn: () => Promise<{ success: boolean; txHash?: string; error?: string }>
     ) => {
-      if (!authenticated) {
-        addLog("Authentication required", "error");
-        return;
-      }
       setLoading(action);
-      addLog(`Submitting ${action}...`);
+      addLog(`${action}: waiting for your passkey`);
       try {
         const result = await fn();
         if (result.success) {
           addLog(
-            `${capitalize(action)} confirmed${result.txHash ? ` ${result.txHash.slice(0, 12)}...` : ""}`,
+            `${action}: done${result.txHash ? ` ${result.txHash.slice(0, 10)}` : ""}`,
             "success"
           );
           await refresh();
         } else {
-          addLog(`${capitalize(action)} failed: ${result.error}`, "error");
+          addLog(`${action}: ${result.error ?? "refused"}`, "error");
         }
-      } catch (err) {
-        addLog(`${capitalize(action)} error`, "error");
+      } catch {
+        addLog(`${action}: something went wrong`, "error");
       }
       setLoading(null);
     },
-    [authenticated, addLog, refresh]
+    [addLog, refresh]
   );
 
-  const stepsDone =
-    (authenticated ? 1 : 0) + (policyState.merchantApproved ? 1 : 0);
+  const stepsDone = (authenticated ? 1 : 0) + (policyState.merchantApproved ? 1 : 0);
   const setupDone = stepsDone === 2;
 
+  // ── The gate ────────────────────────────────────────────────────
+  if (!authenticated) {
+    return (
+      <div style={{ ...page, ...gateLayout }}>
+        <div style={gateBox}>
+          <img src="/beaver402-logo.png" alt="" style={gateLogo} />
+          <h1 style={gateTitle}>BEAVER402</h1>
+          <p style={gateText}>
+            Your agent can only pay
+            <br />
+            for what you approved
+          </p>
+          <Button
+            label={
+              authMode === "authenticating"
+                ? "CHECKING..."
+                : authMode === "registering"
+                  ? "CREATING..."
+                  : "SIGN IN WITH PASSKEY"
+            }
+            wide
+            disabled={authMode !== "idle"}
+            onClick={handleAuth}
+          />
+          <p style={gateHint}>Touch ID confirms you own this account</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── The panel ───────────────────────────────────────────────────
   return (
     <div style={page}>
-      <motion.div
-        style={container}
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: {},
-          visible: stagger,
-        }}
-      >
-        {/* Header */}
-        <motion.header
-          style={header}
-          variants={{
-            hidden: { opacity: 0, y: -8 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease } },
-          }}
-        >
-          <img src="/beaver402-logo.png" alt="" style={logo} />
-          <h1 style={title}>Beaver402</h1>
-          <p style={subtitle}>Your agent can only pay for what you approved</p>
-        </motion.header>
+      <header style={topBar}>
+        <img src="/beaver402-logo.png" alt="" style={topLogo} />
+        <span style={topTitle}>BEAVER402</span>
+        <span style={{ ...pill, ...(policyState.frozen ? pillRed : pillGreen) }}>
+          {policyState.frozen ? "STOPPED" : "RUNNING"}
+        </span>
+      </header>
 
-        {/* Getting started */}
-        {!setupDone && (
-          <Card delay={0}>
-            <div style={sectionHeader}>
-              <span style={sectionTitle}>Getting started</span>
-              <span style={countBadge}>
-                {stepsDone} of 2
-              </span>
-            </div>
-            <p style={bodyText}>
-              Two things once, and the account is ready to protect payments.
-            </p>
-            <div style={actionList}>
-              <StepRow
-                number={1}
-                label="Sign in with your passkey"
-                desc="Touch ID proves you own this account. Nothing leaves your device."
-                done={authenticated}
-                busy={authMode !== "idle"}
-                onClick={handleAuth}
-              />
-              <StepRow
-                number={2}
+      <div style={columns}>
+        {/* Left */}
+        <div style={column}>
+          {!setupDone && (
+            <Panel title={`SETUP  ${stepsDone}/2`}>
+              <Step n={1} label="Sign in with your passkey" done />
+              <Step
+                n={2}
                 label="Approve the demo merchant"
-                desc={
-                  policyState.merchantApproved
-                    ? "Approved. This merchant may now ask to be paid."
-                    : "Until you approve one, every payment is refused."
-                }
                 done={policyState.merchantApproved}
-                waiting={!authenticated}
-                busy={loading === "approve"}
-                onClick={() =>
-                  merchantInfo &&
-                  handleAction("approve", () =>
-                    allowMerchant(merchantInfo.merchantPubkey)
-                  )
-                }
-                last
+                note="Until you do, every payment is refused"
               />
-            </div>
-          </Card>
-        )}
+              {!policyState.merchantApproved && (
+                <Button
+                  label={loading === "approve" ? "WAITING..." : "APPROVE MERCHANT"}
+                  wide
+                  disabled={loading !== null || !merchantInfo}
+                  onClick={() =>
+                    merchantInfo &&
+                    handleAction("approve", () =>
+                      allowMerchant(merchantInfo.merchantPubkey)
+                    )
+                  }
+                />
+              )}
+            </Panel>
+          )}
 
-        {/* Status */}
-        <Card delay={1}>
-          <div style={sectionHeader}>
-            <div style={dot(policyState.frozen ? "#ff3b30" : "#34c759")} />
-            <span style={sectionTitle}>Status</span>
-            <motion.span
-              style={{
-                ...badge,
-                background: policyState.frozen
-                  ? "rgba(255,59,48,0.1)"
-                  : "rgba(52,199,89,0.1)",
-                color: policyState.frozen ? "#ff3b30" : "#34c759",
-              }}
-              layout
-              transition={{ duration: 0.3, ease }}
-            >
-              {policyState.frozen ? "Payments stopped" : "Payments active"}
-            </motion.span>
-          </div>
-
-          <p style={bodyText}>
-            {policyState.frozen
-              ? "Nothing can be paid until you resume. The account stopped either because you asked it to, or because it hit its daily limit."
-              : policyState.agentSigner
-                ? "The agent can pay approved merchants, up to the daily limit."
-                : "The agent has no signing authority left, so nothing can be paid."}
-          </p>
-
-          <div style={infoList}>
-            <Row
+          <Panel title="STATUS">
+            <Stat
+              label="Payments"
+              value={policyState.frozen ? "STOPPED" : "RUNNING"}
+              tone={policyState.frozen ? "red" : "green"}
+            />
+            <Stat
               label="Agent"
-              value={policyState.agentSigner ? "Can pay" : "Revoked"}
-              muted={!policyState.agentSigner}
+              value={policyState.agentSigner ? "CAN PAY" : "REVOKED"}
+              tone={policyState.agentSigner ? "green" : "red"}
             />
-            <Row
-              label="Used today"
-              value={
-                policyState.velocityMaxTxCount > 0
-                  ? `${policyState.velocityTxCount} of ${policyState.velocityMaxTxCount} payments`
-                  : `${policyState.velocityTxCount} payments`
-              }
+            <Meter
+              used={policyState.velocityTxCount}
+              total={policyState.velocityMaxTxCount}
             />
-            <Row label="Account" value={trunc(policyState.contractId, 18)} last />
-          </div>
-        </Card>
-
-        {/* Controls */}
-        {setupDone && (
-          <Card delay={2}>
-            <div style={sectionHeader}>
-              <span style={sectionTitle}>Controls</span>
-            </div>
-            <p style={bodyText}>
-              Each of these asks for Touch ID, because only you can authorize
-              them.
+            <p style={note}>
+              {policyState.frozen
+                ? "Nothing can be paid until you resume."
+                : policyState.agentSigner
+                  ? "The agent can pay approved merchants, up to the daily limit."
+                  : "The agent has no key left, so nothing can be paid."}
             </p>
-            <div style={actionList}>
+            <Slot label="ACCOUNT" value={policyState.contractId} />
+            {merchantInfo && (
+              <Slot label="MERCHANT" value={merchantInfo.merchantPubkey} />
+            )}
+          </Panel>
+
+          {setupDone && (
+            <Panel title="CONTROLS">
               {policyState.frozen ? (
-                <ActionRow
-                  label="Resume payments"
-                  desc="Let the agent pay again, and clear the daily counter"
-                  loading={loading === "resume"}
+                <Button
+                  label={loading === "resume" ? "WAITING..." : "RESUME PAYMENTS"}
+                  wide
+                  disabled={loading !== null}
                   onClick={() => handleAction("resume", restorePayments)}
                 />
               ) : (
-                <ActionRow
-                  label="Stop all payments"
-                  desc="Refuse every payment from now on, until you resume"
-                  destructive
-                  loading={loading === "stop"}
+                <Button
+                  label={loading === "stop" ? "WAITING..." : "STOP ALL PAYMENTS"}
+                  wide
+                  danger
+                  disabled={loading !== null}
                   onClick={() => handleAction("stop", freezePayments)}
                 />
               )}
               {policyState.agentSigner && (
-                <ActionRow
-                  label="Revoke the agent"
-                  desc="Take away its signing key for good. This cannot be undone."
-                  destructive
-                  loading={loading === "revoke"}
+                <Button
+                  label={loading === "revoke" ? "WAITING..." : "REVOKE THE AGENT"}
+                  wide
+                  danger
+                  disabled={loading !== null}
                   onClick={() => handleAction("revoke", revokeAgentSigner)}
-                  last
                 />
               )}
-            </div>
-          </Card>
-        )}
+              <p style={note}>Each one asks for Touch ID. Only you can approve them.</p>
+            </Panel>
+          )}
+        </div>
 
-        {/* Transactions */}
-        <Card delay={3}>
-          <div style={sectionHeader}>
-            <span style={sectionTitle}>Transaction History</span>
-            <span style={countBadge}>{transactions.length}</span>
-          </div>
-          <div style={logBox}>
+        {/* Right */}
+        <div style={column}>
+          <Panel title={`PAYMENTS  ${transactions.length}`}>
             {transactions.length === 0 ? (
-              <p style={bodyTextMuted}>No transactions recorded</p>
+              <p style={empty}>Nothing paid yet</p>
             ) : (
-              transactions.map((tx) => (
-                <div key={tx.id} style={txRow}>
-                  <div style={txTop}>
-                    <span
-                      style={{
-                        ...txStatus,
-                        color: tx.status === "success" ? "#34c759" : "#ff3b30",
-                      }}
-                    >
-                      {tx.status === "success" ? "Confirmed" : "Failed"}
-                    </span>
-                    <span style={txAmount}>
-                      {tx.amount ?? "0"} {tx.asset ?? ""}
-                    </span>
-                  </div>
-                  <div style={txBottom}>
-                    {tx.tx_hash ? (
-                      <span style={txHash}>{trunc(tx.tx_hash, 20)}</span>
-                    ) : tx.error ? (
-                      <span style={txError}>{trunc(tx.error, 40)}</span>
-                    ) : null}
-                    <span style={txTime}>
-                      {new Date(tx.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ))
+              <div style={list}>
+                {transactions.map((tx) => (
+                  <TxRow key={tx.id} tx={tx} />
+                ))}
+              </div>
             )}
-          </div>
-        </Card>
+          </Panel>
 
-        {/* Log */}
-        <Card delay={4}>
-          <div style={sectionHeader}>
-            <span style={sectionTitle}>Activity</span>
-            <span style={countBadge}>{logs.length}</span>
-          </div>
-          <div style={logBox}>
-            <AnimatePresence initial={false}>
-              {logs.length === 0 ? (
-                <motion.p
-                  key="empty"
-                  style={bodyTextMuted}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.4 }}
-                >
-                  No activity yet
-                </motion.p>
-              ) : (
-                logs.map((entry) => (
-                  <motion.div
-                    key={entry.id}
-                    style={logRow}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2, ease }}
-                  >
+          <Panel title="ACTIVITY">
+            {logs.length === 0 ? (
+              <p style={empty}>Nothing yet</p>
+            ) : (
+              <div style={list}>
+                {logs.map((entry) => (
+                  <div key={entry.id} style={logRow}>
                     <span style={logTime}>{entry.time}</span>
-                    <span
-                      style={{
-                        ...logMsg,
-                        color:
-                          entry.type === "success"
-                            ? "#34c759"
-                            : entry.type === "error"
-                              ? "#ff3b30"
-                              : "#8e8e93",
-                      }}
-                    >
+                    <span style={{ ...logMsg, color: toneColor(entry.type) }}>
                       {entry.message}
                     </span>
-                  </motion.div>
-                ))
-              )}
-            </AnimatePresence>
-          </div>
-        </Card>
-      </motion.div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ---- Sub Components ---- */
+/* ---- Pieces ---- */
 
-function Card({
-  children,
-  delay,
-}: {
-  children: React.ReactNode;
-  delay: number;
-}) {
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <motion.div
-      style={card}
-      variants={{
-        hidden: { opacity: 0, y: 12 },
-        visible: {
-          opacity: 1,
-          y: 0,
-          transition: { duration: 0.45, ease, delay: delay * 0.08 },
-        },
-      }}
-    >
-      {children}
-    </motion.div>
+    <section style={panel}>
+      <div style={panelTitle}>{title}</div>
+      <div style={panelBody}>{children}</div>
+    </section>
   );
 }
 
-function Row({
+function Button({
+  label,
+  onClick,
+  disabled,
+  danger,
+  wide,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  wide?: boolean;
+}) {
+  const [hover, setHover] = useState(false);
+  const [held, setHeld] = useState(false);
+
+  const face = disabled
+    ? "#4a4a4a"
+    : danger
+      ? hover
+        ? "#c65246"
+        : "#a63f34"
+      : hover
+        ? "#7d7d7d"
+        : "#6a6a6a";
+
+  return (
+    <button
+      style={{
+        ...button,
+        ...(wide ? { width: "100%" } : {}),
+        background: face,
+        color: disabled ? "#8b8b8b" : "#ffffff",
+        cursor: disabled ? "default" : "pointer",
+        boxShadow: held && !disabled ? bevelPressed : bevel,
+        transform: held && !disabled ? "translateY(2px)" : "none",
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => {
+        setHover(false);
+        setHeld(false);
+      }}
+      onMouseDown={() => setHeld(true)}
+      onMouseUp={() => setHeld(false)}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Step({
+  n,
+  label,
+  done,
+  note: hint,
+}: {
+  n: number;
+  label: string;
+  done: boolean;
+  note?: string;
+}) {
+  return (
+    <div style={stepRow}>
+      <span style={{ ...stepBox, ...(done ? stepBoxDone : {}) }}>{done ? "✓" : n}</span>
+      <span>
+        <span style={{ ...stepLabel, color: done ? "#8b8b8b" : "#ffffff" }}>
+          {label}
+        </span>
+        {hint && !done && <span style={stepNote}>{hint}</span>}
+      </span>
+    </div>
+  );
+}
+
+function Stat({
   label,
   value,
-  last,
-  muted,
+  tone,
 }: {
   label: string;
   value: string;
-  last?: boolean;
-  muted?: boolean;
+  tone: "green" | "red";
 }) {
   return (
-    <div style={{ ...infoRow, ...(last ? { border: "none" } : {}) }}>
-      <span style={infoLabel}>{label}</span>
-      <span style={{ ...infoValue, ...(muted ? { color: "#636366" } : {}) }}>
+    <div style={statRow}>
+      <span style={statLabel}>{label}</span>
+      <span style={{ ...statValue, color: tone === "green" ? "#55ff55" : "#ff5555" }}>
         {value}
       </span>
     </div>
   );
 }
 
-function StepRow({
-  number,
-  label,
-  desc,
-  done,
-  waiting,
-  busy,
-  onClick,
-  last,
-}: {
-  number: number;
-  label: string;
-  desc: string;
-  done: boolean;
-  waiting?: boolean;
-  busy?: boolean;
-  onClick: () => void;
-  last?: boolean;
-}) {
-  const blocked = done || waiting || busy;
+/** A blocky bar for the daily budget, in the spirit of a game meter. */
+function Meter({ used, total }: { used: number; total: number }) {
+  const blocks = total > 0 ? total : 10;
+  const filled = Math.min(used, blocks);
 
   return (
-    <motion.div
-      style={{
-        ...actionRow,
-        ...(last ? { border: "none" } : {}),
-        opacity: waiting ? 0.4 : busy ? 0.6 : 1,
-        cursor: blocked ? "default" : "pointer",
-      }}
-      whileHover={blocked ? {} : { backgroundColor: "rgba(255,255,255,0.03)" }}
-      whileTap={blocked ? {} : { scale: 0.995 }}
-      onClick={blocked ? undefined : onClick}
-    >
-      <div style={stepBody}>
-        <div style={done ? stepMarkDone : stepMark}>
-          {done ? (
-            <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-              <path
-                d="M1 4.5L4 7.5L10 1.5"
-                stroke="#000"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : (
-            number
-          )}
-        </div>
-        <div>
-          <div style={actionLabel}>{label}</div>
-          <div style={actionDesc}>{desc}</div>
-        </div>
-      </div>
-      {!done && !waiting && (
-        <span style={chevron}>
-          {busy ? (
-            <motion.span
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-              style={{ display: "inline-block" }}
-            >
-              &bull;
-            </motion.span>
-          ) : (
-            <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
-              <path
-                d="M1 1l5 5-5 5"
-                stroke="#3a3a3c"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
+    <div style={meterWrap}>
+      <div style={statRow}>
+        <span style={statLabel}>Used today</span>
+        <span style={statValue}>
+          {used}
+          {total > 0 ? ` / ${total}` : ""}
         </span>
-      )}
-    </motion.div>
+      </div>
+      <div style={meterTrack}>
+        {Array.from({ length: blocks }, (_, i) => (
+          <span
+            key={i}
+            style={{
+              ...meterBlock,
+              background:
+                i < filled ? (filled >= blocks ? "#ff5555" : "#55ff55") : "#2a2a2a",
+            }}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
-function ActionRow({
-  label,
-  desc,
-  destructive,
-  loading: isLoading,
-  onClick,
-  last,
-}: {
-  label: string;
-  desc: string;
-  destructive?: boolean;
-  loading: boolean;
-  onClick: () => void;
-  last?: boolean;
-}) {
+function Slot({ label, value }: { label: string; value: string }) {
   return (
-    <motion.div
-      style={{
-        ...actionRow,
-        ...(last ? { border: "none" } : {}),
-        opacity: isLoading ? 0.5 : 1,
-      }}
-      whileHover={{ backgroundColor: "rgba(255,255,255,0.03)" }}
-      whileTap={{ scale: 0.995 }}
-      onClick={isLoading ? undefined : onClick}
-    >
-      <div>
-        <div
-          style={{
-            ...actionLabel,
-            color: destructive ? "#ff3b30" : "#f5f5f7",
-          }}
-        >
-          {label}
-        </div>
-        <div style={actionDesc}>{desc}</div>
+    <div style={slot}>
+      <div style={slotLabel}>{label}</div>
+      <div style={slotValue}>{value}</div>
+    </div>
+  );
+}
+
+function TxRow({ tx }: { tx: Transaction }) {
+  const ok = tx.status === "success";
+  return (
+    <div style={txRow}>
+      <div style={txHead}>
+        <span style={{ ...txState, color: ok ? "#55ff55" : "#ff5555" }}>
+          {ok ? "PAID" : "REFUSED"}
+        </span>
+        <span style={txAmount}>{formatAmount(tx.amount)} USDC</span>
       </div>
-      <span style={chevron}>
-        {isLoading ? (
-          <motion.span
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-            style={{ display: "inline-block" }}
+      <div style={txSub}>
+        {tx.tx_hash ? (
+          <a
+            style={txLink}
+            href={`https://stellar.expert/explorer/testnet/tx/${tx.tx_hash}`}
+            target="_blank"
+            rel="noreferrer"
           >
-            &bull;
-          </motion.span>
+            {tx.tx_hash.slice(0, 18)}
+          </a>
         ) : (
-          <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
-            <path
-              d="M1 1l5 5-5 5"
-              stroke="#3a3a3c"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <span style={txWhy}>{shorten(tx.error ?? "", 46)}</span>
         )}
-      </span>
-    </motion.div>
+        <span style={txTime}>{new Date(tx.created_at).toLocaleTimeString()}</span>
+      </div>
+    </div>
   );
 }
 
 /* ---- Helpers ---- */
 
-function trunc(s: string, n = 16): string {
-  return s.length <= n ? s : s.slice(0, n - 1) + "\u2026";
+/** Stroops carry seven decimals, which is not a number anyone reads. */
+function formatAmount(raw: string | null): string {
+  if (!raw) return "0";
+  try {
+    const value = Number(BigInt(raw)) / 10_000_000;
+    return value.toFixed(value < 1 ? 2 : 1);
+  } catch {
+    return raw;
+  }
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+function shorten(text: string, n: number): string {
+  return text.length <= n ? text : `${text.slice(0, n - 1)}…`;
+}
+
+function toneColor(type: LogEntry["type"]): string {
+  if (type === "success") return "#55ff55";
+  if (type === "error") return "#ff5555";
+  return "#a8a8a8";
 }
 
 /* ---- Styles ---- */
 
-const ff =
-  "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif";
-const mono =
-  "'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, monospace";
+const pixel = "'Press Start 2P', 'Courier New', monospace";
 
-const logo: React.CSSProperties = {
-  width: 56,
-  height: 56,
-  borderRadius: 14,
-  objectFit: "cover",
-  marginBottom: 14,
-};
-
-const stepBody: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: 12,
-};
-
-const stepMark: React.CSSProperties = {
-  width: 22,
-  height: 22,
-  borderRadius: 11,
-  border: "1px solid #3a3a3c",
-  color: "#8e8e93",
-  fontSize: 12,
-  fontWeight: 600,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-  marginTop: 1,
-};
-
-const stepMarkDone: React.CSSProperties = {
-  ...stepMark,
-  border: "none",
-  background: "#34c759",
-};
+/** The raised edge every control in the game shares. */
+const bevel =
+  "inset 3px 3px 0 rgba(255,255,255,0.28), inset -3px -3px 0 rgba(0,0,0,0.45)";
+const bevelPressed =
+  "inset -3px -3px 0 rgba(255,255,255,0.16), inset 3px 3px 0 rgba(0,0,0,0.45)";
+const sunken =
+  "inset 3px 3px 0 rgba(0,0,0,0.55), inset -3px -3px 0 rgba(255,255,255,0.12)";
 
 const page: React.CSSProperties = {
   minHeight: "100vh",
-  background: "#000000",
-  color: "#f5f5f7",
-  fontFamily: ff,
-  WebkitFontSmoothing: "antialiased",
-  MozOsxFontSmoothing: "grayscale",
+  background: "#1b1b1b",
+  backgroundImage:
+    "repeating-linear-gradient(0deg, rgba(255,255,255,0.014) 0 2px, transparent 2px 4px)",
+  color: "#e8e8e8",
+  fontFamily: pixel,
+  fontSize: 10,
+  lineHeight: 1.9,
+  padding: 20,
 };
 
-const container: React.CSSProperties = {
-  maxWidth: 520,
-  margin: "0 auto",
-  padding: "60px 20px 80px",
-};
-
-const header: React.CSSProperties = {
-  marginBottom: 40,
-};
-
-const title: React.CSSProperties = {
-  fontSize: 34,
-  fontWeight: 700,
-  letterSpacing: "-0.022em",
-  lineHeight: 1.1,
-  color: "#f5f5f7",
-  margin: 0,
-};
-
-const subtitle: React.CSSProperties = {
-  fontSize: 17,
-  fontWeight: 400,
-  color: "#86868b",
-  marginTop: 4,
-};
-
-const card: React.CSSProperties = {
-  background: "#1c1c1e",
-  borderRadius: 12,
-  padding: "16px 20px",
-  marginBottom: 12,
-};
-
-const sectionHeader: React.CSSProperties = {
+const gateLayout: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
-  marginBottom: 12,
+  justifyContent: "center",
 };
 
-const sectionTitle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  color: "#86868b",
-  textTransform: "uppercase",
-  letterSpacing: "0.02em",
+const gateBox: React.CSSProperties = {
+  width: "min(420px, 100%)",
+  textAlign: "center",
+  background: "#3a3a3a",
+  boxShadow: bevel,
+  padding: "36px 28px",
+};
+
+const gateLogo: React.CSSProperties = {
+  width: 72,
+  height: 72,
+  imageRendering: "pixelated",
+  marginBottom: 20,
+};
+
+const gateTitle: React.CSSProperties = {
+  fontSize: 20,
+  color: "#ffffff",
+  textShadow: "3px 3px 0 #202020",
+  marginBottom: 18,
+  letterSpacing: 1,
+};
+
+const gateText: React.CSSProperties = {
+  color: "#b8b8b8",
+  fontSize: 9,
+  lineHeight: 2.2,
+  marginBottom: 28,
+};
+
+const gateHint: React.CSSProperties = {
+  color: "#8b8b8b",
+  fontSize: 7,
+  marginTop: 18,
+  lineHeight: 2,
+};
+
+const topBar: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  maxWidth: 1180,
+  margin: "0 auto 18px",
+  background: "#3a3a3a",
+  boxShadow: bevel,
+  padding: "12px 16px",
+};
+
+const topLogo: React.CSSProperties = {
+  width: 26,
+  height: 26,
+  imageRendering: "pixelated",
+};
+
+const topTitle: React.CSSProperties = {
+  fontSize: 12,
+  color: "#ffffff",
+  textShadow: "2px 2px 0 #202020",
   flex: 1,
 };
 
-const dot = (color: string): React.CSSProperties => ({
-  width: 8,
-  height: 8,
-  borderRadius: "50%",
-  background: color,
-  flexShrink: 0,
-});
-
-const badge: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  padding: "3px 8px",
-  borderRadius: 6,
-  letterSpacing: "0.01em",
+const pill: React.CSSProperties = {
+  fontSize: 8,
+  padding: "6px 10px",
+  boxShadow: sunken,
+  background: "#2a2a2a",
 };
 
-const countBadge: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 500,
-  color: "#636366",
-  background: "#2c2c2e",
-  padding: "2px 7px",
-  borderRadius: 6,
+const pillGreen: React.CSSProperties = { color: "#55ff55" };
+const pillRed: React.CSSProperties = { color: "#ff5555" };
+
+const columns: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gap: 18,
+  maxWidth: 1180,
+  margin: "0 auto",
+  alignItems: "start",
 };
 
-const bodyText: React.CSSProperties = {
-  fontSize: 15,
-  color: "#f5f5f7",
-  lineHeight: 1.47,
-  marginBottom: 16,
+const column: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
+  minWidth: 0,
 };
 
-const bodyTextMuted: React.CSSProperties = {
-  fontSize: 15,
-  color: "#636366",
-  lineHeight: 1.47,
+const panel: React.CSSProperties = {
+  background: "#3a3a3a",
+  boxShadow: bevel,
 };
 
-const btnPrimary: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 20px",
-  borderRadius: 10,
+const panelTitle: React.CSSProperties = {
+  fontSize: 9,
+  color: "#ffffff",
+  textShadow: "2px 2px 0 #202020",
+  padding: "12px 16px",
+  borderBottom: "3px solid rgba(0,0,0,0.35)",
+  letterSpacing: 1,
+};
+
+const panelBody: React.CSSProperties = {
+  padding: 16,
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const button: React.CSSProperties = {
+  fontFamily: pixel,
+  fontSize: 9,
+  padding: "14px 16px",
   border: "none",
-  background: "#0a84ff",
-  color: "#fff",
-  fontSize: 15,
-  fontWeight: 600,
-  fontFamily: ff,
-  cursor: "pointer",
-  letterSpacing: "-0.01em",
+  textShadow: "2px 2px 0 rgba(0,0,0,0.55)",
+  letterSpacing: 1,
+  lineHeight: 1.6,
 };
 
-const infoList: React.CSSProperties = {};
-
-const infoRow: React.CSSProperties = {
+const stepRow: React.CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "10px 0",
-  borderBottom: "0.5px solid #2c2c2e",
+  alignItems: "flex-start",
+  gap: 10,
 };
 
-const infoLabel: React.CSSProperties = {
-  fontSize: 15,
-  color: "#f5f5f7",
-  fontWeight: 400,
-};
-
-const infoValue: React.CSSProperties = {
-  fontSize: 15,
-  color: "#86868b",
-  fontFamily: mono,
-  fontWeight: 400,
-};
-
-const actionList: React.CSSProperties = {};
-
-const actionRow: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "12px 0",
-  borderBottom: "0.5px solid #2c2c2e",
-  cursor: "pointer",
-  borderRadius: 0,
-  transition: "background 0.15s",
-};
-
-const actionLabel: React.CSSProperties = {
-  fontSize: 15,
-  fontWeight: 400,
-  marginBottom: 2,
-};
-
-const actionDesc: React.CSSProperties = {
-  fontSize: 13,
-  color: "#636366",
-  fontWeight: 400,
-};
-
-const chevron: React.CSSProperties = {
+const stepBox: React.CSSProperties = {
+  width: 20,
+  height: 20,
   flexShrink: 0,
-  marginLeft: 8,
-  display: "flex",
+  background: "#2a2a2a",
+  boxShadow: sunken,
+  display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
+  fontSize: 8,
+  color: "#8b8b8b",
 };
 
-const logBox: React.CSSProperties = {
-  maxHeight: 180,
+const stepBoxDone: React.CSSProperties = { background: "#3d7a3d", color: "#ffffff" };
+
+const stepLabel: React.CSSProperties = { fontSize: 9, display: "block" };
+
+const stepNote: React.CSSProperties = {
+  fontSize: 7,
+  color: "#8b8b8b",
+  display: "block",
+  marginTop: 6,
+  lineHeight: 2,
+};
+
+const statRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+};
+
+const statLabel: React.CSSProperties = { fontSize: 8, color: "#a8a8a8" };
+const statValue: React.CSSProperties = { fontSize: 9, color: "#ffffff" };
+
+const meterWrap: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const meterTrack: React.CSSProperties = {
+  display: "flex",
+  gap: 3,
+  background: "#2a2a2a",
+  boxShadow: sunken,
+  padding: 4,
+};
+
+const meterBlock: React.CSSProperties = { flex: 1, height: 10 };
+
+const note: React.CSSProperties = {
+  fontSize: 7,
+  color: "#8b8b8b",
+  lineHeight: 2.2,
+};
+
+const slot: React.CSSProperties = {
+  background: "#2a2a2a",
+  boxShadow: sunken,
+  padding: "10px 12px",
+};
+
+const slotLabel: React.CSSProperties = { fontSize: 7, color: "#8b8b8b" };
+
+const slotValue: React.CSSProperties = {
+  fontSize: 7,
+  color: "#d8d8d8",
+  wordBreak: "break-all",
+  lineHeight: 2,
+  marginTop: 4,
+};
+
+const list: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  maxHeight: 340,
   overflowY: "auto",
 };
 
-const logRow: React.CSSProperties = {
+const empty: React.CSSProperties = { fontSize: 8, color: "#6a6a6a" };
+
+const txRow: React.CSSProperties = {
+  background: "#2a2a2a",
+  boxShadow: sunken,
+  padding: "10px 12px",
+};
+
+const txHead: React.CSSProperties = {
   display: "flex",
+  justifyContent: "space-between",
   gap: 10,
-  padding: "5px 0",
-  fontSize: 12,
-  fontFamily: mono,
 };
 
-const logTime: React.CSSProperties = {
-  color: "#3a3a3c",
-  flexShrink: 0,
+const txState: React.CSSProperties = { fontSize: 8 };
+const txAmount: React.CSSProperties = { fontSize: 8, color: "#ffffff" };
+
+const txSub: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  marginTop: 6,
 };
 
-const logMsg: React.CSSProperties = {
+const txLink: React.CSSProperties = {
+  fontSize: 7,
+  color: "#7aa8ff",
+  textDecoration: "none",
   wordBreak: "break-all",
 };
 
-const txRow: React.CSSProperties = {
-  padding: "10px 0",
-  borderBottom: "0.5px solid #2c2c2e",
-};
+const txWhy: React.CSSProperties = { fontSize: 7, color: "#c88b8b", lineHeight: 2 };
+const txTime: React.CSSProperties = { fontSize: 7, color: "#6a6a6a", flexShrink: 0 };
 
-const txTop: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 4,
-};
-
-const txBottom: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const txStatus: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-};
-
-const txAmount: React.CSSProperties = {
-  fontSize: 13,
-  fontFamily: mono,
-  color: "#f5f5f7",
-};
-
-const txHash: React.CSSProperties = {
-  fontSize: 11,
-  fontFamily: mono,
-  color: "#636366",
-};
-
-const txError: React.CSSProperties = {
-  fontSize: 11,
-  color: "#ff3b30",
-};
-
-const txTime: React.CSSProperties = {
-  fontSize: 11,
-  color: "#3a3a3c",
+const logRow: React.CSSProperties = { display: "flex", gap: 10 };
+const logTime: React.CSSProperties = { fontSize: 7, color: "#6a6a6a", flexShrink: 0 };
+const logMsg: React.CSSProperties = {
+  fontSize: 7,
+  lineHeight: 2,
+  wordBreak: "break-word",
 };
