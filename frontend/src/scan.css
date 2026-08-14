@@ -1,14 +1,15 @@
 /*
  * The console reads as a piece of equipment that is watching something, so
- * the surface carries a faint scan: fixed lines the whole time, and a band
- * that passes down the screen every few seconds.
+ * the surface carries a faint scan: fixed lines the whole time, and a beam
+ * that passes down the screen and then rests before coming round again.
  *
- * All of it sits behind the panels, which are opaque, so the band passes
+ * All of it sits behind the panels, which are opaque, so the beam passes
  * behind them rather than across them. None of it takes pointer events.
  */
 
 .scan-lines,
-.scan-sweep,
+.scan-beam,
+.scan-glow,
 .scan-vignette {
   position: fixed;
   inset: 0;
@@ -16,50 +17,80 @@
   z-index: 0;
 }
 
+/*
+ * Four pixels apart rather than three. Closer than this and the lines start
+ * to beat against the pixel grid on a scaled display, which reads as a
+ * shimmer rather than as texture.
+ */
 .scan-lines {
   background: repeating-linear-gradient(
     0deg,
-    rgba(224, 169, 74, 0.035) 0px,
-    rgba(224, 169, 74, 0.035) 1px,
+    rgba(224, 169, 74, 0.022) 0px,
+    rgba(224, 169, 74, 0.022) 1px,
     transparent 1px,
-    transparent 3px
+    transparent 4px
   );
 }
 
-.scan-sweep {
-  height: 180px;
+/*
+ * The beam is mostly trail. A long soft body follows a bright edge at the
+ * bottom, so it looks like something sweeping downward rather than a bar
+ * being moved down the page.
+ */
+.scan-beam {
+  height: 360px;
   inset: auto 0 auto 0;
   background: linear-gradient(
     to bottom,
-    transparent,
-    rgba(224, 169, 74, 0.05) 35%,
-    rgba(224, 169, 74, 0.11) 50%,
-    rgba(224, 169, 74, 0.05) 65%,
-    transparent
+    transparent 0%,
+    rgba(224, 169, 74, 0.012) 45%,
+    rgba(224, 169, 74, 0.05) 80%,
+    rgba(224, 169, 74, 0.13) 95%,
+    rgba(255, 219, 150, 0.42) 99%,
+    rgba(255, 235, 200, 0.55) 99.8%,
+    transparent 100%
   );
-  border-top: 1px solid rgba(224, 169, 74, 0.16);
-  animation: scan-pass 7s linear infinite;
+  animation: scan-pass 11s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+/* A wide, slow breath of warmth, so the surface is never quite still. */
+.scan-glow {
+  background: radial-gradient(
+    ellipse 90% 60% at 50% 40%,
+    rgba(224, 169, 74, 0.05),
+    transparent 70%
+  );
+  animation: scan-breathe 9s ease-in-out infinite;
 }
 
 /* Darkened edges, the way a screen falls off toward its frame. */
 .scan-vignette {
   background: radial-gradient(
     ellipse at center,
-    transparent 55%,
-    rgba(0, 0, 0, 0.45) 100%
+    transparent 50%,
+    rgba(0, 0, 0, 0.5) 100%
   );
 }
 
+/*
+ * The pass takes a little over half the cycle, then the beam waits offscreen.
+ * A beam that restarts the instant it leaves reads as a loop; one that pauses
+ * reads as a sweep.
+ */
 @keyframes scan-pass {
   0% {
-    transform: translateY(-180px);
+    transform: translateY(-360px);
     opacity: 0;
   }
-  8% {
+  5% {
     opacity: 1;
   }
-  92% {
+  58% {
     opacity: 1;
+  }
+  66% {
+    transform: translateY(100vh);
+    opacity: 0;
   }
   100% {
     transform: translateY(100vh);
@@ -67,9 +98,23 @@
   }
 }
 
-/* A moving band is exactly what some people need to not be there. */
+@keyframes scan-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Movement is exactly what some people need not to be there. */
 @media (prefers-reduced-motion: reduce) {
-  .scan-sweep {
+  .scan-beam {
     display: none;
+  }
+
+  .scan-glow {
+    animation: none;
   }
 }

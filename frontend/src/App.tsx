@@ -303,7 +303,8 @@ function Scan() {
   return (
     <>
       <div className="scan-lines" />
-      <div className="scan-sweep" />
+      <div className="scan-glow" />
+      <div className="scan-beam" />
       <div className="scan-vignette" />
     </>
   );
