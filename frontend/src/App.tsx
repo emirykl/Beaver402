@@ -129,6 +129,7 @@ export default function App() {
   if (!authenticated) {
     return (
       <div style={{ ...page, ...gateLayout }}>
+        <Scan />
         <section style={{ ...panel, ...gateBox }}>
           <img src="/beaver402-logo.png" alt="" style={gateLogo} />
           <h1 style={gateTitle}>BEAVER402</h1>
@@ -158,6 +159,7 @@ export default function App() {
   // ── Console ─────────────────────────────────────────────────────
   return (
     <div style={page}>
+      <Scan />
       <div style={shell}>
         <header style={{ ...panel, ...topBar }}>
           <img src="/beaver402-logo.png" alt="" style={topLogo} />
@@ -295,6 +297,17 @@ export default function App() {
 }
 
 /* ---- Pieces ---- */
+
+/** The surface of a piece of equipment that is watching something. */
+function Scan() {
+  return (
+    <>
+      <div className="scan-lines" />
+      <div className="scan-sweep" />
+      <div className="scan-vignette" />
+    </>
+  );
+}
 
 function Line({
   label,

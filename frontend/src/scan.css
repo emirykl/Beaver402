@@ -1,0 +1,75 @@
+/*
+ * The console reads as a piece of equipment that is watching something, so
+ * the surface carries a faint scan: fixed lines the whole time, and a band
+ * that passes down the screen every few seconds.
+ *
+ * Both sit above the content but are nearly transparent, and neither takes
+ * pointer events, so nothing here can be clicked or block a click.
+ */
+
+.scan-lines,
+.scan-sweep,
+.scan-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scan-lines {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(224, 169, 74, 0.035) 0px,
+    rgba(224, 169, 74, 0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.scan-sweep {
+  height: 180px;
+  inset: auto 0 auto 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(224, 169, 74, 0.05) 35%,
+    rgba(224, 169, 74, 0.11) 50%,
+    rgba(224, 169, 74, 0.05) 65%,
+    transparent
+  );
+  border-top: 1px solid rgba(224, 169, 74, 0.16);
+  animation: scan-pass 7s linear infinite;
+}
+
+/* Darkened edges, the way a screen falls off toward its frame. */
+.scan-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+@keyframes scan-pass {
+  0% {
+    transform: translateY(-180px);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+/* A moving band is exactly what some people need to not be there. */
+@media (prefers-reduced-motion: reduce) {
+  .scan-sweep {
+    display: none;
+  }
+}
