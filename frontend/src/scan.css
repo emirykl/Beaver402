@@ -1,120 +1,108 @@
 /*
- * The console reads as a piece of equipment that is watching something, so
- * the surface carries a faint scan: fixed lines the whole time, and a beam
- * that passes down the screen and then rests before coming round again.
+ * The background is a radar set: range rings, a crosshair, and a sweep arm
+ * turning around the centre with its afterglow trailing behind it.
  *
- * All of it sits behind the panels, which are opaque, so the beam passes
+ * All of it sits behind the panels, which are opaque, so the arm passes
  * behind them rather than across them. None of it takes pointer events.
  */
 
-.scan-lines,
-.scan-beam,
-.scan-glow,
-.scan-vignette {
+.radar {
   position: fixed;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  width: 150vmax;
+  height: 150vmax;
+  margin: -75vmax 0 0 -75vmax;
+  border-radius: 50%;
   pointer-events: none;
   z-index: 0;
 }
 
+/* Range rings, spaced the way a scope marks distance. */
+.radar-rings {
+  background: repeating-radial-gradient(
+    circle at center,
+    transparent 0 108px,
+    rgba(224, 169, 74, 0.05) 108px 109px
+  );
+}
+
+/* The two axes through the centre. */
+.radar-cross {
+  background:
+    linear-gradient(
+      to right,
+      transparent calc(50% - 1px),
+      rgba(224, 169, 74, 0.045) calc(50% - 1px) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    linear-gradient(
+      to bottom,
+      transparent calc(50% - 1px),
+      rgba(224, 169, 74, 0.045) calc(50% - 1px) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+}
+
 /*
- * Four pixels apart rather than three. Closer than this and the lines start
- * to beat against the pixel grid on a scaled display, which reads as a
- * shimmer rather than as texture.
+ * The arm is a bright leading edge with the glow falling away behind it,
+ * which is what makes it read as something turning rather than a wedge
+ * being spun.
  */
-.scan-lines {
+.radar-sweep {
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 228, 170, 0.2) 0deg,
+    rgba(224, 169, 74, 0.1) 6deg,
+    rgba(224, 169, 74, 0.045) 26deg,
+    rgba(224, 169, 74, 0.015) 55deg,
+    transparent 95deg,
+    transparent 360deg
+  );
+  animation: radar-turn 7s linear infinite;
+}
+
+/* Faint texture over the whole surface, so it reads as a screen. */
+.radar-texture {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
   background: repeating-linear-gradient(
     0deg,
-    rgba(224, 169, 74, 0.022) 0px,
-    rgba(224, 169, 74, 0.022) 1px,
+    rgba(224, 169, 74, 0.018) 0px,
+    rgba(224, 169, 74, 0.018) 1px,
     transparent 1px,
     transparent 4px
   );
 }
 
-/*
- * The beam is mostly trail. A long soft body follows a bright edge at the
- * bottom, so it looks like something sweeping downward rather than a bar
- * being moved down the page.
- */
-.scan-beam {
-  height: 360px;
-  inset: auto 0 auto 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(224, 169, 74, 0.012) 45%,
-    rgba(224, 169, 74, 0.05) 80%,
-    rgba(224, 169, 74, 0.13) 95%,
-    rgba(255, 219, 150, 0.42) 99%,
-    rgba(255, 235, 200, 0.55) 99.8%,
-    transparent 100%
-  );
-  animation: scan-pass 11s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-}
-
-/* A wide, slow breath of warmth, so the surface is never quite still. */
-.scan-glow {
-  background: radial-gradient(
-    ellipse 90% 60% at 50% 40%,
-    rgba(224, 169, 74, 0.05),
-    transparent 70%
-  );
-  animation: scan-breathe 9s ease-in-out infinite;
-}
-
-/* Darkened edges, the way a screen falls off toward its frame. */
-.scan-vignette {
+/* Darkened edges, the way a scope falls off toward its bezel. */
+.radar-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
   background: radial-gradient(
     ellipse at center,
-    transparent 50%,
-    rgba(0, 0, 0, 0.5) 100%
+    transparent 42%,
+    rgba(0, 0, 0, 0.62) 100%
   );
 }
 
-/*
- * The pass takes a little over half the cycle, then the beam waits offscreen.
- * A beam that restarts the instant it leaves reads as a loop; one that pauses
- * reads as a sweep.
- */
-@keyframes scan-pass {
-  0% {
-    transform: translateY(-360px);
-    opacity: 0;
+@keyframes radar-turn {
+  from {
+    transform: rotate(0deg);
   }
-  5% {
-    opacity: 1;
-  }
-  58% {
-    opacity: 1;
-  }
-  66% {
-    transform: translateY(100vh);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(100vh);
-    opacity: 0;
-  }
-}
-
-@keyframes scan-breathe {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
+  to {
+    transform: rotate(360deg);
   }
 }
 
 /* Movement is exactly what some people need not to be there. */
 @media (prefers-reduced-motion: reduce) {
-  .scan-beam {
-    display: none;
-  }
-
-  .scan-glow {
+  .radar-sweep {
     animation: none;
+    opacity: 0.5;
   }
 }

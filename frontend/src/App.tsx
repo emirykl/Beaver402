@@ -298,14 +298,15 @@ export default function App() {
 
 /* ---- Pieces ---- */
 
-/** The surface of a piece of equipment that is watching something. */
+/** A radar set behind the console, turning whether or not anyone watches. */
 function Scan() {
   return (
     <>
-      <div className="scan-lines" />
-      <div className="scan-glow" />
-      <div className="scan-beam" />
-      <div className="scan-vignette" />
+      <div className="radar radar-rings" />
+      <div className="radar radar-cross" />
+      <div className="radar radar-sweep" />
+      <div className="radar-texture" />
+      <div className="radar-vignette" />
     </>
   );
 }
