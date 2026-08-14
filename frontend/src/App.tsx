@@ -460,6 +460,8 @@ const page: React.CSSProperties = {
 };
 
 const shell: React.CSSProperties = {
+  position: "relative",
+  zIndex: 1,
   maxWidth: 1200,
   margin: "0 auto",
   display: "flex",
@@ -498,6 +500,8 @@ const gateLayout: React.CSSProperties = {
 };
 
 const gateBox: React.CSSProperties = {
+  position: "relative",
+  zIndex: 1,
   width: "min(540px, 100%)",
   alignItems: "center",
   textAlign: "center",

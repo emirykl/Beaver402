@@ -3,8 +3,8 @@
  * the surface carries a faint scan: fixed lines the whole time, and a band
  * that passes down the screen every few seconds.
  *
- * Both sit above the content but are nearly transparent, and neither takes
- * pointer events, so nothing here can be clicked or block a click.
+ * All of it sits behind the panels, which are opaque, so the band passes
+ * behind them rather than across them. None of it takes pointer events.
  */
 
 .scan-lines,
@@ -13,7 +13,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 10;
+  z-index: 0;
 }
 
 .scan-lines {
