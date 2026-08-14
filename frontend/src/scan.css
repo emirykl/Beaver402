@@ -1,108 +1,92 @@
 /*
- * The background is a radar set: range rings, a crosshair, and a sweep arm
- * turning around the centre with its afterglow trailing behind it.
+ * A scanner passing down the surface: one thin bright line with a soft halo
+ * around it, moving at a constant speed. Everything else is texture.
  *
- * All of it sits behind the panels, which are opaque, so the arm passes
+ * The restraint is the point. A wide band reads as a bar being dragged down
+ * the page; a fine line with a little glow reads as a scan.
+ *
+ * All of it sits behind the panels, which are opaque, so the line passes
  * behind them rather than across them. None of it takes pointer events.
  */
 
-.radar {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 150vmax;
-  height: 150vmax;
-  margin: -75vmax 0 0 -75vmax;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Range rings, spaced the way a scope marks distance. */
-.radar-rings {
-  background: repeating-radial-gradient(
-    circle at center,
-    transparent 0 108px,
-    rgba(224, 169, 74, 0.05) 108px 109px
-  );
-}
-
-/* The two axes through the centre. */
-.radar-cross {
-  background:
-    linear-gradient(
-      to right,
-      transparent calc(50% - 1px),
-      rgba(224, 169, 74, 0.045) calc(50% - 1px) calc(50% + 1px),
-      transparent calc(50% + 1px)
-    ),
-    linear-gradient(
-      to bottom,
-      transparent calc(50% - 1px),
-      rgba(224, 169, 74, 0.045) calc(50% - 1px) calc(50% + 1px),
-      transparent calc(50% + 1px)
-    );
-}
-
-/*
- * The arm is a bright leading edge with the glow falling away behind it,
- * which is what makes it read as something turning rather than a wedge
- * being spun.
- */
-.radar-sweep {
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 228, 170, 0.2) 0deg,
-    rgba(224, 169, 74, 0.1) 6deg,
-    rgba(224, 169, 74, 0.045) 26deg,
-    rgba(224, 169, 74, 0.015) 55deg,
-    transparent 95deg,
-    transparent 360deg
-  );
-  animation: radar-turn 7s linear infinite;
-}
-
-/* Faint texture over the whole surface, so it reads as a screen. */
-.radar-texture {
+.scan-halo,
+.scan-line,
+.scan-texture,
+.scan-vignette {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
+}
+
+/* The glow that travels with the line, above and below it. */
+.scan-halo {
+  height: 220px;
+  inset: auto 0 auto 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(224, 169, 74, 0.014) 35%,
+    rgba(224, 169, 74, 0.038) 72%,
+    rgba(224, 169, 74, 0.075) 93%,
+    rgba(224, 169, 74, 0.05) 100%
+  );
+  animation: scan-travel 8s linear infinite;
+}
+
+/* The line itself, kept to a single hairline so it stays crisp. */
+.scan-line {
+  height: 1px;
+  inset: auto 0 auto 0;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 224, 165, 0.28) 12%,
+    rgba(255, 236, 200, 0.6) 50%,
+    rgba(255, 224, 165, 0.28) 88%,
+    transparent 100%
+  );
+  animation: scan-travel 8s linear infinite;
+}
+
+/* Faint horizontal texture, so the background reads as a screen. */
+.scan-texture {
   background: repeating-linear-gradient(
     0deg,
-    rgba(224, 169, 74, 0.018) 0px,
-    rgba(224, 169, 74, 0.018) 1px,
+    rgba(224, 169, 74, 0.016) 0px,
+    rgba(224, 169, 74, 0.016) 1px,
     transparent 1px,
     transparent 4px
   );
 }
 
-/* Darkened edges, the way a scope falls off toward its bezel. */
-.radar-vignette {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
+/* Darkened edges, the way a screen falls off toward its frame. */
+.scan-vignette {
   background: radial-gradient(
     ellipse at center,
-    transparent 42%,
-    rgba(0, 0, 0, 0.62) 100%
+    transparent 48%,
+    rgba(0, 0, 0, 0.55) 100%
   );
 }
 
-@keyframes radar-turn {
+/*
+ * Both layers run the same travel so the line stays at the leading edge of
+ * its own glow. The halo is offset upward by its own height, which puts the
+ * line at the bottom of it.
+ */
+@keyframes scan-travel {
   from {
-    transform: rotate(0deg);
+    transform: translateY(-220px);
   }
   to {
-    transform: rotate(360deg);
+    transform: translateY(100vh);
   }
 }
 
 /* Movement is exactly what some people need not to be there. */
 @media (prefers-reduced-motion: reduce) {
-  .radar-sweep {
-    animation: none;
-    opacity: 0.5;
+  .scan-halo,
+  .scan-line {
+    display: none;
   }
 }
