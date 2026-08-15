@@ -30,7 +30,7 @@ export default function App() {
     velocityTxCount: 0,
     velocityTotalAmount: "0",
     contractId: "not connected",
-    merchantApproved: false,
+    merchantApproved: undefined,
     velocityMaxTxCount: 0,
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -153,7 +153,7 @@ export default function App() {
     );
   }
 
-  const needsMerchant = !policyState.merchantApproved;
+  const needsMerchant = policyState.merchantApproved === false;
   const live = !policyState.frozen && policyState.agentSigner !== null;
 
   // ── Console ─────────────────────────────────────────────────────

@@ -8,8 +8,11 @@ export interface PolicyState {
   velocityTxCount: number;
   velocityTotalAmount: string;
   contractId: string;
-  /** Whether the owner has approved the merchant this demo uses. */
-  merchantApproved: boolean;
+  /**
+   * Whether the owner has approved the merchant this demo uses. Absent when
+   * the backend predates the check, which is not the same as false.
+   */
+  merchantApproved?: boolean;
   /** How many payments the budget allows per window. */
   velocityMaxTxCount: number;
 }
@@ -26,7 +29,7 @@ export async function fetchPolicyState(): Promise<PolicyState> {
       velocityTxCount: 0,
       velocityTotalAmount: "0",
       contractId: "not connected",
-      merchantApproved: false,
+      merchantApproved: undefined,
       velocityMaxTxCount: 0,
     };
   }
