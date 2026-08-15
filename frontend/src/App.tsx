@@ -298,14 +298,14 @@ export default function App() {
 
 /* ---- Pieces ---- */
 
-/** A scanner passing down the surface behind the console. */
+/** A signal behind the console that is not quite clean. */
 function Scan() {
   return (
     <>
-      <div className="scan-texture" />
-      <div className="scan-halo" />
-      <div className="scan-line" />
-      <div className="scan-vignette" />
+      <div className="glitch-static" />
+      <div className="glitch-tears" />
+      <div className="glitch-split" />
+      <div className="glitch-vignette" />
     </>
   );
 }

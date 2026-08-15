@@ -1,0 +1,151 @@
+/*
+ * The background carries a signal that is not quite clean: static, a set of
+ * horizontal tears, and a colour split that separates for a frame or two.
+ *
+ * The bursts are short and the gaps between them are long. A surface that
+ * glitches constantly stops reading as a fault and starts reading as a
+ * pattern, so each layer sits still for most of its cycle and the three
+ * cycles are different lengths, which keeps them from lining up.
+ *
+ * All of it sits behind the panels, which are opaque, so the distortion
+ * happens around them. None of it takes pointer events.
+ */
+
+.glitch-static,
+.glitch-tears,
+.glitch-split,
+.glitch-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ordinary static, held down low so it reads as grain. */
+.glitch-static {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.035;
+  animation: glitch-grain 0.9s steps(3) infinite;
+}
+
+/*
+ * Torn scan bands. They sit quietly as faint lines, then jump sideways for
+ * a moment before settling back.
+ */
+.glitch-tears {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 46px,
+    rgba(224, 169, 74, 0.05) 46px 47px,
+    transparent 47px 96px
+  );
+  animation: glitch-tear 6.1s steps(1, end) infinite;
+}
+
+/* The colour split, warm one way and cold the other. */
+.glitch-split {
+  background:
+    linear-gradient(90deg, rgba(255, 110, 80, 0.06), transparent 34%),
+    linear-gradient(270deg, rgba(90, 200, 255, 0.05), transparent 34%);
+  opacity: 0;
+  animation: glitch-split 9.7s steps(1, end) infinite;
+}
+
+/* Darkened edges, the way a screen falls off toward its frame. */
+.glitch-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 46%,
+    rgba(0, 0, 0, 0.58) 100%
+  );
+}
+
+/* Grain never rests, it just moves in whole pixels. */
+@keyframes glitch-grain {
+  0% {
+    transform: translate(0, 0);
+  }
+  33% {
+    transform: translate(-2px, 1px);
+  }
+  66% {
+    transform: translate(2px, -1px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* Still for five seconds, torn for a fraction of one. */
+@keyframes glitch-tear {
+  0%,
+  88% {
+    transform: translate(0, 0);
+    opacity: 0.5;
+  }
+  89% {
+    transform: translate(-16px, 3px);
+    opacity: 1;
+  }
+  90% {
+    transform: translate(11px, -4px);
+    opacity: 0.85;
+  }
+  91% {
+    transform: translate(-5px, 1px);
+    opacity: 1;
+  }
+  92%,
+  95% {
+    transform: translate(0, 0);
+    opacity: 0.5;
+  }
+  96% {
+    transform: translate(7px, -2px);
+    opacity: 0.9;
+  }
+  97%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.5;
+  }
+}
+
+/* The channels part, then close again. */
+@keyframes glitch-split {
+  0%,
+  92% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  93% {
+    opacity: 1;
+    transform: translateX(-9px);
+  }
+  94% {
+    opacity: 1;
+    transform: translateX(7px);
+  }
+  95% {
+    opacity: 0.6;
+    transform: translateX(-3px);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+}
+
+/* Movement is exactly what some people need not to be there. */
+@media (prefers-reduced-motion: reduce) {
+  .glitch-static,
+  .glitch-tears,
+  .glitch-split {
+    animation: none;
+  }
+
+  .glitch-split {
+    opacity: 0;
+  }
+}
