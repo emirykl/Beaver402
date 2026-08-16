@@ -124,6 +124,33 @@ function extractMap(sim: Awaited<ReturnType<typeof callContractView>>): Map<stri
   return result;
 }
 
+/**
+ * Values that hardly ever change, kept for a few seconds.
+ *
+ * The control panel refreshes after every action, and each refresh was
+ * making five calls to the network. The velocity limit and the merchant
+ * allowlist only move when the owner moves them, so asking every time is
+ * what pushes the node into refusing.
+ */
+const CACHE_MS = 15_000;
+const cache = new Map<string, { at: number; value: unknown }>();
+
+async function cached<T>(key: string, read: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) {
+    return hit.value as T;
+  }
+
+  const value = await read();
+  cache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+/** Forget the cache after an owner action, since one may have changed it. */
+function invalidateCache(): void {
+  cache.clear();
+}
+
 /** Whether the owner has approved the merchant this backend demonstrates. */
 async function isDemoMerchantApproved(): Promise<boolean> {
   const secret = process.env.MERCHANT_SECRET;
@@ -195,8 +222,8 @@ export function createPolicyRouter() {
 
       // The control panel needs these to tell the owner what is still to do
       // and how much of the budget is left.
-      const merchantApproved = await isDemoMerchantApproved();
-      const velocityMaxTxCount = await readMaxTxCount();
+      const merchantApproved = await cached("merchant", isDemoMerchantApproved);
+      const velocityMaxTxCount = await cached("maxTxCount", readMaxTxCount);
 
       res.json({
         frozen,
@@ -268,6 +295,7 @@ export function createPolicyRouter() {
         CONTRACT_ID,
         StellarSdk.Keypair.fromSecret(requireFeeSecret())
       );
+      invalidateCache();
       res.json({ success: true, txHash: result.txHash });
     } catch (err) {
       res.status(500).json({ success: false, error: String(err) });
