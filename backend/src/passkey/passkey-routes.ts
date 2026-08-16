@@ -7,12 +7,24 @@ import {
   getUserCredentials,
 } from "./webauthn-server.js";
 
-// simple per-IP rate limiter for auth endpoints
-const rateLimitWindow = 60_000; // 1 minute
-const maxRequests = 10;
+/**
+ * Slow down guessing at the ceremonies, per address.
+ *
+ * Only the ceremonies are counted. Asking whether an account has a passkey
+ * reveals nothing and happens on every visit, so counting it meant a handful
+ * of ordinary sign in attempts could lock someone out of their own account
+ * for a minute.
+ */
+const rateLimitWindow = 60_000;
+const maxRequests = 30;
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimit(req: Request, res: Response, next: NextFunction): void {
+  if (req.method === "GET") {
+    next();
+    return;
+  }
+
   const ip = req.ip || req.socket.remoteAddress || "unknown";
   const now = Date.now();
   const entry = requestCounts.get(ip);
@@ -24,7 +36,12 @@ function rateLimit(req: Request, res: Response, next: NextFunction): void {
   }
 
   if (entry.count >= maxRequests) {
-    res.status(429).json({ error: "too many requests, try again later" });
+    // Saying how long turns a dead button into a wait.
+    const seconds = Math.ceil((entry.resetAt - now) / 1000);
+    res.setHeader("Retry-After", String(seconds));
+    res.status(429).json({
+      error: `too many attempts, try again in ${seconds} seconds`,
+    });
     return;
   }
 
