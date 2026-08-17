@@ -171,7 +171,18 @@ export default function App() {
           <img src="/beaver402-logo.png" alt="" style={topLogo} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={topTitle}>BEAVER402</div>
-            <div style={topSub}>{policyState.contractId}</div>
+            <div style={topSub}>
+              <span style={topSubLabel}>SMART ACCOUNT</span>
+              <a
+                style={topSubLink}
+                href={`https://stellar.expert/explorer/testnet/contract/${policyState.contractId}`}
+                target="_blank"
+                rel="noreferrer"
+                title={policyState.contractId}
+              >
+                {policyState.contractId}
+              </a>
+            </div>
           </div>
           <div style={indicator}>
             <span
@@ -558,9 +569,24 @@ const topTitle: React.CSSProperties = {
 };
 
 const topSub: React.CSSProperties = {
-  fontSize: 13,
+  display: "flex",
+  alignItems: "baseline",
+  gap: 12,
+  marginTop: 8,
+  minWidth: 0,
+};
+
+const topSubLabel: React.CSSProperties = {
+  fontSize: 11,
+  letterSpacing: 2,
   color: dim,
-  marginTop: 6,
+  flexShrink: 0,
+};
+
+const topSubLink: React.CSSProperties = {
+  fontSize: 13,
+  color: "#8fb4d8",
+  textDecoration: "none",
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
