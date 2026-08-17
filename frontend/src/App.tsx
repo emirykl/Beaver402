@@ -11,7 +11,11 @@ import {
   type PolicyState,
   type Transaction,
 } from "./stellar-ops.js";
-import { registerPasskey, authenticatePasskey } from "./passkey-auth.js";
+import {
+  registerPasskey,
+  authenticatePasskey,
+  hasPasskey,
+} from "./passkey-auth.js";
 
 interface LogEntry {
   id: number;
@@ -40,6 +44,7 @@ export default function App() {
   );
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [merchantInfo, setMerchantInfo] = useState<MerchantInfo | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
@@ -57,45 +62,42 @@ export default function App() {
 
   const handleAuth = useCallback(async () => {
     const userId = "beaver402-owner";
-    setAuthMode("authenticating");
-    addLog("Awaiting passkey");
+    setAuthError(null);
 
-    try {
-      if (await authenticatePasskey(userId)) {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: "default" }),
-        });
-        setAuthenticated(true);
-        addLog("Owner verified", "success");
-        refresh();
-        setAuthMode("idle");
-        return;
-      }
-    } catch {
-      // No passkey on this device yet, so enrol one.
+    const signIn = async () => {
+      setAuthMode("authenticating");
+      addLog("Awaiting passkey");
+      return authenticatePasskey(userId);
+    };
+
+    const enrol = async () => {
+      setAuthMode("registering");
+      addLog("Enrolling a passkey on this device");
+      return registerPasskey(userId);
+    };
+
+    // Enrolling over an account that already has a passkey only ever fails,
+    // so which one to run is decided before either is attempted rather than
+    // by falling through from a failure.
+    const enrolled = await hasPasskey(userId);
+    const result = enrolled ? await signIn() : await enrol();
+
+    if (!result.ok) {
+      setAuthMode("idle");
+      setAuthError(result.error ?? "it did not work");
+      addLog(`Sign in failed: ${result.error ?? "unknown"}`, "error");
+      return;
     }
 
-    setAuthMode("registering");
-    addLog("Enrolling a passkey on this device");
-    try {
-      if (await registerPasskey(userId)) {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: "default" }),
-        });
-        setAuthenticated(true);
-        addLog("Passkey enrolled", "success");
-        refresh();
-      } else {
-        addLog("Enrolment refused", "error");
-      }
-    } catch {
-      addLog("This browser refused the passkey", "error");
-    }
+    await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "default" }),
+    });
+    setAuthenticated(true);
+    addLog(enrolled ? "Owner verified" : "Passkey enrolled", "success");
     setAuthMode("idle");
+    refresh();
   }, [addLog, refresh]);
 
   useEffect(() => {
@@ -147,7 +149,11 @@ export default function App() {
             busy={authMode !== "idle"}
             onClick={handleAuth}
           />
-          <p style={gateNote}>Touch ID authorizes every action</p>
+          {authError ? (
+            <p style={gateError}>{authError}</p>
+          ) : (
+            <p style={gateNote}>Touch ID authorizes every action</p>
+          )}
         </section>
       </div>
     );
@@ -526,6 +532,12 @@ const gateText: React.CSSProperties = {
 };
 
 const gateNote: React.CSSProperties = { fontSize: 14, color: dim };
+
+const gateError: React.CSSProperties = {
+  fontSize: 14,
+  color: red,
+  lineHeight: 1.7,
+};
 
 /* Top bar */
 
