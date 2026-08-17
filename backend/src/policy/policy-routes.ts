@@ -264,7 +264,7 @@ export function createPolicyRouter() {
         action,
         CONTRACT_ID,
         feeSource(),
-        req.body?.merchantPubkey
+        req.body?.pubkey ?? req.body?.merchantPubkey
       );
       res.json({ success: true, prepared });
     } catch (err) {

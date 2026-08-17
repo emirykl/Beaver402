@@ -39,6 +39,7 @@ export type OwnerAction =
   | "freeze_payments"
   | "restore_payments"
   | "revoke_agent_signer"
+  | "set_agent_signer"
   | "add_merchant"
   | "remove_merchant";
 
@@ -71,13 +72,13 @@ const JSON_HEADERS = {
  */
 async function runOwnerAction(
   action: OwnerAction,
-  merchantPubkey?: string
+  pubkey?: string
 ): Promise<OwnerActionResult> {
   try {
     const prepareRes = await fetch(`${API_BASE}/prepare`, {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ action, merchantPubkey }),
+      body: JSON.stringify({ action, pubkey }),
     });
     const preparation = await prepareRes.json();
 
@@ -127,6 +128,17 @@ export async function restorePayments(): Promise<OwnerActionResult> {
 
 export async function revokeAgentSigner(): Promise<OwnerActionResult> {
   return runOwnerAction("revoke_agent_signer");
+}
+
+/**
+ * Give the account a delegated signer again.
+ *
+ * Revoking is meant to be survivable, so the same passkey that cut the agent
+ * off can hand the key back. With no key named, the account is set back to the
+ * signer the backend is configured with.
+ */
+export async function restoreAgentSigner(): Promise<OwnerActionResult> {
+  return runOwnerAction("set_agent_signer");
 }
 
 export async function allowMerchant(

@@ -18,36 +18,61 @@ export const OWNER_ACTIONS = [
   "freeze_payments",
   "restore_payments",
   "revoke_agent_signer",
+  "set_agent_signer",
   "add_merchant",
   "remove_merchant",
 ] as const;
 
 export type OwnerAction = (typeof OWNER_ACTIONS)[number];
 
+/** The owner actions that name an ed25519 key. The rest take nothing. */
+const ACTIONS_TAKING_A_KEY: readonly OwnerAction[] = [
+  "add_merchant",
+  "remove_merchant",
+  "set_agent_signer",
+];
+
 export function isOwnerAction(value: string): value is OwnerAction {
   return (OWNER_ACTIONS as readonly string[]).includes(value);
 }
 
-/** Some owner actions name a merchant, the rest take nothing. */
+/** A key reaches us either as a Stellar G address or as raw hex. */
+function toRawPubkey(value: string): Buffer {
+  return /^[0-9a-fA-F]{64}$/.test(value)
+    ? Buffer.from(value, "hex")
+    : Buffer.from(StellarSdk.StrKey.decodeEd25519PublicKey(value));
+}
+
+/**
+ * The signer this backend would use, so restoring the agent does not ask the
+ * owner to type a key. Naming one explicitly still works, which is what a
+ * rotation to a different backend would do.
+ */
+function configuredAgentPubkey(): string {
+  const secret = process.env.AGENT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "set_agent_signer needs a public key, and AGENT_SECRET is not set to fall back on"
+    );
+  }
+  return StellarSdk.Keypair.fromSecret(secret).publicKey();
+}
+
 export function argsFor(
   action: OwnerAction,
-  merchantPubkey?: string
+  pubkey?: string
 ): StellarSdk.xdr.ScVal[] {
-  if (action !== "add_merchant" && action !== "remove_merchant") {
+  if (!ACTIONS_TAKING_A_KEY.includes(action)) {
     return [];
   }
 
-  if (!merchantPubkey) {
-    throw new Error(`${action} needs a merchant public key`);
+  const key =
+    pubkey ?? (action === "set_agent_signer" ? configuredAgentPubkey() : undefined);
+  if (!key) {
+    throw new Error(`${action} needs a public key`);
   }
 
-  const raw = /^[0-9a-fA-F]{64}$/.test(merchantPubkey)
-    ? Buffer.from(merchantPubkey, "hex")
-    : Buffer.from(
-        StellarSdk.StrKey.decodeEd25519PublicKey(merchantPubkey)
-      );
-
-  return [StellarSdk.xdr.ScVal.scvBytes(raw)];
+  return [StellarSdk.xdr.ScVal.scvBytes(toRawPubkey(key))];
 }
 
 export interface PreparedOwnerAction {
@@ -72,9 +97,9 @@ export async function prepareOwnerAction(
   action: OwnerAction,
   contractId: string,
   feeSource: string,
-  merchantPubkey?: string
+  pubkey?: string
 ): Promise<PreparedOwnerAction> {
-  const args = argsFor(action, merchantPubkey);
+  const args = argsFor(action, pubkey);
   const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
   const account = await server.getAccount(feeSource);
 

@@ -7,6 +7,7 @@ import {
   freezePayments,
   restorePayments,
   revokeAgentSigner,
+  restoreAgentSigner,
   fetchTransactions,
   type PolicyState,
   type Transaction,
@@ -264,13 +265,20 @@ export default function App() {
                     onClick={() => handleAction("Halt", freezePayments)}
                   />
                 )}
-                {policyState.agentSigner && (
+                {policyState.agentSigner ? (
                   <Button
                     label="REVOKE AGENT KEY"
                     danger
                     busy={loading === "Revoke"}
                     disabled={loading !== null}
                     onClick={() => handleAction("Revoke", revokeAgentSigner)}
+                  />
+                ) : (
+                  <Button
+                    label="REINSTATE AGENT KEY"
+                    busy={loading === "Reinstate"}
+                    disabled={loading !== null}
+                    onClick={() => handleAction("Reinstate", restoreAgentSigner)}
                   />
                 )}
               </section>

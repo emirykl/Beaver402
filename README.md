@@ -64,7 +64,7 @@ being authorized, never from which signature the caller offers.
 | Path | Key | May do |
 |---|---|---|
 | Payment | agent ed25519, in the backend | spend, within the policy |
-| Owner | passkey secp256r1, in device hardware | freeze, restore, revoke, allowlist |
+| Owner | passkey secp256r1, in device hardware | freeze, restore, revoke or reinstate the agent, allowlist |
 
 An agent signature offered for an owner action is refused. An owner assertion
 offered for a payment is refused. A batch mixing the two is refused, so an
