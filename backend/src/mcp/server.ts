@@ -13,6 +13,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { pathToFileURL } from "node:url";
 
 const BACKEND_URL = process.env.BEAVER402_BACKEND_URL || "http://localhost:3000";
 
@@ -157,8 +158,10 @@ async function main() {
 }
 
 // Only start talking on stdio when run directly, so tests can import the
-// server without it seizing the streams.
-if (process.argv[1] && process.argv[1].endsWith("server.ts")) {
+// server without it seizing the streams. Compare module URLs rather than the
+// source filename so both server.ts and the compiled server.js work.
+const entrypointUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
+if (import.meta.url === entrypointUrl) {
   main().catch((err) => {
     console.error("beaver402 mcp server failed to start:", err);
     process.exit(1);
