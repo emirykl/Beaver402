@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from "express";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { isAuthenticated } from "../lib/sessions.js";
+import { createRateLimit } from "../lib/rate-limit.js";
 import {
   isOwnerAction,
   prepareOwnerAction,
@@ -160,6 +161,11 @@ async function readMaxTxCount(): Promise<number> {
 
 export function createPolicyRouter() {
   const router = express.Router();
+
+  // Owner actions cost a passkey touch each, so nobody legitimate comes close
+  // to this. Reading the state is a GET and stays uncounted, which is what the
+  // panel does on every refresh.
+  router.use(createRateLimit({ windowMs: 60_000, max: 30 }));
 
   router.get("/api/policy/state", async (_req: Request, res: Response) => {
     if (!CONTRACT_ID) {

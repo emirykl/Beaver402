@@ -1,4 +1,4 @@
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, { type Request, type Response } from "express";
 import {
   startRegistration,
   finishRegistration,
@@ -7,52 +7,12 @@ import {
   getUserCredentials,
 } from "./webauthn-server.js";
 import { createSession } from "../lib/sessions.js";
-
-/**
- * Slow down guessing at the ceremonies, per address.
- *
- * Only the ceremonies are counted. Asking whether an account has a passkey
- * reveals nothing and happens on every visit, so counting it meant a handful
- * of ordinary sign in attempts could lock someone out of their own account
- * for a minute.
- */
-const rateLimitWindow = 60_000;
-const maxRequests = 30;
-const requestCounts = new Map<string, { count: number; resetAt: number }>();
-
-function rateLimit(req: Request, res: Response, next: NextFunction): void {
-  if (req.method === "GET") {
-    next();
-    return;
-  }
-
-  const ip = req.ip || req.socket.remoteAddress || "unknown";
-  const now = Date.now();
-  const entry = requestCounts.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    requestCounts.set(ip, { count: 1, resetAt: now + rateLimitWindow });
-    next();
-    return;
-  }
-
-  if (entry.count >= maxRequests) {
-    // Saying how long turns a dead button into a wait.
-    const seconds = Math.ceil((entry.resetAt - now) / 1000);
-    res.setHeader("Retry-After", String(seconds));
-    res.status(429).json({
-      error: `too many attempts, try again in ${seconds} seconds`,
-    });
-    return;
-  }
-
-  entry.count++;
-  next();
-}
+import { createRateLimit } from "../lib/rate-limit.js";
 
 export function createPasskeyRouter() {
   const router = express.Router();
-  router.use(rateLimit);
+  // Enough for anyone signing in, not enough to guess at a ceremony.
+  router.use(createRateLimit({ windowMs: 60_000, max: 30 }));
 
   router.post("/api/passkey/register/start", async (req: Request, res: Response) => {
     try {
