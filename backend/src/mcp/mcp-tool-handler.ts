@@ -56,10 +56,7 @@ export function extractRequestFromToolCall(
   };
 }
 
-export function isPaymentRequired(
-  statusCode: number,
-  headers?: Record<string, string>
-): boolean {
+export function isPaymentRequired(statusCode: number): boolean {
   return statusCode === 402;
 }
 
