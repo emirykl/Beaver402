@@ -1,7 +1,7 @@
 import express from "express";
 import { createMerchantRouter } from "./merchant/demo-endpoint.js";
 import { createPasskeyRouter } from "./passkey/passkey-routes.js";
-import { createPolicyRouter, markAuthenticated } from "./policy/policy-routes.js";
+import { createPolicyRouter } from "./policy/policy-routes.js";
 import { createAgentRouter } from "./agent/agent-routes.js";
 import {
   extractRequestFromToolCall,
@@ -53,17 +53,6 @@ app.post("/api/mcp/extract", (req, res) => {
     paymentRequired: !!paymentDetails,
     paymentDetails,
   });
-});
-
-// session auth callback (called after successful passkey auth)
-app.post("/api/auth/session", async (req, res) => {
-  const { sessionId } = req.body;
-  if (!sessionId) {
-    res.status(400).json({ error: "sessionId is required" });
-    return;
-  }
-  await markAuthenticated(sessionId);
-  res.json({ authenticated: true });
 });
 
 // transaction history

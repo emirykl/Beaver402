@@ -6,6 +6,7 @@ import {
   finishAuthentication,
   getUserCredentials,
 } from "./webauthn-server.js";
+import { createSession } from "../lib/sessions.js";
 
 /**
  * Slow down guessing at the ceremonies, per address.
@@ -75,7 +76,9 @@ export function createPasskeyRouter() {
         return;
       }
       const result = await finishRegistration(userId, credential);
-      res.json(result);
+      // Enrolling proves the same thing signing in does: the passkey is on
+      // this device and someone touched it.
+      res.json({ ...result, sessionId: await createSession() });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -103,7 +106,9 @@ export function createPasskeyRouter() {
         return;
       }
       const result = await finishAuthentication(userId, credential);
-      res.json(result);
+      // The session is issued here, where the assertion was actually checked,
+      // so it cannot be claimed by anyone who never held the passkey.
+      res.json({ ...result, sessionId: await createSession() });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

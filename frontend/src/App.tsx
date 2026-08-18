@@ -90,11 +90,8 @@ export default function App() {
       return;
     }
 
-    await fetch("/api/auth/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: "default" }),
-    });
+    // The session came back with the ceremony, so there is nothing left to
+    // announce here.
     setAuthenticated(true);
     addLog(enrolled ? "Owner verified" : "Passkey enrolled", "success");
     setAuthMode("idle");

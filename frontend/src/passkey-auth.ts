@@ -1,5 +1,7 @@
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 
+import { setSessionId } from "./session.js";
+
 const API_BASE = "/api/passkey";
 
 export interface PasskeyResult {
@@ -41,7 +43,10 @@ export async function registerPasskey(userId: string): Promise<PasskeyResult> {
     });
     const result = await verifyRes.json();
 
-    if (result.verified === true) return { ok: true };
+    if (result.verified === true) {
+      setSessionId(result.sessionId ?? "");
+      return { ok: true };
+    }
     return { ok: false, error: result.error ?? "the server did not accept the passkey" };
   } catch (err) {
     return { ok: false, error: describe(err) };
@@ -69,7 +74,10 @@ export async function authenticatePasskey(userId: string): Promise<PasskeyResult
     });
     const result = await verifyRes.json();
 
-    if (result.verified === true) return { ok: true };
+    if (result.verified === true) {
+      setSessionId(result.sessionId ?? "");
+      return { ok: true };
+    }
     return { ok: false, error: result.error ?? "the server did not accept the signature" };
   } catch (err) {
     return { ok: false, error: describe(err) };

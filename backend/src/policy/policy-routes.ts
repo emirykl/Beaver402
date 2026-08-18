@@ -1,6 +1,6 @@
 import express, { type Request, type Response } from "express";
 import * as StellarSdk from "@stellar/stellar-sdk";
-import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { isAuthenticated } from "../lib/sessions.js";
 import {
   isOwnerAction,
   prepareOwnerAction,
@@ -13,35 +13,13 @@ const SOROBAN_RPC_URL =
 const CONTRACT_ID = process.env.POLICY_CONTRACT_ID || "";
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
 
-export async function markAuthenticated(sessionId: string) {
-  if (!isSupabaseConfigured()) {
-    return;
-  }
-  const supabase = getSupabase();
-  await supabase.from("sessions").upsert({
-    id: sessionId,
-    authenticated_at: new Date().toISOString(),
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  });
-}
-
-export async function isAuthenticated(sessionId: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
-    return false;
-  }
-  const supabase = getSupabase();
-  const { data } = await supabase
-    .from("sessions")
-    .select("id, expires_at")
-    .eq("id", sessionId)
-    .single();
-
-  if (!data) return false;
-  return new Date(data.expires_at) > new Date();
-}
-
+/**
+ * The session the caller is claiming. A missing header is nobody, which the
+ * session lookup then refuses, rather than a shared name everyone can guess.
+ */
 function getSessionId(req: Request): string {
-  return req.headers["x-session-id"] as string || "default";
+  const header = req.headers["x-session-id"];
+  return typeof header === "string" ? header : "";
 }
 
 async function callContractView(functionName: string, args: StellarSdk.xdr.ScVal[] = []) {

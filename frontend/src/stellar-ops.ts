@@ -1,5 +1,7 @@
 import { startAuthentication } from "@simplewebauthn/browser";
 
+import { getSessionId } from "./session.js";
+
 const API_BASE = "/api/policy";
 
 export interface PolicyState {
@@ -57,10 +59,13 @@ interface PreparedAction {
   validUntilLedger: number;
 }
 
-const JSON_HEADERS = {
-  "Content-Type": "application/json",
-  "x-session-id": "default",
-};
+/** Owner routes want the session the passkey earned, not a fixed name. */
+function jsonHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "x-session-id": getSessionId(),
+  };
+}
 
 /**
  * Carry out an owner action with the passkey.
@@ -77,7 +82,7 @@ async function runOwnerAction(
   try {
     const prepareRes = await fetch(`${API_BASE}/prepare`, {
       method: "POST",
-      headers: JSON_HEADERS,
+      headers: jsonHeaders(),
       body: JSON.stringify({ action, pubkey }),
     });
     const preparation = await prepareRes.json();
@@ -101,7 +106,7 @@ async function runOwnerAction(
 
     const submitRes = await fetch(`${API_BASE}/submit`, {
       method: "POST",
-      headers: JSON_HEADERS,
+      headers: jsonHeaders(),
       body: JSON.stringify({
         prepared,
         assertion: {

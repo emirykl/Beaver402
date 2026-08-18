@@ -235,19 +235,20 @@ docs/                       encoding specification and threat model
 | POST | `/api/policy/prepare` | what the owner passkey has to sign |
 | POST | `/api/policy/submit` | carry the assertion back and submit |
 | POST | `/api/passkey/register/start` | begin passkey registration |
-| POST | `/api/passkey/register/finish` | complete passkey registration |
+| POST | `/api/passkey/register/finish` | complete passkey registration, issue a session |
 | POST | `/api/passkey/auth/start` | begin passkey sign in |
-| POST | `/api/passkey/auth/finish` | complete passkey sign in |
+| POST | `/api/passkey/auth/finish` | complete passkey sign in, issue a session |
 | GET | `/api/passkey/credentials/:userId` | whether a passkey is registered |
-| POST | `/api/auth/session` | mark a session authenticated |
 | POST | `/api/mcp/extract` | read an HTTP request out of a tool call |
 | GET | `/api/transactions` | payment history |
 | GET | `/health` | health check |
 
 Owner actions take two calls. The first works out the payload the account
-will be asked about, the second carries the passkey assertion back. The
-session check gates the interface; the authority itself is the passkey, and
-the contract is what enforces that.
+will be asked about, the second carries the passkey assertion back. Both want
+the session id in an `x-session-id` header, and that id is minted by the
+backend when a passkey ceremony succeeds rather than chosen by the caller.
+The session gates the interface; the authority itself is the passkey, and the
+contract is what enforces that.
 
 ## Environment
 
