@@ -310,7 +310,7 @@ export function createPolicyRouter() {
  * nothing else, so it cannot approve anything on the owner's behalf.
  */
 function requireFeeSecret(): string {
-  const secret = process.env.FEE_SOURCE_SECRET || process.env.OWNER_SECRET;
+  const secret = process.env.FEE_SOURCE_SECRET;
   if (!secret) {
     throw new Error("FEE_SOURCE_SECRET is required to pay for owner actions");
   }
