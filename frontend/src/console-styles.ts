@@ -252,10 +252,17 @@ export const txLink: CSSProperties = {
   wordBreak: "break-all",
 };
 
+/**
+ * Why a payment was refused, shown whole.
+ *
+ * The reason wraps onto as many lines as it needs. Cutting it was hiding the
+ * end of the sentence, which is the part that says what to do about it.
+ */
 export const txWhy: CSSProperties = {
   fontSize: 14,
   color: "#c98b80",
   lineHeight: 1.7,
+  overflowWrap: "anywhere",
 };
 
 export const logList: CSSProperties = {

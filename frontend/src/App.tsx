@@ -482,7 +482,7 @@ function TxRow({ tx }: { tx: Transaction }) {
           {tx.tx_hash.slice(0, 24)}
         </a>
       ) : (
-        <span style={txWhy}>{shorten(tx.error ?? "", 96)}</span>
+        <span style={txWhy}>{tx.error}</span>
       )}
     </div>
   );
@@ -498,10 +498,6 @@ function formatAmount(raw: string | null): string {
   } catch {
     return raw;
   }
-}
-
-function shorten(value: string, n: number): string {
-  return value.length <= n ? value : `${value.slice(0, n - 1)}…`;
 }
 
 function toneColor(type: LogEntry["type"]): string {
