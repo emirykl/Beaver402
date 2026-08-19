@@ -15,6 +15,7 @@ import { createAdapter } from "../src/adapter/x402-client.js";
 import { createSignedChallenge } from "../src/merchant/challenge-signer.js";
 import { paidFetch, type FetchLike } from "../src/agent/paid-fetch.js";
 import type { SignedChallenge } from "../src/shared/types.js";
+import { policyErrorName } from "../src/shared/policy-errors.js";
 
 const BACKEND = process.argv[2] || "http://localhost:3010";
 const ENDPOINT = `${BACKEND}/api/data`;
@@ -39,39 +40,6 @@ const nodeFetch: FetchLike = async (url, init) => {
   };
 };
 
-/** The codes in contracts/payment_policy/src/errors.rs. */
-const POLICY_ERRORS: Record<string, string> = {
-  "1": "InvalidBuyerSigner",
-  "2": "UnauthorizedMerchant",
-  "3": "InvalidMerchantSignature",
-  "4": "ChallengeMismatch",
-  "7": "NonceReused",
-  "8": "ChallengeExpired",
-  "10": "VelocityExceeded",
-  "11": "AccountFrozen",
-  "12": "SignerRevoked",
-  "13": "UnauthorizedOwnerAction",
-  "14": "InvalidSignatureFormat",
-  "15": "NotInitialized",
-  "17": "InvalidAmount",
-  "18": "SettlementMismatch",
-};
-
-/**
- * Pull the policy's own error out of a host error.
- *
- * The network wraps a refusal from a custom account in a generic auth error,
- * so the code that actually explains it only shows up in the diagnostics.
- * Without this the report would say every refusal looked the same.
- */
-function policyError(message: string | undefined): string | undefined {
-  if (!message) return undefined;
-  const match = message.match(/Error\(Contract, #(\d+)\)/);
-  if (!match) return undefined;
-  const code = match[1]!;
-  return POLICY_ERRORS[code] ?? `contract error #${code}`;
-}
-
 interface Outcome {
   name: string;
   expected: "allowed" | "refused";
@@ -90,7 +58,7 @@ function record(
   txHash?: string
 ) {
   const actual = paid ? "allowed" : "refused";
-  const explained = policyError(reason) ?? reason;
+  const explained = policyErrorName(reason) ?? reason;
   results.push({ name, expected, actual, reason: explained, txHash });
 
   const mark = actual === expected ? "ok" : "UNEXPECTED";

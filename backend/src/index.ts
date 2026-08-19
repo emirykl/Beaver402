@@ -9,6 +9,7 @@ import {
   extractPaymentDetails,
 } from "./mcp/mcp-tool-handler.js";
 import { getSupabase, isSupabaseConfigured } from "./lib/supabase.js";
+import { describePolicyError } from "./shared/policy-errors.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -73,7 +74,15 @@ app.get("/api/transactions", async (_req, res) => {
       res.status(500).json({ error: error.message });
       return;
     }
-    res.json({ transactions: data ?? [] });
+
+    // The log keeps the whole host error, which is a page of diagnostics.
+    // What reaches the panel is the sentence inside it.
+    const transactions = (data ?? []).map((row) => ({
+      ...row,
+      error: row.error ? describePolicyError(row.error) : row.error,
+    }));
+
+    res.json({ transactions });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

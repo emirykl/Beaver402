@@ -482,7 +482,7 @@ function TxRow({ tx }: { tx: Transaction }) {
           {tx.tx_hash.slice(0, 24)}
         </a>
       ) : (
-        <span style={txWhy}>{shorten(tx.error ?? "", 64)}</span>
+        <span style={txWhy}>{shorten(tx.error ?? "", 96)}</span>
       )}
     </div>
   );

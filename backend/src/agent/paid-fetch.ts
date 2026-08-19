@@ -1,5 +1,6 @@
 import type { Beaver402Adapter, PaymentResult } from "../adapter/x402-client.js";
 import type { SignedChallenge } from "../shared/types.js";
+import { describePolicyError } from "../shared/policy-errors.js";
 
 export interface PaidFetchRequest {
   url: string;
@@ -100,11 +101,13 @@ export async function paidFetch(
   );
 
   if (!result.success) {
+    // The payment log keeps the raw host error. What the caller is told, and
+    // what a model repeats back to someone, is the reason inside it.
     return {
       status: 402,
       paid: false,
       content: firstBody,
-      error: result.error ?? "payment was refused",
+      error: describePolicyError(result.error) || "payment was refused",
     };
   }
 
