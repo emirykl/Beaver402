@@ -2,6 +2,7 @@ import express, { type Request, type Response } from "express";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { isAuthenticated } from "../lib/sessions.js";
 import { createRateLimit } from "../lib/rate-limit.js";
+import { effectiveVelocity } from "./velocity-window.js";
 import {
   isOwnerAction,
   prepareOwnerAction,
@@ -149,13 +150,21 @@ async function isDemoMerchantApproved(): Promise<boolean> {
   }
 }
 
-async function readMaxTxCount(): Promise<number> {
+interface VelocityConfigReading {
+  maxTxCount: number;
+  windowSize: number;
+}
+
+async function readVelocityConfig(): Promise<VelocityConfigReading> {
   try {
     const sim = await callContractView("get_velocity_config");
     const parsed = extractMap(sim);
-    return Number(parsed.get("max_tx_count") ?? 0);
+    return {
+      maxTxCount: Number(parsed.get("max_tx_count") ?? 0),
+      windowSize: Number(parsed.get("window_size") ?? 0),
+    };
   } catch {
-    return 0;
+    return { maxTxCount: 0, windowSize: 0 };
   }
 }
 
@@ -193,13 +202,15 @@ export function createPolicyRouter() {
         agentSigner = null; // signer revoked or not set
       }
 
-      let velocityTxCount = 0;
-      let velocityTotalAmount = "0";
+      let reading = { txCount: 0, totalAmount: "0", windowStart: 0 };
       try {
         const velSim = await callContractView("get_velocity_state");
         const parsed = extractMap(velSim);
-        velocityTxCount = Number(parsed.get("tx_count") ?? 0);
-        velocityTotalAmount = String(parsed.get("total_amount") ?? "0");
+        reading = {
+          txCount: Number(parsed.get("tx_count") ?? 0),
+          totalAmount: String(parsed.get("total_amount") ?? "0"),
+          windowStart: Number(parsed.get("window_start") ?? 0),
+        };
       } catch {
         // use defaults
       }
@@ -207,7 +218,19 @@ export function createPolicyRouter() {
       // The control panel needs these to tell the owner what is still to do
       // and how much of the budget is left.
       const merchantApproved = await cached("merchant", isDemoMerchantApproved);
-      const velocityMaxTxCount = await cached("maxTxCount", readMaxTxCount);
+      const config = await cached("velocityConfig", readVelocityConfig);
+
+      // The counters on chain belong to whichever window was open when they
+      // were last touched, so they are rolled forward here the same way the
+      // contract will roll them forward on the next payment.
+      const velocity = effectiveVelocity(
+        reading,
+        { windowSize: config.windowSize },
+        Math.floor(Date.now() / 1000)
+      );
+      const velocityTxCount = velocity.txCount;
+      const velocityTotalAmount = velocity.totalAmount;
+      const velocityMaxTxCount = config.maxTxCount;
 
       res.json({
         frozen,
