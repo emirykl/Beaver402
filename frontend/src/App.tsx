@@ -18,6 +18,55 @@ import {
   hasPasskey,
 } from "./passkey-auth.js";
 
+import {
+  amber,
+  green,
+  red,
+  text,
+  dim,
+  edge,
+  page,
+  shell,
+  panel,
+  heading,
+  body,
+  gateLayout,
+  gateBox,
+  gateLogo,
+  gateTitle,
+  gateText,
+  gateNote,
+  gateError,
+  topBar,
+  topLogo,
+  topTitle,
+  topSub,
+  topSubLabel,
+  topSubLink,
+  indicator,
+  lamp,
+  indicatorText,
+  columns,
+  column,
+  lineRow,
+  lineLabel,
+  lineValue,
+  meterTrack,
+  meterSegment,
+  button,
+  scroller,
+  txRow,
+  txHead,
+  txState,
+  txAmount,
+  txLink,
+  txWhy,
+  logList,
+  logRow,
+  logTime,
+  logMsg,
+} from "./console-styles.js";
+
 interface LogEntry {
   id: number;
   time: string;
@@ -460,272 +509,3 @@ function toneColor(type: LogEntry["type"]): string {
   if (type === "error") return red;
   return dim;
 }
-
-/* ---- Styles ---- */
-
-const mono = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
-
-const amber = "#e0a94a";
-const green = "#93c06a";
-const red = "#d4674f";
-const text = "#ece0cf";
-const dim = "#9c8a75";
-const edge = "#3b2f24";
-
-const page: React.CSSProperties = {
-  minHeight: "100vh",
-  background: "#15100b",
-  color: text,
-  fontFamily: mono,
-  fontSize: 16,
-  lineHeight: 1.7,
-  padding: 32,
-};
-
-const shell: React.CSSProperties = {
-  position: "relative",
-  zIndex: 1,
-  maxWidth: 1200,
-  margin: "0 auto",
-  display: "flex",
-  flexDirection: "column",
-  gap: 26,
-};
-
-const panel: React.CSSProperties = {
-  background: "#1d1610",
-  border: `1px solid ${edge}`,
-  padding: 32,
-  display: "flex",
-  flexDirection: "column",
-  gap: 22,
-};
-
-const heading: React.CSSProperties = {
-  fontSize: 14,
-  fontWeight: 700,
-  letterSpacing: 4,
-  color: dim,
-};
-
-const body: React.CSSProperties = {
-  fontSize: 15,
-  color: dim,
-  lineHeight: 1.8,
-};
-
-/* Gate */
-
-const gateLayout: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const gateBox: React.CSSProperties = {
-  position: "relative",
-  zIndex: 1,
-  width: "min(540px, 100%)",
-  alignItems: "center",
-  textAlign: "center",
-  padding: "56px 48px",
-  gap: 26,
-};
-
-const gateLogo: React.CSSProperties = { width: 104, height: 104 };
-
-const gateTitle: React.CSSProperties = {
-  fontSize: 34,
-  fontWeight: 700,
-  letterSpacing: 9,
-  color: text,
-};
-
-const gateText: React.CSSProperties = {
-  fontSize: 17,
-  color: dim,
-  lineHeight: 1.8,
-};
-
-const gateNote: React.CSSProperties = { fontSize: 14, color: dim };
-
-const gateError: React.CSSProperties = {
-  fontSize: 14,
-  color: red,
-  lineHeight: 1.7,
-};
-
-/* Top bar */
-
-const topBar: React.CSSProperties = {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 22,
-  padding: "24px 32px",
-};
-
-const topLogo: React.CSSProperties = { width: 52, height: 52 };
-
-const topTitle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 700,
-  letterSpacing: 6,
-  color: text,
-};
-
-const topSub: React.CSSProperties = {
-  display: "flex",
-  alignItems: "baseline",
-  gap: 12,
-  marginTop: 8,
-  minWidth: 0,
-};
-
-const topSubLabel: React.CSSProperties = {
-  fontSize: 11,
-  letterSpacing: 2,
-  color: dim,
-  flexShrink: 0,
-};
-
-const topSubLink: React.CSSProperties = {
-  fontSize: 13,
-  color: "#8fb4d8",
-  textDecoration: "none",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const indicator: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  border: `1px solid ${edge}`,
-  padding: "12px 18px",
-  flexShrink: 0,
-};
-
-const lamp: React.CSSProperties = { width: 10, height: 10, borderRadius: 5 };
-
-const indicatorText: React.CSSProperties = {
-  fontSize: 15,
-  fontWeight: 700,
-  letterSpacing: 3,
-};
-
-/* Layout */
-
-const columns: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-  gap: 26,
-  alignItems: "start",
-};
-
-const column: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 26,
-  minWidth: 0,
-};
-
-/* Readouts */
-
-const lineRow: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "baseline",
-  gap: 16,
-};
-
-const lineLabel: React.CSSProperties = { fontSize: 16, color: dim };
-
-const lineValue: React.CSSProperties = {
-  fontSize: 17,
-  fontWeight: 700,
-  letterSpacing: 1,
-};
-
-const meterTrack: React.CSSProperties = {
-  display: "flex",
-  gap: 4,
-  marginTop: 14,
-};
-
-const meterSegment: React.CSSProperties = { flex: 1, height: 12 };
-
-/* Command */
-
-const button: React.CSSProperties = {
-  fontFamily: mono,
-  fontSize: 16,
-  fontWeight: 700,
-  letterSpacing: 3,
-  width: "100%",
-  padding: "22px 20px",
-  border: "1px solid",
-  transition: "background 120ms linear, border-color 120ms linear",
-};
-
-/* Record */
-
-const scroller: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 14,
-  maxHeight: 420,
-  overflowY: "auto",
-};
-
-const txRow: React.CSSProperties = {
-  background: "rgba(255,255,255,0.02)",
-  borderLeft: "3px solid",
-  padding: "16px 18px",
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-};
-
-const txHead: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-};
-
-const txState: React.CSSProperties = {
-  fontSize: 15,
-  fontWeight: 700,
-  letterSpacing: 2,
-};
-
-const txAmount: React.CSSProperties = { fontSize: 16, color: text };
-
-const txLink: React.CSSProperties = {
-  fontSize: 14,
-  color: "#8fb4d8",
-  textDecoration: "none",
-  wordBreak: "break-all",
-};
-
-const txWhy: React.CSSProperties = {
-  fontSize: 14,
-  color: "#c98b80",
-  lineHeight: 1.7,
-};
-
-const logList: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-};
-
-const logRow: React.CSSProperties = { display: "flex", gap: 16 };
-
-const logTime: React.CSSProperties = { fontSize: 14, color: "#6b5a48", flexShrink: 0 };
-
-const logMsg: React.CSSProperties = {
-  fontSize: 14,
-  lineHeight: 1.7,
-  wordBreak: "break-word",
-};
