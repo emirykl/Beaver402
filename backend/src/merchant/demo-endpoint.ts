@@ -21,39 +21,58 @@ const ASSET =
 const NETWORK = process.env.NETWORK_PASSPHRASE || "Test SDF Network ; September 2015";
 const PRICE = "1000000"; // 0.1 USDC in stroops (7 decimals)
 
+/** Has the caller already paid for this? */
+function wasPaid(req: Request): boolean {
+  return Boolean(req.headers["x-payment-response"]);
+}
+
+/**
+ * Answer with the price and a challenge signed over this exact request.
+ *
+ * The endpoint is read back off the request rather than written down, so what
+ * the merchant signs is what the merchant was asked for.
+ */
+function askForPayment(
+  req: Request,
+  res: Response,
+  httpMethod: string,
+  body?: string
+): void {
+  const challenge = createSignedChallenge({
+    merchantKeypair: MERCHANT_KEYPAIR,
+    httpMethod,
+    endpoint: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
+    body,
+    recipient: RECIPIENT,
+    asset: ASSET,
+    amount: PRICE,
+    network: NETWORK,
+    expirySeconds: 300,
+  });
+
+  res.status(402).json({
+    error: "Payment Required",
+    paymentDetails: {
+      amount: PRICE,
+      asset: ASSET,
+      recipient: RECIPIENT,
+      network: NETWORK,
+    },
+    challenge: {
+      fields: challenge.fields,
+      hash: challenge.hash,
+      merchantSignature: challenge.merchantSignature,
+      merchantPubkey: challenge.merchantPubkey,
+    },
+  });
+}
+
 export function createMerchantRouter() {
   const router = express.Router();
 
   router.get("/api/data", (req: Request, res: Response) => {
-    const paymentHeader = req.headers["x-payment-response"];
-
-    if (!paymentHeader) {
-      const challenge = createSignedChallenge({
-        merchantKeypair: MERCHANT_KEYPAIR,
-        httpMethod: "GET",
-        endpoint: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
-        recipient: RECIPIENT,
-        asset: ASSET,
-        amount: PRICE,
-        network: NETWORK,
-        expirySeconds: 300,
-      });
-
-      res.status(402).json({
-        error: "Payment Required",
-        paymentDetails: {
-          amount: PRICE,
-          asset: ASSET,
-          recipient: RECIPIENT,
-          network: NETWORK,
-        },
-        challenge: {
-          fields: challenge.fields,
-          hash: challenge.hash,
-          merchantSignature: challenge.merchantSignature,
-          merchantPubkey: challenge.merchantPubkey,
-        },
-      });
+    if (!wasPaid(req)) {
+      askForPayment(req, res, "GET");
       return;
     }
 
@@ -66,36 +85,8 @@ export function createMerchantRouter() {
   });
 
   router.post("/api/submit", (req: Request, res: Response) => {
-    const paymentHeader = req.headers["x-payment-response"];
-
-    if (!paymentHeader) {
-      const challenge = createSignedChallenge({
-        merchantKeypair: MERCHANT_KEYPAIR,
-        httpMethod: "POST",
-        endpoint: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
-        body: JSON.stringify(req.body),
-        recipient: RECIPIENT,
-        asset: ASSET,
-        amount: PRICE,
-        network: NETWORK,
-        expirySeconds: 300,
-      });
-
-      res.status(402).json({
-        error: "Payment Required",
-        paymentDetails: {
-          amount: PRICE,
-          asset: ASSET,
-          recipient: RECIPIENT,
-          network: NETWORK,
-        },
-        challenge: {
-          fields: challenge.fields,
-          hash: challenge.hash,
-          merchantSignature: challenge.merchantSignature,
-          merchantPubkey: challenge.merchantPubkey,
-        },
-      });
+    if (!wasPaid(req)) {
+      askForPayment(req, res, "POST", JSON.stringify(req.body));
       return;
     }
 
