@@ -6,6 +6,7 @@ dist/
 *.log
 .DS_Store
 beaver-allinfo.pdf
+docs/demo-cekimi.md
 
 # Anything holding a key stays out. The example file is the only one
 # that ships, and it carries names without values.
