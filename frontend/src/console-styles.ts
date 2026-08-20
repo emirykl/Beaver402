@@ -265,6 +265,15 @@ export const txWhy: CSSProperties = {
   overflowWrap: "anywhere",
 };
 
+/** When a payment happened, tucked under it rather than competing with it. */
+export const txTime: CSSProperties = {
+  alignSelf: "flex-end",
+  fontSize: 12,
+  color: dim,
+  opacity: 0.75,
+  letterSpacing: 0.4,
+};
+
 export const logList: CSSProperties = {
   display: "flex",
   flexDirection: "column",

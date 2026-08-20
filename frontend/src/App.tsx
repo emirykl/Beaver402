@@ -61,6 +61,7 @@ import {
   txAmount,
   txLink,
   txWhy,
+  txTime,
   logList,
   logRow,
   logTime,
@@ -484,6 +485,7 @@ function TxRow({ tx }: { tx: Transaction }) {
       ) : (
         <span style={txWhy}>{tx.error}</span>
       )}
+      <span style={txTime}>{formatUtc(tx.created_at)}</span>
     </div>
   );
 }
@@ -498,6 +500,20 @@ function formatAmount(raw: string | null): string {
   } catch {
     return raw;
   }
+}
+
+/**
+ * When this happened, in UTC.
+ *
+ * Payments are evidence, and evidence read in someone else's timezone is
+ * evidence nobody can line up against an explorer. The zone is named rather
+ * than assumed.
+ */
+function formatUtc(raw: string): string {
+  const at = new Date(raw);
+  if (Number.isNaN(at.getTime())) return "";
+
+  return `${at.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
 function toneColor(type: LogEntry["type"]): string {
