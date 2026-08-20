@@ -6,6 +6,18 @@ Every link resolves on a public explorer.
 Reproduce the adversarial results with `npm run scenarios` in `backend/`,
 with the backend running.
 
+## The recording
+
+[Seven minutes](https://youtu.be/0vFrfGZc1x0), one take, against this contract.
+The owner signs in with a passkey, an agent pays for a resource over MCP
+without holding a key, the owner halts payments and the agent is refused with
+`AccountFrozen`, the agent key is revoked and the refusal becomes
+`SignerRevoked`, then the key goes back. It ends on the contract's own history,
+where the whole run appears in order.
+
+The frames that carry each claim are in [`screenshots`](screenshots), with a
+table saying what each one shows and when it happens.
+
 ## The deployment
 
 | | |

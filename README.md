@@ -21,6 +21,11 @@ on its own, while the owner keeps immediate control through a passkey.
 
 **Stellar testnet only. Testnet USDC, no real value.**
 
+[A seven minute recording](https://youtu.be/0vFrfGZc1x0) shows the whole thing:
+an agent paying without holding a key, the owner halting it with a passkey, the
+agent key revoked on chain, and the adversarial cases refused. The frames it
+proves each claim with are in [`docs/screenshots`](docs/screenshots).
+
 ## Deployment
 
 | | |
