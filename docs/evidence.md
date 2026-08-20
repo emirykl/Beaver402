@@ -108,6 +108,49 @@ cargo test                     # 35 tests
 The Rust checks live in `contracts/payment_policy/src/vectors_test.rs` and
 read the same file.
 
+## Run again after the control panel work, 12 August 2026
+
+Everything above was recorded on 10 August. The whole set was run again
+against the same deployed contract once the backend and the control panel had
+been reworked, to show that nothing in the payment path had moved.
+
+```
+8 scenarios, 0 unexpected
+```
+
+| Attempt | Outcome | Named by |
+|---|---|---|
+| A payment both parties agree on | settled, [`415ce53a`](https://stellar.expert/explorer/testnet/tx/415ce53acfe0c034d885b29e922b291f0952609361ed5223d1e7f1b15ecc704f) | |
+| The endpoint changed after the merchant signed | refused | field mismatch, `endpoint` |
+| The method changed after the merchant signed | refused | field mismatch, `httpMethod` |
+| A body was added after the merchant signed | refused | field mismatch, `bodyHash` |
+| A merchant nobody approved | refused | `UnauthorizedMerchant` |
+| The same challenge, used once | settled, [`1acc2cc3`](https://stellar.expert/explorer/testnet/tx/1acc2cc3aa6d94c79f3ba6fab82728d5a406f30ca83616e6ed29f99a8ef00fa4) | |
+| The same challenge, used twice | refused | the ledger, at submission |
+| A challenge that already expired | refused | expiry |
+
+The replay was refused on chain rather than at simulation this time, because
+the node had not yet caught up with the payment that came a ledger earlier.
+The refusal is the same one, but the reason arrives as a failed transaction
+instead of a named code, so the report says where it was caught rather than
+claiming to know more than it does.
+
+### The velocity window rolled over on its own
+
+The counters were sitting at three payments from a window that had closed
+thirty five hours earlier. The first payment of this run reset them, so the
+account finished at two rather than five:
+
+```
+before  {"tx_count":3,"total_amount":"3000000","window_start":1786473554}
+after   {"tx_count":2,"total_amount":"2000000"}
+```
+
+A contract cannot wake up when a window ends, so the rollover happens on the
+next payment that asks it to authorize something. That is what deterministic
+means here, and it is why the control panel reports the budget the account
+will apply rather than the number still written in its storage.
+
 ## Not shown here
 
 **Settlement level tampering.** A transfer that disagrees with what was
