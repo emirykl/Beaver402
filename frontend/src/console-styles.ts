@@ -45,11 +45,18 @@ export const panel: CSSProperties = {
   gap: 22,
 };
 
+/**
+ * Section headings.
+ *
+ * Wide letter spacing on a dark panel needs the brighter of the two text
+ * colours, otherwise the words a reader navigates by are the faintest thing
+ * on the screen.
+ */
 export const heading: CSSProperties = {
   fontSize: 14,
   fontWeight: 700,
   letterSpacing: 4,
-  color: dim,
+  color: text,
 };
 
 export const body: CSSProperties = {
