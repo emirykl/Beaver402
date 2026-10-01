@@ -5,7 +5,10 @@ dist/
 .soroban/
 *.log
 .DS_Store
-beaver-allinfo.pdf
+# Grant forms, scope documents, notes and plans stay local
+*.pdf
+*.txt
+investigations/
 docs/demo-cekimi.md
 
 # Anything holding a key stays out. The example file is the only one
