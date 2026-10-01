@@ -18,6 +18,18 @@ const MIN_AUTHENTICATOR_DATA_LEN: u32 = 37;
 /// what stops a stolen assertion from being replayed by software alone.
 const USER_PRESENT: u8 = 0x01;
 
+/// User verification bit. Set when the authenticator also checked who the
+/// human is, with a fingerprint, face or PIN, rather than just that someone
+/// touched it.
+const USER_VERIFIED: u8 = 0x04;
+
+/// What clientDataJSON says for an assertion, as opposed to a registration.
+/// The closing quote is part of it, so a longer type cannot match.
+const ASSERTION_TYPE: &[u8] = b"\"type\":\"webauthn.get\"";
+
+/// The rpIdHash leads authenticatorData.
+const RP_ID_HASH_LEN: u32 = 32;
+
 const ALPHABET: &[u8; 64] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
@@ -49,9 +61,26 @@ pub fn base64url_encode(input: &[u8; 32]) -> [u8; 43] {
     out
 }
 
+/// Whether `needle` occurs anywhere in `haystack`. Scanning is bounded by
+/// the size of clientDataJSON, which authenticators keep small.
+fn contains(env: &Env, haystack: &Bytes, needle: &[u8]) -> bool {
+    let needle = Bytes::from_slice(env, needle);
+    let len = needle.len();
+    if haystack.len() < len {
+        return false;
+    }
+    let mut start = 0u32;
+    while start + len <= haystack.len() {
+        if haystack.slice(start..start + len) == needle {
+            return true;
+        }
+        start += 1;
+    }
+    false
+}
+
 /// Look for the challenge field inside clientDataJSON and confirm it carries
-/// exactly the value we expect. Scanning is bounded by the size of the JSON,
-/// which authenticators keep small.
+/// exactly the value we expect.
 fn challenge_matches(env: &Env, client_data: &Bytes, expected: &[u8; 43]) -> bool {
     let key = Bytes::from_slice(env, CHALLENGE_KEY);
     let expected_bytes = Bytes::from_slice(env, expected);
@@ -78,16 +107,23 @@ fn challenge_matches(env: &Env, client_data: &Bytes, expected: &[u8; 43]) -> boo
 
 /// Verify a WebAuthn assertion produced by the owner's passkey.
 ///
-/// Three things have to hold. The authenticator must report user presence,
-/// the challenge echoed in clientDataJSON must be the Soroban signature
-/// payload, and the secp256r1 signature must cover
-/// sha256(authenticatorData || sha256(clientDataJSON)).
+/// Everything below has to hold.
 ///
-/// The challenge check is what binds the assertion to this specific
-/// authorization. Without it any past assertion would authorize any action.
+/// - The assertion was made for the domain the account was created for. The
+///   authenticator writes the hash of that domain into authenticatorData and
+///   signs over it, so an assertion phished on a look-alike site carries a
+///   different hash and is refused.
+/// - A human was present and verified on the device.
+/// - clientDataJSON describes an assertion, not a registration.
+/// - The challenge echoed in clientDataJSON is the Soroban signature
+///   payload. This is what binds the assertion to this one authorization;
+///   without it any past assertion would authorize any action.
+/// - The secp256r1 signature covers
+///   sha256(authenticatorData || sha256(clientDataJSON)).
 pub fn verify_passkey(
     env: &Env,
     owner_pubkey: &BytesN<65>,
+    rp_id_hash: &BytesN<32>,
     signature_payload: &Hash<32>,
     sig: &PasskeySignature,
 ) -> Result<(), PolicyError> {
@@ -95,11 +131,24 @@ pub fn verify_passkey(
         return Err(PolicyError::InvalidSignatureFormat);
     }
 
+    let presented_rp: Bytes = sig.authenticator_data.slice(0..RP_ID_HASH_LEN);
+    let expected_rp: Bytes = rp_id_hash.clone().into();
+    if presented_rp != expected_rp {
+        return Err(PolicyError::WrongRelyingParty);
+    }
+
     let flags = sig
         .authenticator_data
         .get(FLAGS_OFFSET)
         .ok_or(PolicyError::InvalidSignatureFormat)?;
     if flags & USER_PRESENT != USER_PRESENT {
+        return Err(PolicyError::InvalidSignatureFormat);
+    }
+    if flags & USER_VERIFIED != USER_VERIFIED {
+        return Err(PolicyError::UserNotVerified);
+    }
+
+    if !contains(env, &sig.client_data_json, ASSERTION_TYPE) {
         return Err(PolicyError::InvalidSignatureFormat);
     }
 

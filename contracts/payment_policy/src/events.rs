@@ -1,52 +1,81 @@
-use soroban_sdk::{symbol_short, BytesN, Env};
+//! Everything the account announces.
+//!
+//! Events carry hashes, public keys and amounts, never request content. None
+//! of them is emitted while a payment is being authorized: an x402
+//! facilitator refuses a settlement whose simulation shows any event besides
+//! the token transfer, so the proof of intent for a payment is announced by
+//! publish_proof in a later transaction.
 
-// events().publish() is deprecated in soroban-sdk v26 in favor of #[contractevent].
-// Suppressing until migration is done.
+use soroban_sdk::{contractevent, Address, BytesN, Symbol};
 
-#[allow(deprecated)]
-pub fn emit_proof_of_intent(
-    env: &Env,
-    challenge_hash: &BytesN<32>,
-    intent_hash: &BytesN<32>,
-    merchant_pubkey: &BytesN<32>,
-    amount: i128,
-) {
-    env.events().publish(
-        (symbol_short!("poi"), symbol_short!("verified")),
-        (
-            challenge_hash.clone(),
-            intent_hash.clone(),
-            merchant_pubkey.clone(),
-            amount,
-        ),
-    );
+/// Both parties agreed on this payment and the account authorized it.
+#[contractevent(topics = ["poi", "verified"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProofOfIntent {
+    #[topic]
+    pub nonce: BytesN<32>,
+    pub challenge_hash: BytesN<32>,
+    pub intent_hash: BytesN<32>,
+    pub merchant_pubkey: BytesN<32>,
+    pub amount: i128,
 }
 
-#[allow(deprecated)]
-pub fn emit_payment_frozen(env: &Env, reason: &str, tx_count: u32, total_amount: i128) {
-    let reason_sym = match reason {
-        "velocity" => symbol_short!("velocity"),
-        "manual" => symbol_short!("manual"),
-        _ => symbol_short!("unknown"),
-    };
-    env.events().publish(
-        (symbol_short!("frozen"), reason_sym),
-        (tx_count, total_amount),
-    );
+/// Payments stopped, either because the owner said so (`manual`) or because
+/// a payment reached a velocity limit (`velocity`).
+#[contractevent(topics = ["frozen"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PaymentsFrozen {
+    #[topic]
+    pub reason: Symbol,
+    pub tx_count: u32,
+    pub total_amount: i128,
 }
 
-#[allow(deprecated)]
-pub fn emit_signer_revoked(env: &Env, revoked_pubkey: &BytesN<32>) {
-    env.events().publish(
-        (symbol_short!("signer"), symbol_short!("revoked")),
-        revoked_pubkey.clone(),
-    );
+#[contractevent(topics = ["frozen", "restored"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PaymentsRestored {
+    pub tx_count: u32,
+    pub total_amount: i128,
 }
 
-#[allow(deprecated)]
-pub fn emit_payment_restored(env: &Env) {
-    env.events().publish(
-        (symbol_short!("frozen"), symbol_short!("restored")),
-        true,
-    );
+#[contractevent(topics = ["signer", "revoked"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SignerRevoked {
+    pub pubkey: BytesN<32>,
+}
+
+#[contractevent(topics = ["signer", "set"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SignerSet {
+    pub pubkey: BytesN<32>,
+}
+
+#[contractevent(topics = ["merchant", "added"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MerchantAdded {
+    pub pubkey: BytesN<32>,
+}
+
+#[contractevent(topics = ["merchant", "removed"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MerchantRemoved {
+    pub pubkey: BytesN<32>,
+}
+
+#[contractevent(topics = ["limits", "reduced"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LimitsReduced {
+    pub max_payment_amount: i128,
+    pub max_tx_count: u32,
+    pub max_total_amount: i128,
+    pub window_size: u64,
+}
+
+#[contractevent(topics = ["funds", "recovered"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FundsRecovered {
+    #[topic]
+    pub token: Address,
+    pub recovery: Address,
+    pub amount: i128,
 }
