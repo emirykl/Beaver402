@@ -1,0 +1,9 @@
+# Secrets never leave this machine. Each deployment gets its own values from
+# the project's settings on Vercel.
+.env
+.env.*
+!.env.example
+node_modules
+dist
+tests
+scripts
