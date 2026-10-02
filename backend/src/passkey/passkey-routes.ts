@@ -8,6 +8,7 @@ import {
 } from "./webauthn-server.js";
 import { createSession } from "../lib/sessions.js";
 import { createRateLimit } from "../lib/rate-limit.js";
+import { redact } from "../lib/public-error.js";
 
 export function createPasskeyRouter() {
   const router = express.Router();
@@ -24,7 +25,7 @@ export function createPasskeyRouter() {
       const options = await startRegistration(userId, userName);
       res.json(options);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(500).json({ error: redact(String(err)) });
     }
   });
 
@@ -40,7 +41,7 @@ export function createPasskeyRouter() {
       // this device and someone touched it.
       res.json({ ...result, sessionId: await createSession() });
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(500).json({ error: redact(String(err)) });
     }
   });
 
@@ -54,7 +55,7 @@ export function createPasskeyRouter() {
       const options = await startAuthentication(userId);
       res.json(options);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(500).json({ error: redact(String(err)) });
     }
   });
 
@@ -70,7 +71,7 @@ export function createPasskeyRouter() {
       // so it cannot be claimed by anyone who never held the passkey.
       res.json({ ...result, sessionId: await createSession() });
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(500).json({ error: redact(String(err)) });
     }
   });
 
@@ -79,7 +80,7 @@ export function createPasskeyRouter() {
       const creds = await getUserCredentials(String(req.params.userId));
       res.json({ count: creds.length, hasCredentials: creds.length > 0 });
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(500).json({ error: redact(String(err)) });
     }
   });
 

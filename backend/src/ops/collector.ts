@@ -97,6 +97,25 @@ export function cursorLedger(cursor: string): number {
   return Number(BigInt(cursor.split("-")[0]!) >> 32n);
 }
 
+/**
+ * What a failed collection says about itself in the public status. The full
+ * error goes to the server log; it can carry the RPC URL, and with it the
+ * provider's key.
+ */
+export function collectorFailure(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err);
+  if (/fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|getaddrinfo|socket|timeout|\b5\d\d\b/i.test(text)) {
+    return "the RPC could not be reached";
+  }
+  if (/startLedger|cursor|range/i.test(text)) {
+    return "the RPC no longer holds the requested ledgers";
+  }
+  if (/permission|relation|violates|duplicate|database|supabase/i.test(text)) {
+    return "the database refused the write";
+  }
+  return "the collection failed";
+}
+
 export interface CollectResult {
   collected: number;
   lastLedger: number;
@@ -185,12 +204,13 @@ export async function collect(
     });
     return { collected, lastLedger, gap };
   } catch (err) {
+    console.error("event collection failed:", err);
     await writeState({
       network: config.name,
       cursor: previous?.cursor ?? null,
       last_ledger: previous?.last_ledger ?? null,
       last_run_at: new Date().toISOString(),
-      last_error: err instanceof Error ? err.message : String(err),
+      last_error: collectorFailure(err),
     }).catch(() => {});
     throw err;
   }

@@ -242,9 +242,10 @@ export interface Transaction {
   created_at: string;
 }
 
+/** The owner's payment log. It needs the session the passkey earned. */
 export async function fetchTransactions(): Promise<Transaction[]> {
   try {
-    const res = await fetch("/api/transactions");
+    const res = await fetch("/api/transactions", { headers: jsonHeaders() });
     if (!res.ok) return [];
     const data = await res.json();
     return data.transactions ?? [];

@@ -8,6 +8,7 @@ import {
   requireAgentToken,
   type AgentAccess,
 } from "./agent-guard.js";
+import { redact } from "../lib/public-error.js";
 
 /**
  * The one place a signing key is used.
@@ -72,7 +73,7 @@ export function createAgentRouter(
       );
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(500).json({ error: redact(String(err)) });
     }
   });
 

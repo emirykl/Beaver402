@@ -8,6 +8,7 @@ import { confirmSettlement, type ExpectedTransfer } from "./settlement.js";
 import type { MerchantConfig } from "./demo-endpoint.js";
 import { network, rpcServer } from "../config/network.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { redact } from "../lib/public-error.js";
 import {
   decodePaymentSignatureHeader,
   encodePaymentRequiredHeader,
@@ -170,7 +171,8 @@ export function requirePayment(deps: MerchantDeps) {
       }
       settlement = await facilitator.settle(payload, requirements);
     } catch (err) {
-      res.status(502).json({ error: `the facilitator could not be reached: ${err instanceof Error ? err.message : err}` });
+      console.error("facilitator call failed:", err);
+      res.status(502).json({ error: `the facilitator could not be reached: ${redact(err instanceof Error ? err.message : String(err))}` });
       return;
     }
 
@@ -188,7 +190,8 @@ export function requirePayment(deps: MerchantDeps) {
         amount: merchant.price,
       });
     } catch (err) {
-      res.status(502).json({ error: `the settlement could not be confirmed: ${err instanceof Error ? err.message : err}` });
+      console.error("settlement confirmation failed:", err);
+      res.status(502).json({ error: `the settlement could not be confirmed: ${redact(err instanceof Error ? err.message : String(err))}` });
       return;
     }
 

@@ -6,6 +6,8 @@ import { collect } from "./collector.js";
 import { readPolicyState, publicConfig } from "../policy/policy-routes.js";
 import { network, rpcServer, explorerTx } from "../config/network.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { failPublicly } from "../lib/public-error.js";
+import { collectorFailure } from "./collector.js";
 
 /**
  * The operational side: collecting events, exporting them, and the public
@@ -79,7 +81,7 @@ export function createOpsRouter() {
     try {
       res.json(await collect());
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      failPublicly(res, 500, collectorFailure(err), err);
     }
   };
   router.get("/api/ops/collect", requireCronSecret, runCollection);
@@ -98,7 +100,7 @@ export function createOpsRouter() {
       .order("ledger", { ascending: true })
       .limit(limit);
     if (error) {
-      res.status(500).json({ error: error.message });
+      failPublicly(res, 500, "could not read the events", error);
       return;
     }
     if (req.query.format === "csv") {
@@ -119,8 +121,14 @@ export function createOpsRouter() {
       let collector = null;
       let recent: unknown[] = [];
       if (isSupabaseConfigured()) {
+        // Only what the page needs. The stored error is already a fixed
+        // summary, never a raw message.
         const [stateRow, events] = await Promise.all([
-          getSupabase().from("collector_state").select("*").eq("network", network().name).maybeSingle(),
+          getSupabase()
+            .from("collector_state")
+            .select("last_run_at, last_ledger, last_error")
+            .eq("network", network().name)
+            .maybeSingle(),
           getSupabase()
             .from("chain_events")
             .select("ledger, ledger_closed_at, event_type, tx_hash")
@@ -151,7 +159,7 @@ export function createOpsRouter() {
         recent,
       });
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      failPublicly(res, 500, "could not read the status", err);
     }
   });
 

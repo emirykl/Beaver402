@@ -4,6 +4,7 @@ import { isAuthenticated } from "../lib/sessions.js";
 import { createRateLimit } from "../lib/rate-limit.js";
 import { network, rpcServer, explorerContract } from "../config/network.js";
 import { describeOwnerActionError } from "../shared/policy-errors.js";
+import { failPublicly, redact } from "../lib/public-error.js";
 import {
   isOwnerAction,
   prepareOwnerAction,
@@ -275,7 +276,7 @@ export function createPolicyRouter() {
     try {
       res.json(await readPolicyState());
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      failPublicly(res, 500, "could not read the account", err);
     }
   });
 
@@ -307,7 +308,7 @@ export function createPolicyRouter() {
       });
       res.json({ success: true, prepared });
     } catch (err) {
-      res.status(500).json({ success: false, error: describeOwnerActionError(String(err)) });
+      res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
     }
   });
 
@@ -337,7 +338,7 @@ export function createPolicyRouter() {
       invalidateCache();
       res.json({ success: true, txHash: result.txHash });
     } catch (err) {
-      res.status(500).json({ success: false, error: describeOwnerActionError(String(err)) });
+      res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
     }
   });
 

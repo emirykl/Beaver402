@@ -13,6 +13,8 @@ import {
 import { getSupabase, isSupabaseConfigured } from "./lib/supabase.js";
 import { describePolicyError } from "./shared/policy-errors.js";
 import { network } from "./config/network.js";
+import { isAuthenticated } from "./lib/sessions.js";
+import { failPublicly } from "./lib/public-error.js";
 
 /**
  * What this process runs.
@@ -107,8 +109,16 @@ export function createApp(role: Role = roleFromEnv()) {
       });
     });
 
-    // transaction history
-    app.get("/api/transactions", async (_req, res) => {
+    // The payment log, for the owner. It holds refused attempts as well as
+    // settlements, which is the owner's business and nobody else's, so it
+    // takes the session a passkey ceremony issued. What anyone may see is
+    // on the ledger and on /api/status.
+    app.get("/api/transactions", async (req, res) => {
+      const session = typeof req.headers["x-session-id"] === "string" ? req.headers["x-session-id"] : "";
+      if (!(await isAuthenticated(session))) {
+        res.status(401).json({ error: "authentication required" });
+        return;
+      }
       if (!isSupabaseConfigured()) {
         res.json({ transactions: [] });
         return;
@@ -117,13 +127,13 @@ export function createApp(role: Role = roleFromEnv()) {
         const supabase = getSupabase();
         const { data, error } = await supabase
           .from("transactions")
-          .select("*")
+          .select("id, tx_hash, recipient, asset, amount, status, error, created_at")
           .eq("network", network().passphrase)
           .order("created_at", { ascending: false })
           .limit(50);
 
         if (error) {
-          res.status(500).json({ error: error.message });
+          failPublicly(res, 500, "could not read the payment log", error);
           return;
         }
 
@@ -136,7 +146,7 @@ export function createApp(role: Role = roleFromEnv()) {
 
         res.json({ transactions });
       } catch (err) {
-        res.status(500).json({ error: String(err) });
+        failPublicly(res, 500, "could not read the payment log", err);
       }
     });
   }

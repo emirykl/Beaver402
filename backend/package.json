@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "scenarios": "tsx --env-file-if-exists=.env scripts/scenarios.ts",
-    "dev:mainnet": "tsx --env-file=.env.mainnet src/index.ts",
+    "dev:mainnet": "BEAVER_NETWORK=mainnet tsx --env-file=.env.mainnet src/index.ts",
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
     "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts"
   },

@@ -2,6 +2,7 @@ import express, { type Request, type Response } from "express";
 
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import { createRateLimit } from "../lib/rate-limit.js";
+import { failPublicly } from "../lib/public-error.js";
 
 /**
  * Privacy preserving traffic counts for the landing page.
@@ -82,7 +83,7 @@ export function createMetricsRouter() {
       .gte("day", since)
       .order("day", { ascending: true });
     if (error) {
-      res.status(500).json({ error: error.message });
+      failPublicly(res, 500, "could not read the traffic report", error);
       return;
     }
     res.json({ since, rows: data ?? [] });
