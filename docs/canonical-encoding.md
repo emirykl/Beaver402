@@ -16,10 +16,10 @@ same thing. Eleven fields make up that description.
 
 | Field | Form | Notes |
 |---|---|---|
-| `version` | decimal string | `"1"` today |
+| `version` | decimal string | `"2"` today |
 | `merchantPubkey` | Stellar `G` address | who signed the challenge |
 | `httpMethod` | uppercase text | normalized before hashing |
-| `normalizedEndpoint` | URL | scheme kept, host and path lowercased, query dropped |
+| `normalizedEndpoint` | URL | see below |
 | `bodyHash` | hex | sha256 of the request body, empty body included |
 | `recipient` | Stellar address, 56 characters | where the payment lands |
 | `asset` | Stellar contract address, 56 characters | the token contract |
@@ -48,6 +48,26 @@ request_digest   = sha256( len("beaver402:request:v1") ‖ "beaver402:request:v1
 
 The five parts are joined with the `|` character. `endpoint` is the
 normalized form, `HTTP_METHOD` is uppercase.
+
+### Normalizing the endpoint
+
+The endpoint has to describe the resource exactly, because it is what tells
+a request the merchant signed apart from one changed on the way.
+
+| Part | Rule | Why |
+|---|---|---|
+| scheme | lowercased | case insensitive |
+| host | lowercased, default port dropped | case insensitive, and `:443` on https is the same server |
+| path | kept as it is | servers treat `/Data` and `/data` as different resources |
+| query | kept, parameters sorted by key and then value | a changed parameter is a different request; the order they are written in is not |
+| fragment | dropped | never sent to the server |
+
+Something that does not parse as a URL is refused rather than guessed at.
+
+Version 1 dropped the query and lowercased the path, so a request changed in
+either after the merchant signed still matched its challenge. Version 2 is
+the first one used with real value. The contract never sees the endpoint,
+only the digest, so the change is entirely off chain.
 
 ### Settlement preimage
 

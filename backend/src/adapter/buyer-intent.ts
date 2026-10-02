@@ -1,5 +1,6 @@
 import {
   fieldsMatch,
+  ENCODING_VERSION,
   hashBody,
   hashIntent,
   normalizeAmount,
@@ -26,7 +27,7 @@ export interface CreateIntentOptions {
 
 export function createIntent(options: CreateIntentOptions): SignedIntent {
   const fields: IntentFields = {
-    version: "1",
+    version: ENCODING_VERSION,
     merchantPubkey: options.merchantPubkey,
     httpMethod: options.httpMethod,
     normalizedEndpoint: options.endpoint,

@@ -1,6 +1,7 @@
 import { Keypair } from "@stellar/stellar-sdk";
 import { randomBytes } from "crypto";
 import {
+  ENCODING_VERSION,
   hashChallenge,
   hashBody,
 } from "../shared/hashing.js";
@@ -26,7 +27,7 @@ export function createSignedChallenge(
   const expiry = (now + (options.expirySeconds ?? 300)).toString();
 
   const fields: ChallengeFields = {
-    version: "1",
+    version: ENCODING_VERSION,
     merchantPubkey: options.merchantKeypair.publicKey(),
     httpMethod: options.httpMethod,
     normalizedEndpoint: options.endpoint,

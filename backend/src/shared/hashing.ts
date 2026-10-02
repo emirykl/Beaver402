@@ -12,13 +12,29 @@ export const REQUEST_DOMAIN = "beaver402:request:v1";
 /// Stellar strkey addresses are always 56 characters.
 const STRKEY_LEN = 56;
 
+/**
+ * The version of this encoding. Version 1 dropped the query string and
+ * lowercased the path, so a request changed in either after the merchant
+ * signed still matched. Version 2 covers both.
+ */
+export const ENCODING_VERSION = "2";
+
+/**
+ * The endpoint as both sides hash it.
+ *
+ * Scheme and host are lowercased, because they are case insensitive and a
+ * default port is dropped. The path keeps its case, because servers treat
+ * /Data and /data as different resources. The query is kept, sorted by key
+ * and then value so the order parameters were written in does not matter,
+ * and the fragment, which never reaches the server, is dropped.
+ */
 export function normalizeEndpoint(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.protocol}//${parsed.host.toLowerCase()}${parsed.pathname.toLowerCase()}`;
-  } catch {
-    return url.toLowerCase().replace(/\/+$/, "");
-  }
+  const parsed = new URL(url);
+  const params = [...parsed.searchParams.entries()].sort(([ka, va], [kb, vb]) =>
+    ka === kb ? (va < vb ? -1 : va > vb ? 1 : 0) : ka < kb ? -1 : 1
+  );
+  const query = new URLSearchParams(params).toString();
+  return `${parsed.protocol}//${parsed.host.toLowerCase()}${parsed.pathname}${query ? `?${query}` : ""}`;
 }
 
 export function normalizeAmount(amount: string | number): string {

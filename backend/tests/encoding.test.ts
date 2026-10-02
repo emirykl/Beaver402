@@ -131,16 +131,35 @@ describe("domain separation", () => {
 });
 
 describe("normalization helpers", () => {
-  it("lowercases the host and path but keeps the scheme", () => {
+  it("lowercases the scheme and host but keeps the path's case", () => {
     expect(normalizeEndpoint("HTTPS://API.Merchant.COM/Data")).toBe(
+      "https://api.merchant.com/Data"
+    );
+  });
+
+  it("keeps the query, so changing a parameter changes the request", () => {
+    expect(normalizeEndpoint("https://api.merchant.com/data?page=2")).toBe(
+      "https://api.merchant.com/data?page=2"
+    );
+    expect(normalizeEndpoint("https://api.merchant.com/data?page=2")).not.toBe(
+      normalizeEndpoint("https://api.merchant.com/data?page=3")
+    );
+  });
+
+  it("sorts query parameters so their order does not matter", () => {
+    expect(normalizeEndpoint("https://api.merchant.com/data?b=2&a=1&a=0")).toBe(
+      "https://api.merchant.com/data?a=0&a=1&b=2"
+    );
+  });
+
+  it("drops the fragment and a default port, which never reach the server", () => {
+    expect(normalizeEndpoint("https://api.merchant.com:443/data#top")).toBe(
       "https://api.merchant.com/data"
     );
   });
 
-  it("strips query strings from the endpoint", () => {
-    expect(normalizeEndpoint("https://api.merchant.com/data?page=2")).toBe(
-      "https://api.merchant.com/data"
-    );
+  it("refuses something that is not a URL rather than guessing", () => {
+    expect(() => normalizeEndpoint("not a url")).toThrow();
   });
 
   it("normalizes amounts to a plain decimal string", () => {

@@ -13,6 +13,7 @@ import { fileURLToPath } from "url";
 
 import {
   hashBody,
+  ENCODING_VERSION,
   hashChallenge,
   hashIntent,
   requestDigest,
@@ -29,7 +30,7 @@ const NONCE = "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15"
 
 function fields(overrides: Partial<PayloadFields> = {}): PayloadFields {
   return {
-    version: "1",
+    version: ENCODING_VERSION,
     merchantPubkey: MERCHANT,
     httpMethod: "GET",
     normalizedEndpoint: "https://api.merchant.com/data",
@@ -71,11 +72,16 @@ const vectors = [
   ),
   vector(
     "case_normalization",
-    "Method and host casing are normalized, so this matches basic_payment.",
+    "Method, scheme and host casing are normalized, so this matches basic_payment.",
     fields({
       httpMethod: "get",
-      normalizedEndpoint: "https://API.Merchant.COM/data",
+      normalizedEndpoint: "HTTPS://API.Merchant.COM/data",
     })
+  ),
+  vector(
+    "query_order",
+    "Query parameters are sorted, so the order they were written in does not matter.",
+    fields({ normalizedEndpoint: "https://api.merchant.com/data?b=2&a=1" })
   ),
   vector(
     "large_amount",
@@ -112,6 +118,27 @@ const matchVectors = [
     shouldMatch: false,
   },
   {
+    name: "mismatched_query",
+    note: "A query parameter was changed after the merchant signed.",
+    challenge: fields({ normalizedEndpoint: "https://api.merchant.com/data?item=1" }),
+    intent: fields({ normalizedEndpoint: "https://api.merchant.com/data?item=2" }),
+    shouldMatch: false,
+  },
+  {
+    name: "mismatched_path_case",
+    note: "The path differs only in case, which a server treats as another resource.",
+    challenge: fields(),
+    intent: fields({ normalizedEndpoint: "https://api.merchant.com/Data" }),
+    shouldMatch: false,
+  },
+  {
+    name: "reordered_query",
+    note: "The same query parameters in a different order describe the same request.",
+    challenge: fields({ normalizedEndpoint: "https://api.merchant.com/data?a=1&b=2" }),
+    intent: fields({ normalizedEndpoint: "https://api.merchant.com/data?b=2&a=1" }),
+    shouldMatch: true,
+  },
+  {
     name: "mismatched_recipient",
     note: "The payment was rerouted to a different account.",
     challenge: fields(),
@@ -130,7 +157,7 @@ const matchVectors = [
 const output = {
   description:
     "Shared vectors for the Beaver402 canonical encoding. Generated from the TypeScript implementation and verified from Rust.",
-  version: "2",
+  version: ENCODING_VERSION,
   domains: {
     request: "beaver402:request:v1",
     challenge: "beaver402:challenge:v1",

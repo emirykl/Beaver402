@@ -39,7 +39,7 @@ describe("merchant challenge signing", () => {
   it("should create a valid signed challenge", () => {
     const challenge = makeChallenge();
 
-    expect(challenge.fields.version).toBe("1");
+    expect(challenge.fields.version).toBe("2");
     expect(challenge.merchantPubkey).toBe(merchantKp.publicKey());
     expect(challenge.hash).toHaveLength(64);
     expect(challenge.merchantSignature).toBeTruthy();
