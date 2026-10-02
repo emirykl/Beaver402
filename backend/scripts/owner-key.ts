@@ -44,6 +44,14 @@ async function main() {
   }
 
   if (data.length > 1) {
+    // On mainnet the owner is chosen once and for good. Picking the newest
+    // of several would make that choice silently.
+    if (process.env.BEAVER_NETWORK === "mainnet") {
+      throw new Error(
+        `${data.length} passkeys are registered for "${userId}" on mainnet. ` +
+          "Remove the ones that are not the owner before deploying."
+      );
+    }
     console.error(
       `note: ${data.length} passkeys are registered for "${userId}", using the newest one`
     );
