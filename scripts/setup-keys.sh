@@ -96,13 +96,14 @@ PY
 
 info "Writing keys into $ENV_FILE..."
 
+set_var BEAVER_NETWORK "testnet"
 set_var SOROBAN_RPC_URL "https://soroban-testnet.stellar.org"
-set_var NETWORK_PASSPHRASE "Test SDF Network ; September 2015"
 set_var FEE_SOURCE_SECRET "$(stellar keys show beaver402-deployer)"
 set_var AGENT_SECRET "$(stellar keys show beaver402-agent)"
 set_var MERCHANT_SECRET "$(stellar keys show beaver402-merchant)"
+set_var MERCHANT_PUBKEY "$MERCHANT_ADDR"
 set_var RECIPIENT_ADDRESS "$MERCHANT_ADDR"
-set_var USDC_ISSUER "$USDC_CONTRACT"
+set_var USDC_CONTRACT "$USDC_CONTRACT"
 set_var PORT "$BACKEND_PORT"
 # The control panel reads this so its proxy and the passkey origin agree
 # with whichever ports were free.
