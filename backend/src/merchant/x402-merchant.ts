@@ -222,11 +222,22 @@ export function requirePayment(deps: MerchantDeps) {
 let facilitator: Facilitator | null = null;
 
 /**
- * The hosted facilitator, authenticated with the project's API key. It is
- * asked once whether it supports the exact scheme on this network.
+ * The facilitator this merchant settles through.
+ *
+ * Normally the hosted one. On testnet, and only there, FACILITATOR_MODE=
+ * reference runs the x402 reference implementation of the exact scheme in
+ * this process instead, with a testnet account of its own paying the fees.
+ * That is a test tool for rehearsing the whole flow before the hosted
+ * facilitator's key is available; it is refused on mainnet, where Beaver402
+ * never operates a facilitator.
  */
 export function hostedFacilitator(): Facilitator {
   if (facilitator) return facilitator;
+
+  if (process.env.FACILITATOR_MODE === "reference") {
+    facilitator = referenceFacilitator();
+    return facilitator;
+  }
 
   const key = process.env.FACILITATOR_API_KEY;
   if (!key && network().name === "mainnet") {
@@ -265,6 +276,34 @@ export function hostedFacilitator(): Facilitator {
     },
   };
   return facilitator;
+}
+
+function referenceFacilitator(): Facilitator {
+  if (network().name !== "testnet") {
+    throw new Error("the reference facilitator is a testnet tool and is refused on mainnet");
+  }
+  const secret = process.env.FACILITATOR_SIGNER_SECRET;
+  if (!secret) {
+    throw new Error("FACILITATOR_MODE=reference needs FACILITATOR_SIGNER_SECRET, a funded testnet account");
+  }
+
+  let scheme: Promise<Facilitator> | null = null;
+  const load = () =>
+    (scheme ??= Promise.all([import("@x402/stellar/exact/facilitator"), import("@x402/stellar")]).then(
+      ([{ ExactStellarScheme }, { createEd25519Signer }]) => {
+        const signer = createEd25519Signer(secret, network().caip2);
+        return new ExactStellarScheme([signer], { rpcConfig: { url: network().rpcUrl } }) as unknown as Facilitator;
+      }
+    ));
+
+  return {
+    async verify(payload, requirements) {
+      return (await load()).verify(payload, requirements);
+    },
+    async settle(payload, requirements) {
+      return (await load()).settle(payload, requirements);
+    },
+  };
 }
 
 const recordedInMemory = new Set<string>();

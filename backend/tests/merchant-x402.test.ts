@@ -244,3 +244,22 @@ describe("releasing the resource", () => {
     expect(honest.status).toBe(200);
   });
 });
+
+describe("the reference facilitator", () => {
+  it("is refused on mainnet", async () => {
+    const { hostedFacilitator } = await import("../src/merchant/x402-merchant.js");
+    const { resetNetworkConfig } = await import("../src/config/network.js");
+    process.env.BEAVER_NETWORK = "mainnet";
+    process.env.SOROBAN_RPC_URL = "https://rpc.example.com";
+    process.env.FACILITATOR_MODE = "reference";
+    resetNetworkConfig();
+    try {
+      expect(() => hostedFacilitator()).toThrow(/testnet tool/);
+    } finally {
+      delete process.env.BEAVER_NETWORK;
+      delete process.env.SOROBAN_RPC_URL;
+      delete process.env.FACILITATOR_MODE;
+      resetNetworkConfig();
+    }
+  });
+});
