@@ -286,6 +286,44 @@ async function rehearseAccount(phase: string, contract: string, adapter: ReturnT
   return { endpoint, pay, refused };
 }
 
+/**
+ * Pay the way an AI agent does: an MCP client starts the Beaver402 MCP
+ * server, which holds no key, and calls its fetch_paid_resource tool. The
+ * tool asks the agent backend, which authorizes the payment, and the
+ * merchant has it settled.
+ */
+async function payThroughMcp(phase: string, base: string) {
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+
+  const transport = new StdioClientTransport({
+    command: "npx",
+    args: ["tsx", resolve(here, "../src/mcp/server.ts")],
+    env: { ...(process.env as Record<string, string>), BEAVER402_BACKEND_URL: base },
+  });
+  const client = new Client({ name: "beaver402-rehearsal", version: "1.0.0" });
+  await client.connect(transport);
+  try {
+    const tools = await client.listTools();
+    note(phase, `the MCP server offers ${tools.tools.map((t) => t.name).join(" and ")}`, "done", tools.tools.some((t) => t.name === "fetch_paid_resource"));
+
+    const result = await client.callTool({ name: "fetch_paid_resource", arguments: { url: `${base}/api/data` } });
+    const text = (result.content as Array<{ type: string; text?: string }>).map((c) => c.text ?? "").join("\n");
+    const settlement = text.match(/Settlement: ([0-9a-f]{64})/)?.[1];
+    const proof = text.match(/Proof of intent: ([0-9a-f]{64})/)?.[1];
+    note(phase, "a payment started from the MCP tool", "done", Boolean(settlement) && !result.isError, settlement ? undefined : text.slice(0, 200), settlement);
+    if (proof) note(phase, "  its proof of intent, published by the merchant", "done", true, undefined, proof);
+    // What the model sees: the price, the transaction and the content, and
+    // nothing it could spend.
+    const leaks = [process.env.AGENT_SECRET, process.env.MERCHANT_SECRET, process.env.FEE_SOURCE_SECRET].filter(
+      (secret) => secret && text.includes(secret)
+    );
+    note(phase, "no secret appears in what the tool returns", "done", leaks.length === 0);
+  } finally {
+    await client.close();
+  }
+}
+
 // ── The rehearsal ─────────────────────────────────────────────────
 
 async function main() {
@@ -368,6 +406,9 @@ async function main() {
   const backendB = await serve(b);
   const B = await rehearseAccount("migration", b, createAdapter(agent.secret(), b), backendB.base);
   await B.pay("first payment from the new account");
+
+  console.log("\nThrough the MCP tool");
+  await payThroughMcp("migration", backendB.base);
   await tryOwner("migration", "halt the new account", "done", b, "freeze_payments");
   await tryOwner("migration", "recover its funds", "done", b, "recover_funds");
   backendB.close();
