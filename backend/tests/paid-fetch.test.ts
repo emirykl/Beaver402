@@ -1,89 +1,95 @@
 import { describe, it, expect, vi } from "vitest";
 import { Keypair } from "@stellar/stellar-sdk";
 
-import { extractChallenge, paidFetch, type FetchLike } from "../src/agent/paid-fetch.js";
-import { createSignedChallenge } from "../src/merchant/challenge-signer.js";
-import type { Beaver402Adapter, PaymentResult } from "../src/adapter/x402-client.js";
+import { paidFetch, readPaymentRequired, type FetchLike } from "../src/agent/paid-fetch.js";
+import type { Beaver402Adapter, PreparedPayment } from "../src/adapter/x402-client.js";
+import {
+  decodePaymentSignatureHeader,
+  encodePaymentRequiredHeader,
+  encodePaymentResponseHeader,
+} from "../src/x402/protocol.js";
+import { paymentFor, paymentRequired, requirementsFor, signedChallenge } from "./helpers/x402.js";
 
-const USDC = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
-const TESTNET = "Test SDF Network ; September 2015";
-
-const merchantKp = Keypair.random();
-const recipientKp = Keypair.random();
+const merchant = Keypair.random();
+const recipient = Keypair.random().publicKey();
 const ENDPOINT = "https://merchant.test/api/data";
+const terms = { merchant, recipient, endpoint: ENDPOINT };
 
-function challenge(method = "GET", body?: string) {
-  return createSignedChallenge({
-    merchantKeypair: merchantKp,
-    httpMethod: method,
-    endpoint: ENDPOINT,
-    body,
-    recipient: recipientKp.publicKey(),
-    asset: USDC,
-    amount: "1000000",
-    network: TESTNET,
-  });
-}
-
-function paymentRequired(method = "GET", body?: string) {
-  const signed = challenge(method, body);
-  return {
-    error: "Payment Required",
-    paymentDetails: {
-      amount: "1000000",
-      asset: USDC,
-      recipient: recipientKp.publicKey(),
-      network: TESTNET,
-    },
-    challenge: {
-      fields: signed.fields,
-      hash: signed.hash,
-      merchantSignature: signed.merchantSignature,
-      merchantPubkey: signed.merchantPubkey,
-    },
-  };
-}
+const SETTLEMENT = "ab".repeat(32);
+const PROOF = "cd".repeat(32);
 
 /** An adapter stub, so the orchestration can be tested without a ledger. */
-function stubAdapter(result: Partial<PaymentResult> = {}): Beaver402Adapter {
+function stubAdapter(result: Partial<PreparedPayment> = {}): Beaver402Adapter {
+  const challenge = signedChallenge(terms);
   return {
-    processPayment: vi.fn(async () => ({
+    preparePayment: vi.fn(async () => ({
       success: true,
-      txHash: "abc123",
-      challengeHash: "aa".repeat(32),
+      payload: paymentFor(challenge, requirementsFor(terms)),
+      requirements: requirementsFor(terms),
+      challenge,
+      challengeHash: challenge.hash,
       intentHash: "bb".repeat(32),
       ...result,
     })),
   } as unknown as Beaver402Adapter;
 }
 
-function stubFetch(responses: Array<{ status: number; body: unknown }>): FetchLike {
+interface Scripted {
+  status: number;
+  body: unknown;
+  headers?: Record<string, string>;
+}
+
+function stubFetch(responses: Scripted[]) {
   let call = 0;
   return vi.fn(async () => {
     const response = responses[Math.min(call, responses.length - 1)]!;
     call += 1;
-    return { status: response.status, json: async () => response.body };
-  });
+    const headers = new Map(Object.entries(response.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
+    return {
+      status: response.status,
+      headers: { get: (name: string) => headers.get(name.toLowerCase()) ?? null },
+      json: async () => response.body,
+    };
+  }) as unknown as FetchLike & ReturnType<typeof vi.fn>;
 }
 
-describe("reading a payment challenge", () => {
-  it("accepts a well formed 402 body", () => {
-    expect(extractChallenge(paymentRequired())).not.toBeNull();
+function askForPayment(): Scripted {
+  const required = paymentRequired(terms);
+  return { status: 402, body: required, headers: { "PAYMENT-REQUIRED": encodePaymentRequiredHeader(required) } };
+}
+
+function settled(success = true): Scripted {
+  return {
+    status: success ? 200 : 402,
+    body: success ? { data: "premium" } : { error: "settlement failed" },
+    headers: {
+      "PAYMENT-RESPONSE": encodePaymentResponseHeader({
+        success,
+        transaction: success ? SETTLEMENT : "",
+        network: "stellar:testnet",
+        errorReason: success ? undefined : "invalid_exact_stellar_payload_simulation_failed",
+        extensions: success ? { beaver402: { challengeHash: "aa", nonce: "00", proofTransaction: PROOF } } : undefined,
+      }),
+    },
+  };
+}
+
+describe("reading an x402 v2 payment request", () => {
+  it("reads it from the PAYMENT-REQUIRED header", () => {
+    const required = paymentRequired(terms);
+    expect(readPaymentRequired(encodePaymentRequiredHeader(required), null)).toEqual(required);
   });
 
-  it("refuses a body with no challenge", () => {
-    expect(extractChallenge({ error: "Payment Required" })).toBeNull();
+  it("falls back to the same object in the body", () => {
+    const required = paymentRequired(terms);
+    expect(readPaymentRequired(null, required)).toEqual(required);
   });
 
-  it("refuses a challenge that is missing its signature", () => {
-    const body = paymentRequired() as Record<string, any>;
-    delete body.challenge.merchantSignature;
-    expect(extractChallenge(body)).toBeNull();
-  });
-
-  it("refuses anything that is not an object", () => {
-    expect(extractChallenge(null)).toBeNull();
-    expect(extractChallenge("402")).toBeNull();
+  it("refuses anything else", () => {
+    expect(readPaymentRequired(null, { error: "pay me" })).toBeNull();
+    expect(readPaymentRequired("not base64 json", null)).toBeNull();
+    expect(readPaymentRequired(null, null)).toBeNull();
   });
 });
 
@@ -96,66 +102,72 @@ describe("fetching a resource that has to be paid for", () => {
 
     expect(result.paid).toBe(false);
     expect(result.content).toEqual({ data: "free" });
-    expect(adapter.processPayment).not.toHaveBeenCalled();
+    expect(adapter.preparePayment).not.toHaveBeenCalled();
   });
 
-  it("pays and then repeats the request", async () => {
+  it("pays, repeats the request with the payment, and reports the settlement and the proof", async () => {
     const adapter = stubAdapter();
-    const fetchImpl = stubFetch([
-      { status: 402, body: paymentRequired() },
-      { status: 200, body: { data: "premium" } },
-    ]);
+    const fetchImpl = stubFetch([askForPayment(), settled()]);
 
     const result = await paidFetch({ url: ENDPOINT }, adapter, fetchImpl);
 
     expect(result.paid).toBe(true);
     expect(result.content).toEqual({ data: "premium" });
-    expect(result.payment?.txHash).toBe("abc123");
+    expect(result.payment?.txHash).toBe(SETTLEMENT);
+    expect(result.payment?.proofTxHash).toBe(PROOF);
+    expect(result.payment?.explorerUrl).toBe(`https://stellar.expert/explorer/testnet/tx/${SETTLEMENT}`);
     expect(result.payment?.amount).toBe("1000000");
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    // The second request carries the standard x402 payment.
+    const retry = fetchImpl.mock.calls[1]![1] as { headers: Record<string, string> };
+    const sent = decodePaymentSignatureHeader(retry.headers["PAYMENT-SIGNATURE"]!);
+    expect(sent.x402Version).toBe(2);
+    expect(sent.accepted.scheme).toBe("exact");
   });
 
   it("hands the adapter what was actually sent, not what the merchant claims", async () => {
     const adapter = stubAdapter();
     const body = JSON.stringify({ query: "weather" });
-    const fetchImpl = stubFetch([
-      { status: 402, body: paymentRequired("POST", body) },
-      { status: 200, body: { ok: true } },
-    ]);
+    const fetchImpl = stubFetch([askForPayment(), settled()]);
 
     await paidFetch({ url: ENDPOINT, method: "post", body }, adapter, fetchImpl);
 
-    expect(adapter.processPayment).toHaveBeenCalledWith(
-      expect.anything(),
-      "POST",
-      ENDPOINT,
-      body
-    );
+    expect(adapter.preparePayment).toHaveBeenCalledWith(expect.anything(), "POST", ENDPOINT, body);
   });
 
-  it("stops when the policy refuses the payment", async () => {
-    const adapter = stubAdapter({ success: false, error: "velocity exceeded" });
-    const fetchImpl = stubFetch([
-      { status: 402, body: paymentRequired() },
-      { status: 200, body: { data: "premium" } },
-    ]);
+  it("stops when the policy refuses the payment, without asking again", async () => {
+    const adapter = stubAdapter({
+      success: false,
+      payload: undefined,
+      error: "policy rejected the payment: HostError: Error(Auth, InvalidAction)\n data:[\"failed account authentication with error\", Error(Contract, #10)]",
+    });
+    const fetchImpl = stubFetch([askForPayment(), settled()]);
 
     const result = await paidFetch({ url: ENDPOINT }, adapter, fetchImpl);
 
     expect(result.paid).toBe(false);
-    expect(result.error).toContain("velocity exceeded");
-    // The resource must not be requested again after a refused payment.
+    expect(result.error).toContain("VelocityExceeded");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("stops when the merchant asks for payment without a challenge", async () => {
+  it("reports a settlement the merchant could not complete", async () => {
+    const adapter = stubAdapter();
+    const fetchImpl = stubFetch([askForPayment(), settled(false)]);
+
+    const result = await paidFetch({ url: ENDPOINT }, adapter, fetchImpl);
+
+    expect(result.paid).toBe(false);
+    expect(result.error).toContain("simulation_failed");
+  });
+
+  it("stops when the merchant does not speak x402 v2", async () => {
     const adapter = stubAdapter();
     const fetchImpl = stubFetch([{ status: 402, body: { error: "pay me" } }]);
 
     const result = await paidFetch({ url: ENDPOINT }, adapter, fetchImpl);
 
     expect(result.paid).toBe(false);
-    expect(result.error).toContain("usable signed challenge");
-    expect(adapter.processPayment).not.toHaveBeenCalled();
+    expect(result.error).toContain("x402 v2 payment request");
+    expect(adapter.preparePayment).not.toHaveBeenCalled();
   });
 });

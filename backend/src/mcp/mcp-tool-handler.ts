@@ -60,21 +60,26 @@ export function isPaymentRequired(statusCode: number): boolean {
   return statusCode === 402;
 }
 
+/**
+ * The payment an x402 v2 402 answer asks for, with the Beaver402 challenge
+ * that comes with it. Null when the body is not one.
+ */
 export function extractPaymentDetails(responseBody: Record<string, unknown>) {
-  const details = responseBody.paymentDetails as
-    | Record<string, string>
-    | undefined;
-  const challenge = responseBody.challenge as Record<string, unknown> | undefined;
+  const accepts = responseBody.accepts as Array<Record<string, unknown>> | undefined;
+  const requirements = Array.isArray(accepts) ? accepts[0] : undefined;
+  const extensions = responseBody.extensions as Record<string, { challenge?: unknown }> | undefined;
+  const challenge = extensions?.beaver402?.challenge;
 
-  if (!details || !challenge) {
+  if (!requirements || !challenge) {
     return null;
   }
 
   return {
-    amount: details.amount,
-    asset: details.asset,
-    recipient: details.recipient,
-    network: details.network,
+    amount: String(requirements.amount),
+    asset: String(requirements.asset),
+    recipient: String(requirements.payTo),
+    network: String(requirements.network),
+    scheme: String(requirements.scheme),
     challenge,
   };
 }

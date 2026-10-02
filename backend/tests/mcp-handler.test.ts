@@ -100,29 +100,43 @@ describe("payment detection", () => {
     expect(isPaymentRequired(401)).toBe(false);
   });
 
-  it("should extract payment details from response body", () => {
+  it("should extract payment details from an x402 v2 answer", () => {
     const details = extractPaymentDetails({
-      paymentDetails: {
-        amount: "5000000",
-        asset: "USDC",
-        recipient: "GABCDEF...",
-        network: "testnet",
-      },
-      challenge: {
-        fields: {},
-        hash: "abc123",
-        merchantSignature: "sig",
-        merchantPubkey: "GABCDEF...",
+      x402Version: 2,
+      accepts: [
+        {
+          scheme: "exact",
+          network: "stellar:testnet",
+          asset: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+          amount: "5000000",
+          payTo: "GABCDEF...",
+          maxTimeoutSeconds: 60,
+          extra: { areFeesSponsored: true },
+        },
+      ],
+      extensions: {
+        beaver402: {
+          challenge: {
+            fields: {},
+            hash: "abc123",
+            merchantSignature: "sig",
+            merchantPubkey: "GABCDEF...",
+          },
+        },
       },
     });
 
     expect(details).not.toBeNull();
     expect(details!.amount).toBe("5000000");
-    expect(details!.asset).toBe("USDC");
+    expect(details!.network).toBe("stellar:testnet");
+    expect(details!.recipient).toBe("GABCDEF...");
   });
 
   it("should return null when payment details are missing", () => {
     expect(extractPaymentDetails({})).toBeNull();
-    expect(extractPaymentDetails({ paymentDetails: {} })).toBeNull();
+    expect(extractPaymentDetails({ accepts: [] })).toBeNull();
+    // Standard x402 without the Beaver402 challenge is not something the
+    // agent will pay.
+    expect(extractPaymentDetails({ accepts: [{ amount: "1" }] })).toBeNull();
   });
 });

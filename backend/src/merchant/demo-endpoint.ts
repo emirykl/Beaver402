@@ -1,16 +1,11 @@
 import express, { type Request, type Response } from "express";
 import { Keypair } from "@stellar/stellar-sdk";
-import {
-  createSignedChallenge,
-  verifyMerchantSignature,
-} from "./challenge-signer.js";
+import { verifyMerchantSignature } from "./challenge-signer.js";
+import { liveMerchantDeps, requirePayment, type MerchantDeps } from "./x402-merchant.js";
 import { network } from "../config/network.js";
 
 /** 0.1 USDC in stroops (7 decimals). */
 const PRICE = "1000000";
-
-/** How long a challenge stays payable. The contract allows at most 900. */
-const CHALLENGE_SECONDS = 300;
 
 export interface MerchantConfig {
   keypair: Keypair;
@@ -62,64 +57,11 @@ export function resetMerchantConfig(): void {
   cached = null;
 }
 
-/** Has the caller already paid for this? */
-function wasPaid(req: Request): boolean {
-  return Boolean(req.headers["x-payment-response"]);
-}
-
-/**
- * Answer with the price and a challenge signed over this exact request.
- *
- * The endpoint is read back off the request rather than written down, so what
- * the merchant signs is what the merchant was asked for. Behind a proxy the
- * scheme comes from the proxy, which is why the app trusts it on a host that
- * terminates TLS in front of it.
- */
-function askForPayment(
-  req: Request,
-  res: Response,
-  httpMethod: string,
-  body?: string
-): void {
-  const merchant = merchantConfig();
-  const challenge = createSignedChallenge({
-    merchantKeypair: merchant.keypair,
-    httpMethod,
-    endpoint: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
-    body,
-    recipient: merchant.recipient,
-    asset: merchant.asset,
-    amount: merchant.price,
-    network: merchant.network,
-    expirySeconds: CHALLENGE_SECONDS,
-  });
-
-  res.status(402).json({
-    error: "Payment Required",
-    paymentDetails: {
-      amount: merchant.price,
-      asset: merchant.asset,
-      recipient: merchant.recipient,
-      network: merchant.network,
-    },
-    challenge: {
-      fields: challenge.fields,
-      hash: challenge.hash,
-      merchantSignature: challenge.merchantSignature,
-      merchantPubkey: challenge.merchantPubkey,
-    },
-  });
-}
-
-export function createMerchantRouter() {
+export function createMerchantRouter(deps: MerchantDeps = liveMerchantDeps(merchantConfig)) {
   const router = express.Router();
+  const paid = requirePayment(deps);
 
-  router.get("/api/data", (req: Request, res: Response) => {
-    if (!wasPaid(req)) {
-      askForPayment(req, res, "GET");
-      return;
-    }
-
+  router.get("/api/data", paid, (_req: Request, res: Response) => {
     // payment was made, return the protected resource
     res.json({
       data: "premium content unlocked via x402 payment with beaver402 protection",
@@ -128,12 +70,7 @@ export function createMerchantRouter() {
     });
   });
 
-  router.post("/api/submit", (req: Request, res: Response) => {
-    if (!wasPaid(req)) {
-      askForPayment(req, res, "POST", JSON.stringify(req.body));
-      return;
-    }
-
+  router.post("/api/submit", paid, (req: Request, res: Response) => {
     res.json({
       result: "submission accepted",
       body: req.body,
@@ -142,7 +79,7 @@ export function createMerchantRouter() {
   });
 
   router.get("/api/merchant-info", (_req: Request, res: Response) => {
-    const merchant = merchantConfig();
+    const merchant = deps.merchant();
     res.json({
       merchantPubkey: merchant.keypair.publicKey(),
       recipient: merchant.recipient,

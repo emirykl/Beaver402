@@ -29,11 +29,14 @@ interface PaidFetchResponse {
   content: unknown;
   payment?: {
     txHash?: string;
+    explorerUrl?: string;
+    proofTxHash?: string;
     challengeHash?: string;
     intentHash?: string;
     amount: string;
     asset: string;
     recipient: string;
+    network?: string;
   };
   error?: string;
 }
@@ -57,9 +60,11 @@ function describe(result: PaidFetchResponse): string {
   const lines: string[] = [];
 
   if (result.paid && result.payment) {
-    const { amount, asset, recipient, txHash, challengeHash, intentHash } = result.payment;
-    lines.push(`Paid ${amount} of ${asset} to ${recipient}.`);
-    if (txHash) lines.push(`Transaction: ${txHash}`);
+    const { amount, asset, recipient, txHash, explorerUrl, proofTxHash, challengeHash, intentHash, network } =
+      result.payment;
+    lines.push(`Paid ${amount} of ${asset} to ${recipient}${network ? ` on ${network}` : ""}.`);
+    if (txHash) lines.push(`Settlement: ${txHash}${explorerUrl ? ` (${explorerUrl})` : ""}`);
+    if (proofTxHash) lines.push(`Proof of intent: ${proofTxHash}`);
     if (challengeHash) lines.push(`Merchant challenge: ${challengeHash}`);
     if (intentHash) lines.push(`Buyer intent: ${intentHash}`);
     lines.push("");

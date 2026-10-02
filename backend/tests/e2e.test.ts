@@ -18,6 +18,7 @@ import {
   hashIntent,
 } from "../src/shared/hashing.js";
 import type { IntentFields } from "../src/shared/types.js";
+import { paymentRequired as v2PaymentRequired } from "./helpers/x402.js";
 
 // Settlement fields have to be real Stellar values now: the asset is the
 // token contract the payment goes through and the network is the passphrase
@@ -82,11 +83,13 @@ describe("end to end x402 payment flow", () => {
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: TESTNET,
     });
 
-    const result = await adapter.processPayment(
-      challenge,
+    const result = await adapter.preparePayment(
+      v2PaymentRequired(
+        { merchant: merchantKp, recipient: recipientKp.publicKey(), endpoint: challenge.fields.normalizedEndpoint },
+        challenge
+      ),
       "GET",
       "https://evil.com/steal"
     );
@@ -110,11 +113,13 @@ describe("end to end x402 payment flow", () => {
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: TESTNET,
     });
 
-    const result = await adapter.processPayment(
-      challenge,
+    const result = await adapter.preparePayment(
+      v2PaymentRequired(
+        { merchant: merchantKp, recipient: recipientKp.publicKey(), endpoint: challenge.fields.normalizedEndpoint },
+        challenge
+      ),
       "POST",
       "https://api.merchant.com/submit",
       '{"action":"steal"}'
@@ -139,11 +144,13 @@ describe("end to end x402 payment flow", () => {
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: TESTNET,
     });
 
-    const result = await adapter.processPayment(
-      challenge,
+    const result = await adapter.preparePayment(
+      v2PaymentRequired(
+        { merchant: merchantKp, recipient: recipientKp.publicKey(), endpoint: challenge.fields.normalizedEndpoint },
+        challenge
+      ),
       "GET",
       "https://api.merchant.com/data"
     );
@@ -168,11 +175,13 @@ describe("end to end x402 payment flow", () => {
     const adapter = new Beaver402Adapter({
       agentKeypair: agentKp,
       policyContractId: "CONTRACT_ID_PLACEHOLDER",
-      network: TESTNET,
     });
 
-    const result = await adapter.processPayment(
-      challenge,
+    const result = await adapter.preparePayment(
+      v2PaymentRequired(
+        { merchant: merchantKp, recipient: recipientKp.publicKey(), endpoint: challenge.fields.normalizedEndpoint },
+        challenge
+      ),
       "GET",
       "https://api.merchant.com/data"
     );

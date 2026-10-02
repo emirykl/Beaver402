@@ -34,6 +34,7 @@ const nodeFetch: FetchLike = async (url, init) => {
   const response = await fetch(url, init);
   return {
     status: response.status,
+    headers: response.headers,
     json: async () => {
       const text = await response.text();
       try {

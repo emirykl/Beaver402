@@ -1,4 +1,5 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
+import { getEstimatedLedgerCloseTimeSeconds } from "@x402/stellar";
 import {
   createIntentFromChallenge,
   verifyChallengeIntentMatch,
@@ -6,67 +7,42 @@ import {
 import { verifyMerchantSignature } from "../merchant/challenge-signer.js";
 import { normalizeAmount, requestDigest } from "../shared/hashing.js";
 import { buildAgentSignatureScVal } from "./policy-signature.js";
-import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import { network, rpcServer, verifyNetwork } from "../config/network.js";
-import type {
-  SignedChallenge,
-  PolicySignaturePayload,
-} from "../shared/types.js";
+import {
+  challengeFrom,
+  X402_VERSION,
+  type PaymentPayload,
+  type PaymentRequired,
+  type PaymentRequirements,
+} from "../x402/protocol.js";
+import type { SignedChallenge, PolicySignaturePayload } from "../shared/types.js";
 
-const BASE_FEE = "10000000";
+/** The longest a challenge may stay valid. Mirrors MAX_CHALLENGE_LIFETIME. */
+const MAX_CHALLENGE_LIFETIME = 900;
 
-/// How long a signed authorization stays usable, in ledgers. Roughly five
-/// minutes, which is well inside the challenge expiry the merchant sets.
-const AUTH_VALIDITY_LEDGERS = 60;
-
-/// Seconds to wait for a ledger to close on the transaction. Testnet is
-/// usually a few seconds but has been slower under load.
-const CONFIRMATION_ATTEMPTS = 60;
-
-/// How many times to rebuild when the node hands back a sequence the network
-/// has already moved past.
-const SEND_ATTEMPTS = 3;
-
-/** Did the network refuse this because the sequence was stale? */
-function isStaleSequence(response: { errorResult?: unknown }): boolean {
-  return JSON.stringify(response.errorResult ?? "").includes("txBadSeq");
-}
+/**
+ * Simulations need a source account but this payment never uses one: the
+ * facilitator rebuilds the transaction around its own account and pays the
+ * fee. The agent's key only ever signs the authorization entry, so it needs
+ * no account, no balance and no sequence number of its own.
+ */
+const NO_SOURCE = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
 
 export interface Beaver402AdapterConfig {
   agentKeypair: StellarSdk.Keypair;
   policyContractId: string;
 }
 
-export interface PaymentResult {
+/** The result of turning a 402 answer into a payment, before anything settles. */
+export interface PreparedPayment {
   success: boolean;
-  txHash?: string;
   error?: string;
+  /** What to send back to the merchant in PAYMENT-SIGNATURE. */
+  payload?: PaymentPayload;
+  requirements?: PaymentRequirements;
+  challenge?: SignedChallenge;
   challengeHash?: string;
   intentHash?: string;
-}
-
-async function logTransaction(
-  challenge: SignedChallenge,
-  result: PaymentResult
-): Promise<void> {
-  if (!isSupabaseConfigured()) return;
-  try {
-    const supabase = getSupabase();
-    await supabase.from("transactions").insert({
-      tx_hash: result.txHash ?? null,
-      challenge_hash: result.challengeHash ?? null,
-      intent_hash: result.intentHash ?? null,
-      merchant_pubkey: challenge.merchantPubkey,
-      recipient: challenge.fields.recipient,
-      asset: challenge.fields.asset,
-      amount: challenge.fields.amount,
-      network: challenge.fields.network,
-      status: result.success ? "success" : "failed",
-      error: result.error ?? null,
-    });
-  } catch {
-    // logging failure should not break the payment flow
-  }
 }
 
 export class Beaver402Adapter {
@@ -76,16 +52,42 @@ export class Beaver402Adapter {
     this.config = config;
   }
 
-  async processPayment(
-    challenge: SignedChallenge,
+  /**
+   * Decide whether to pay what the merchant asked for, and if so build the
+   * x402 payment for it.
+   *
+   * Every check here is one the contract makes again, but nothing is signed
+   * for a payment that would fail them. The facilitator only ever sees a
+   * payment the policy account has already been simulated agreeing to.
+   */
+  async preparePayment(
+    required: PaymentRequired,
     observedMethod: string,
     observedEndpoint: string,
     observedBody?: string | Buffer | null
-  ): Promise<PaymentResult> {
-    // step 0: the challenge has to be for this network and this account's
-    // token. The contract refuses both anyway, but nothing should be signed
-    // for a network or a token this backend was not set up for.
+  ): Promise<PreparedPayment> {
     const config = network();
+
+    // step 1: the merchant has to accept this account's USDC, on this
+    // network, through the standard exact scheme with fees sponsored
+    const requirements = required.accepts?.find(
+      (r) => r.scheme === "exact" && r.network === config.caip2 && r.asset === config.usdcContract
+    );
+    if (!requirements) {
+      return {
+        success: false,
+        error: `the merchant does not accept USDC on ${config.caip2} through the exact scheme`,
+      };
+    }
+    if (requirements.extra?.areFeesSponsored !== true) {
+      return { success: false, error: "the exact scheme on Stellar needs fees sponsored by the facilitator" };
+    }
+
+    // step 2: the Beaver402 challenge, for this network and this token
+    const challenge = challengeFrom(required);
+    if (!challenge) {
+      return { success: false, error: "the merchant asked for payment without a signed Beaver402 challenge" };
+    }
     if (challenge.fields.network !== config.passphrase) {
       return {
         success: false,
@@ -99,23 +101,21 @@ export class Beaver402Adapter {
       };
     }
 
-    // step 1: verify merchant signature on the challenge
-    if (!verifyMerchantSignature(challenge)) {
-      return {
-        success: false,
-        error: "merchant signature verification failed",
-      };
+    // step 3: the challenge and the x402 requirements have to describe the
+    // same payment, or the facilitator would settle something the merchant
+    // never signed for
+    const disagreement = describeDisagreement(challenge, requirements);
+    if (disagreement) {
+      return { success: false, error: `the challenge and the payment requirements disagree on ${disagreement}` };
     }
 
-    // step 2: create buyer intent from observed request
-    const intent = createIntentFromChallenge(
-      challenge,
-      observedMethod,
-      observedEndpoint,
-      observedBody
-    );
+    // step 4: verify merchant signature on the challenge
+    if (!verifyMerchantSignature(challenge)) {
+      return { success: false, error: "merchant signature verification failed" };
+    }
 
-    // step 3: pre-check challenge vs intent field match
+    // step 5: create buyer intent from the observed request and compare
+    const intent = createIntentFromChallenge(challenge, observedMethod, observedEndpoint, observedBody);
     const matchResult = verifyChallengeIntentMatch(challenge, intent);
     if (!matchResult.matches) {
       return {
@@ -126,50 +126,46 @@ export class Beaver402Adapter {
       };
     }
 
-    // step 4: check expiry
+    // step 6: expiry, the way the contract will judge it
     const now = Math.floor(Date.now() / 1000);
     const expiry = parseInt(challenge.fields.expiry, 10);
     if (!expiry || now > expiry) {
-      return {
-        success: false,
-        error: "challenge has expired",
-      };
+      return { success: false, error: "challenge has expired" };
+    }
+    if (expiry - now > MAX_CHALLENGE_LIFETIME) {
+      return { success: false, error: "the challenge stays valid for longer than the account allows" };
     }
 
-    // step 5: build policy signature payload for the contract
-    const policyPayload = this.buildPolicyPayload(challenge, intent.hash);
-
-    // step 6: submit USDC payment through Soroban
-    let result: PaymentResult;
+    // step 7: build the transfer and have the policy account authorize it
     try {
-      const txResult = await this.submitPayment(challenge, policyPayload);
-      result = {
-        success: txResult.success,
-        txHash: txResult.txHash,
-        error: txResult.error,
+      const transaction = await this.authorizedTransfer(challenge, requirements);
+      return {
+        success: true,
+        payload: {
+          x402Version: X402_VERSION,
+          resource: required.resource,
+          accepted: requirements,
+          payload: { transaction },
+        },
+        requirements,
+        challenge,
         challengeHash: challenge.hash,
         intentHash: intent.hash,
       };
     } catch (err) {
-      result = {
+      return {
         success: false,
-        error: `payment submission failed: ${err}`,
+        error: err instanceof Error ? err.message : String(err),
         challengeHash: challenge.hash,
         intentHash: intent.hash,
       };
     }
-
-    await logTransaction(challenge, result);
-    return result;
   }
 
-  private buildPolicyPayload(
-    challenge: SignedChallenge,
-    intentHash: string
-  ): PolicySignaturePayload {
+  private policyPayload(challenge: SignedChallenge): PolicySignaturePayload {
     // The agent signature covers the Soroban authorization payload, which is
     // only known once the transaction is assembled. It is filled in when the
-    // authorization entry is signed; see submitPayment.
+    // authorization entry is signed.
     return {
       agentSignature: "",
       merchantPubkey: challenge.merchantPubkey,
@@ -184,20 +180,63 @@ export class Beaver402Adapter {
   }
 
   /**
-   * Sign one authorization entry on behalf of the smart account.
+   * The x402 exact payment: one token transfer out of the policy account,
+   * with the account's authorization entry signed and nothing else.
    *
-   * The host hands us the payload it will pass to __check_auth as
-   * signature_payload. The agent signs exactly that, and the merchant side of
-   * the proof of intent rides along in the same value, so the contract sees
-   * both halves at once.
+   * The money moves out of the smart account, which is what puts the policy
+   * in the authorization chain. The agent signs the entry the host hands it,
+   * and the merchant side of the proof of intent rides along in the same
+   * value, so the contract sees both halves at once.
    */
-  private async signAuthorizationEntry(
-    entry: StellarSdk.xdr.SorobanAuthorizationEntry,
-    policyPayload: PolicySignaturePayload,
-    validUntil: number
-  ): Promise<StellarSdk.xdr.SorobanAuthorizationEntry> {
-    return StellarSdk.authorizeEntry(
-      entry,
+  private async authorizedTransfer(
+    challenge: SignedChallenge,
+    requirements: PaymentRequirements
+  ): Promise<string> {
+    await verifyNetwork();
+    const config = network();
+    const server = rpcServer();
+    const policyPayload = this.policyPayload(challenge);
+
+    const transfer = (auth?: StellarSdk.xdr.SorobanAuthorizationEntry[]) =>
+      StellarSdk.Operation.invokeContractFunction({
+        contract: requirements.asset,
+        function: "transfer",
+        args: [
+          StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
+          StellarSdk.Address.fromString(requirements.payTo).toScVal(),
+          StellarSdk.nativeToScVal(BigInt(requirements.amount), { type: "i128" }),
+        ],
+        auth,
+      });
+
+    const build = (auth?: StellarSdk.xdr.SorobanAuthorizationEntry[]) =>
+      new StellarSdk.TransactionBuilder(new StellarSdk.Account(NO_SOURCE, "0"), {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: config.passphrase,
+      })
+        .addOperation(transfer(auth))
+        .setTimeout(requirements.maxTimeoutSeconds)
+        .build();
+
+    // The first simulation tells us which authorization entry the host
+    // wants. It comes back unsigned.
+    const probe = await server.simulateTransaction(build());
+    if (!StellarSdk.rpc.Api.isSimulationSuccess(probe)) {
+      throw new Error(`simulation failed: ${(probe as { error?: string }).error}`);
+    }
+    const entries = probe.result?.auth ?? [];
+    if (entries.length !== 1) {
+      throw new Error(`expected one authorization entry for the policy account, got ${entries.length}`);
+    }
+
+    // The facilitator refuses an entry valid for longer than the payment's
+    // timeout, measured in ledgers at the network's current pace.
+    const { sequence } = await server.getLatestLedger();
+    const ledgerSeconds = await getEstimatedLedgerCloseTimeSeconds(config.caip2);
+    const validUntil = sequence + Math.ceil(requirements.maxTimeoutSeconds / ledgerSeconds);
+
+    const signed = await StellarSdk.authorizeEntry(
+      entries[0]!,
       async (_preimage, payload) => {
         const agentSignature = this.config.agentKeypair.sign(payload);
         return {
@@ -208,168 +247,30 @@ export class Beaver402Adapter {
         };
       },
       validUntil,
-      network().passphrase
+      config.passphrase
     );
+
+    // Simulated again with the signed entry, the policy actually runs. A
+    // refusal surfaces here, named, before anything reaches the facilitator.
+    const authorized = build([signed]);
+    const simulated = await server.simulateTransaction(authorized);
+    if (!StellarSdk.rpc.Api.isSimulationSuccess(simulated)) {
+      throw new Error(`policy rejected the payment: ${(simulated as { error?: string }).error}`);
+    }
+
+    return StellarSdk.rpc.assembleTransaction(authorized, simulated).build().toXDR();
   }
+}
 
-  private async submitPayment(
-    challenge: SignedChallenge,
-    policyPayload: PolicySignaturePayload
-  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    await verifyNetwork();
-    const server = rpcServer();
-    const passphrase = network().passphrase;
-    const agentPubkey = this.config.agentKeypair.publicKey();
-    const sourceAccount = await server.getAccount(agentPubkey);
-
-    // The money moves out of the smart account, not out of the agent's own
-    // account. That is what puts the policy contract in the authorization
-    // chain and gets __check_auth called before anything settles. The agent
-    // is only the source of the transaction, which means it pays the fee and
-    // nothing more.
-    const transfer = () =>
-      StellarSdk.Operation.invokeContractFunction({
-        contract: challenge.fields.asset,
-        function: "transfer",
-        args: [
-          StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
-          StellarSdk.Address.fromString(challenge.fields.recipient).toScVal(),
-          StellarSdk.nativeToScVal(BigInt(policyPayload.amount), { type: "i128" }),
-        ],
-      });
-
-    const draft = new StellarSdk.TransactionBuilder(sourceAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: passphrase,
-    })
-      .addOperation(transfer())
-      .setTimeout(300)
-      .build();
-
-    // The first simulation tells us which authorization entries the host
-    // wants. They come back unsigned.
-    const probe = await server.simulateTransaction(draft);
-    if (StellarSdk.rpc.Api.isSimulationError(probe)) {
-      return { success: false, error: `simulation failed: ${probe.error}` };
-    }
-
-    const entries = probe.result?.auth ?? [];
-    if (entries.length === 0) {
-      return {
-        success: false,
-        error: "the transfer produced no authorization entry for the policy account",
-      };
-    }
-
-    const { sequence } = await server.getLatestLedger();
-    const validUntil = sequence + AUTH_VALIDITY_LEDGERS;
-
-    let signedEntries: StellarSdk.xdr.SorobanAuthorizationEntry[];
-    try {
-      signedEntries = await Promise.all(
-        entries.map((entry) =>
-          this.signAuthorizationEntry(entry, policyPayload, validUntil)
-        )
-      );
-    } catch (err) {
-      return { success: false, error: `authorization signing failed: ${err}` };
-    }
-
-    // Rebuild the call carrying the signed entries, then simulate once more
-    // so the footprint and resource fees account for the policy running.
-    //
-    // The account is read again each time round, because building the probe
-    // advanced the sequence on the copy we were holding and that probe was
-    // never submitted. The node can also still be a ledger behind after an
-    // earlier payment, which shows up as a rejected sequence, so a stale one
-    // is worth one more try rather than reporting the payment as refused.
-    let sendResponse: Awaited<ReturnType<typeof server.sendTransaction>> | null = null;
-
-    for (let attempt = 0; attempt < SEND_ATTEMPTS; attempt += 1) {
-      const account = await server.getAccount(agentPubkey);
-
-      const authorized = new StellarSdk.TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: passphrase,
-      })
-        .addOperation(
-          StellarSdk.Operation.invokeContractFunction({
-            contract: challenge.fields.asset,
-            function: "transfer",
-            args: [
-              StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
-              StellarSdk.Address.fromString(challenge.fields.recipient).toScVal(),
-              StellarSdk.nativeToScVal(BigInt(policyPayload.amount), { type: "i128" }),
-            ],
-            auth: signedEntries,
-          })
-        )
-        .setTimeout(300)
-        .build();
-
-      const simulated = await server.simulateTransaction(authorized);
-      if (StellarSdk.rpc.Api.isSimulationError(simulated)) {
-        // A policy refusal surfaces here, before anything is submitted.
-        return {
-          success: false,
-          error: `policy rejected the payment: ${simulated.error}`,
-        };
-      }
-
-      const prepared = StellarSdk.rpc.assembleTransaction(authorized, simulated).build();
-      prepared.sign(this.config.agentKeypair);
-
-      sendResponse = await server.sendTransaction(prepared);
-      if (sendResponse.status !== "ERROR") {
-        break;
-      }
-
-      if (!isStaleSequence(sendResponse) || attempt === SEND_ATTEMPTS - 1) {
-        return {
-          success: false,
-          error: `send failed: ${JSON.stringify(sendResponse)}`,
-        };
-      }
-
-      await new Promise((r) => setTimeout(r, 3000));
-    }
-
-    if (!sendResponse) {
-      return { success: false, error: "the transaction was never submitted" };
-    }
-
-    // Wait for the network to say what happened.
-    let getResponse = await server.getTransaction(sendResponse.hash);
-    let attempt = 0;
-    while (getResponse.status === "NOT_FOUND" && attempt < CONFIRMATION_ATTEMPTS) {
-      await new Promise((r) => setTimeout(r, 1000));
-      getResponse = await server.getTransaction(sendResponse.hash);
-      attempt++;
-    }
-
-    if (getResponse.status === "SUCCESS") {
-      return { success: true, txHash: sendResponse.hash };
-    }
-
-    // Running out of patience is not the same as being refused. The
-    // transaction may still land, so this reports that the outcome is
-    // unknown rather than claiming nothing was paid.
-    if (getResponse.status === "NOT_FOUND") {
-      return {
-        success: false,
-        error:
-          `the network did not confirm ${sendResponse.hash} within ` +
-          `${CONFIRMATION_ATTEMPTS} seconds, so the outcome is unknown`,
-        txHash: sendResponse.hash,
-      };
-    }
-
-    return {
-      success: false,
-      error: `transaction ${getResponse.status}`,
-      txHash: sendResponse.hash,
-    };
-  }
+/** The first field on which a challenge and the x402 requirements differ. */
+function describeDisagreement(
+  challenge: SignedChallenge,
+  requirements: PaymentRequirements
+): string | null {
+  if (challenge.fields.asset !== requirements.asset) return "the asset";
+  if (challenge.fields.recipient !== requirements.payTo) return "the recipient";
+  if (normalizeAmount(challenge.fields.amount) !== normalizeAmount(requirements.amount)) return "the amount";
+  return null;
 }
 
 export function createAdapter(

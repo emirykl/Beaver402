@@ -46,7 +46,15 @@ export function createApp(role: Role = roleFromEnv()) {
     app.set("trust proxy", true);
   }
 
-  app.use(express.json());
+  // The merchant signs over the body exactly as it arrived, so the raw text
+  // is kept next to the parsed value.
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        (req as typeof req & { rawBody?: string }).rawBody = buf.toString("utf-8");
+      },
+    })
+  );
 
   if (role === "merchant" || role === "all") {
     // merchant demo routes (402 payment required flow)
