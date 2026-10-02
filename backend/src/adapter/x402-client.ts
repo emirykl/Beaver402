@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { getEstimatedLedgerCloseTimeSeconds } from "@x402/stellar";
 import {
@@ -197,15 +198,16 @@ export class Beaver402Adapter {
     const server = rpcServer();
     const policyPayload = this.policyPayload(challenge);
 
+    const transferArgs = [
+      StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
+      StellarSdk.Address.fromString(requirements.payTo).toScVal(),
+      StellarSdk.nativeToScVal(BigInt(requirements.amount), { type: "i128" }),
+    ];
     const transfer = (auth?: StellarSdk.xdr.SorobanAuthorizationEntry[]) =>
       StellarSdk.Operation.invokeContractFunction({
         contract: requirements.asset,
         function: "transfer",
-        args: [
-          StellarSdk.Address.fromString(this.config.policyContractId).toScVal(),
-          StellarSdk.Address.fromString(requirements.payTo).toScVal(),
-          StellarSdk.nativeToScVal(BigInt(requirements.amount), { type: "i128" }),
-        ],
+        args: transferArgs,
         auth,
       });
 
@@ -218,16 +220,32 @@ export class Beaver402Adapter {
         .setTimeout(requirements.maxTimeoutSeconds)
         .build();
 
-    // The first simulation tells us which authorization entry the host
-    // wants. It comes back unsigned.
-    const probe = await server.simulateTransaction(build());
-    if (!StellarSdk.rpc.Api.isSimulationSuccess(probe)) {
-      throw new Error(`simulation failed: ${(probe as { error?: string }).error}`);
-    }
-    const entries = probe.result?.auth ?? [];
-    if (entries.length !== 1) {
-      throw new Error(`expected one authorization entry for the policy account, got ${entries.length}`);
-    }
+    // The authorization the transfer needs from the policy account is known
+    // exactly: this one call, by this account, nothing nested. Building it
+    // here rather than asking a simulation for it means the only simulation
+    // that runs is the one with the signature, where the policy is consulted
+    // before anything else, so a refusal always carries the policy's own
+    // reason rather than, say, the token's view of the balance.
+    const unsigned = new StellarSdk.xdr.SorobanAuthorizationEntry({
+      credentials: StellarSdk.xdr.SorobanCredentials.sorobanCredentialsAddress(
+        new StellarSdk.xdr.SorobanAddressCredentials({
+          address: StellarSdk.Address.fromString(this.config.policyContractId).toScAddress(),
+          nonce: new StellarSdk.xdr.Int64(randomBytes(8).readBigInt64BE()),
+          signatureExpirationLedger: 0,
+          signature: StellarSdk.xdr.ScVal.scvVoid(),
+        })
+      ),
+      rootInvocation: new StellarSdk.xdr.SorobanAuthorizedInvocation({
+        function: StellarSdk.xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+          new StellarSdk.xdr.InvokeContractArgs({
+            contractAddress: StellarSdk.Address.fromString(requirements.asset).toScAddress(),
+            functionName: "transfer",
+            args: transferArgs,
+          })
+        ),
+        subInvocations: [],
+      }),
+    });
 
     // The facilitator refuses an entry valid for longer than the payment's
     // timeout, measured in ledgers at the network's current pace.
@@ -236,7 +254,7 @@ export class Beaver402Adapter {
     const validUntil = sequence + Math.ceil(requirements.maxTimeoutSeconds / ledgerSeconds);
 
     const signed = await StellarSdk.authorizeEntry(
-      entries[0]!,
+      unsigned,
       async (_preimage, payload) => {
         const agentSignature = this.config.agentKeypair.sign(payload);
         return {

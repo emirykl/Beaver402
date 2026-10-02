@@ -116,9 +116,28 @@ export const POLICY_ERRORS: Record<string, { name: string; reason: string }> = {
   },
 };
 
-/** The policy's code, dug out of whatever the host wrapped it in. */
+/**
+ * The policy's code, dug out of whatever the host wrapped it in.
+ *
+ * Only a code the account itself returned counts: the host reports it as
+ * the reason the account's authentication failed. A contract error anywhere
+ * else in the diagnostics belongs to some other contract, most often the
+ * token refusing the transfer, and its codes mean something else entirely.
+ */
 function codeIn(message: string): string | undefined {
-  return message.match(/Error\(Contract, #(\d+)\)/)?.[1];
+  // Newer hosts name the account between the text and the code.
+  return message.match(
+    /failed account authentication with error",\s*(?:[A-Z0-9]{56},\s*)?Error\(Contract, #(\d+)\)/
+  )?.[1];
+}
+
+/** A refusal by a contract other than the policy, such as the token. */
+function otherContractRefusal(message: string): string | undefined {
+  if (!/Error\(Contract, #\d+\)/.test(message)) return undefined;
+  const explanation = message.match(/topics:\[error, Error\(Contract, #\d+\)\], data:\["([^"]+)"/)?.[1];
+  return explanation
+    ? `the token contract refused the transfer: ${explanation}`
+    : "the token contract refused the transfer";
 }
 
 /** The name of the error the policy raised, if it raised one. */
@@ -142,6 +161,8 @@ export function describePolicyError(message: string | undefined): string {
 
   const code = codeIn(message);
   if (!code) {
+    const other = otherContractRefusal(message);
+    if (other) return other;
     // A refusal the policy did not name. Saying so beats a page of diagnostics.
     if (message.includes("Error(Auth")) {
       return "the policy refused to authorize this payment";
@@ -151,4 +172,23 @@ export function describePolicyError(message: string | undefined): string {
 
   const known = POLICY_ERRORS[code];
   return known ? `${known.name}, ${known.reason}` : `the policy refused this payment, contract error #${code}`;
+}
+
+/**
+ * The reason an owner action failed.
+ *
+ * An owner action calls the policy account itself, so a contract error at
+ * the top of the host's report is the policy's own. (Recovering funds also
+ * calls the token, whose refusals carry their own explanation and are
+ * reported as the token's.)
+ */
+export function describeOwnerActionError(message: string): string {
+  const fromAuth = codeIn(message);
+  const direct = message.match(/HostError: Error\(Contract, #(\d+)\)/)?.[1];
+  const code = fromAuth ?? direct;
+  const known = code ? POLICY_ERRORS[code] : undefined;
+  if (known && !/data:\["[^"]*balance/.test(message)) {
+    return `${known.name}, ${known.reason}`;
+  }
+  return describePolicyError(message);
 }

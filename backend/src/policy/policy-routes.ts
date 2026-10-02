@@ -3,6 +3,7 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 import { isAuthenticated } from "../lib/sessions.js";
 import { createRateLimit } from "../lib/rate-limit.js";
 import { network, rpcServer, explorerContract } from "../config/network.js";
+import { describeOwnerActionError } from "../shared/policy-errors.js";
 import {
   isOwnerAction,
   prepareOwnerAction,
@@ -306,7 +307,7 @@ export function createPolicyRouter() {
       });
       res.json({ success: true, prepared });
     } catch (err) {
-      res.status(500).json({ success: false, error: String(err) });
+      res.status(500).json({ success: false, error: describeOwnerActionError(String(err)) });
     }
   });
 
@@ -336,7 +337,7 @@ export function createPolicyRouter() {
       invalidateCache();
       res.json({ success: true, txHash: result.txHash });
     } catch (err) {
-      res.status(500).json({ success: false, error: String(err) });
+      res.status(500).json({ success: false, error: describeOwnerActionError(String(err)) });
     }
   });
 
