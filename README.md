@@ -32,7 +32,7 @@ passkey, the agent key revoked on chain, and the adversarial cases refused.
 
 | | |
 |---|---|
-| [Testnet rehearsal](docs/operations/rehearsals/2026-10-02-testnet.md) | the whole pilot, run on a fresh account: x402 payments, one started from the MCP tool, every refusal with its reason, the incident drill and the migration |
+| [Testnet rehearsal](docs/operations/rehearsals/2026-10-02-testnet-hosted.md) | the whole pilot on a fresh account, settled by the hosted OpenZeppelin facilitator: x402 payments, one started from the MCP tool, every refusal with its reason, the incident drill and the migration |
 | [x402 compatibility](docs/mainnet/x402-compat.md) | what a facilitator requires of the account, and the measurements |
 | [First month](docs/evidence.md) | the original testnet deployment and its transactions |
 

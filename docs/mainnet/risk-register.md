@@ -7,7 +7,7 @@ Updated as risks are retired or found.
 |---|---|---|---|---|
 | R1 | The facilitator refuses any event besides the transfer | no payment can settle | **retired** | the account emits nothing while authorizing; the proof is published afterwards |
 | R2 | The payment fee exceeds the facilitator's ceiling | no payment can settle | **retired**, measured at 38,411 of 50,000 | payments create no entry, grow no entry and extend nothing |
-| R3 | The hosted facilitator rejects a contract account as payer, or the custom signature | no payment can settle | open | tested at the testnet gate; the reference implementation accepts it |
+| R3 | The hosted facilitator rejects a contract account as payer, or the custom signature | no payment can settle | **retired** | the hosted OpenZeppelin facilitator settled the whole testnet rehearsal |
 | R4 | The account gets archived | payments stop, fees jump | mitigated | every non-payment call extends it; `extend_ttl`; status page shows the lifetime |
 | R5 | A request changed in its query or path case still matches | request mutation undetected | **retired** | encoding version 2 |
 | R6 | The velocity limit is exceeded at a window boundary or by the payment that reaches it | more spent than promised | **retired** | sliding window, total checked including the payment |

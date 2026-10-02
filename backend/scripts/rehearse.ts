@@ -85,13 +85,26 @@ function note(phase: string, what: string, expected: Step["expected"], ok: boole
 
 // ── Chain helpers ─────────────────────────────────────────────────
 
+/** Testnet RPC drops the odd request. A dropped read is worth retrying. */
+async function withRetry<T>(read: () => Promise<T>, attempts = 5): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await read();
+    } catch (err) {
+      const transient = /fetch failed|ECONNRESET|ETIMEDOUT|socket hang up|503|502/i.test(String(err));
+      if (!transient || attempt >= attempts) throw err;
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
+  }
+}
+
 async function send(tx: StellarSdk.Transaction, signer: StellarSdk.Keypair): Promise<StellarSdk.rpc.Api.GetSuccessfulTransactionResponse & { hash: string }> {
-  const prepared = await server.prepareTransaction(tx);
+  const prepared = await withRetry(() => server.prepareTransaction(tx));
   prepared.sign(signer);
-  const sent = await server.sendTransaction(prepared);
+  const sent = await withRetry(() => server.sendTransaction(prepared));
   if (sent.status === "ERROR") throw new Error(JSON.stringify(sent.errorResult));
   for (let i = 0; i < 60; i++) {
-    const result = await server.getTransaction(sent.hash);
+    const result = await withRetry(() => server.getTransaction(sent.hash));
     if (result.status === "SUCCESS") return { ...result, hash: sent.hash };
     if (result.status === "FAILED") throw new Error(`${sent.hash} failed`);
     await new Promise((r) => setTimeout(r, 1000));
@@ -100,7 +113,7 @@ async function send(tx: StellarSdk.Transaction, signer: StellarSdk.Keypair): Pro
 }
 
 async function builder(source: StellarSdk.Keypair) {
-  return new StellarSdk.TransactionBuilder(await server.getAccount(source.publicKey()), {
+  return new StellarSdk.TransactionBuilder(await withRetry(() => server.getAccount(source.publicKey())), {
     fee: "1000000",
     networkPassphrase: passphrase,
   }).setTimeout(120);
@@ -326,11 +339,14 @@ async function payThroughMcp(phase: string, base: string) {
 
 // ── The rehearsal ─────────────────────────────────────────────────
 
+const accounts: { a?: string; b?: string } = {};
+
 async function main() {
   console.log(`\nRehearsing on ${network().name}, facilitator: ${process.env.FACILITATOR_MODE}\n`);
 
   console.log("Account A");
   const a = await deploy("account A");
+  accounts.a = a;
   await tryOwner("account A", "approve the merchant with the passkey", "done", a, "add_merchant", { pubkey: merchant.publicKey() });
   await fund("account A", funder, a, USDC);
 
@@ -400,6 +416,7 @@ async function main() {
 
   console.log("\nMigration to account B");
   const b = await deploy("migration");
+  accounts.b = b;
   await tryOwner("migration", "approve the merchant on the new account", "done", b, "add_merchant", { pubkey: merchant.publicKey() });
   const recovered = await balance(recovery);
   await fund("migration", fee, b, recovered < USDC / 2n ? recovered : USDC / 2n);
@@ -413,14 +430,12 @@ async function main() {
   await tryOwner("migration", "recover its funds", "done", b, "recover_funds");
   backendB.close();
 
-  writeRecord(a, b);
-
   const surprises = steps.filter((s) => s.actual !== s.expected);
   console.log(`\n${steps.length} steps, ${surprises.length} unexpected\n`);
-  if (surprises.length > 0) process.exit(1);
+  if (surprises.length > 0) process.exitCode = 1;
 }
 
-function writeRecord(a: string, b: string) {
+function writeRecord(a = "not deployed", b = "not deployed", stoppedBy?: string) {
   const explorer = network().explorer;
   const day = new Date().toISOString().slice(0, 10);
   const rows = steps
@@ -440,7 +455,7 @@ testnet and can be opened on the explorer.
 |---|---|
 | Account A | [\`${a}\`](${explorer}/contract/${a}) |
 | Account B | [\`${b}\`](${explorer}/contract/${b}) |
-| Facilitator | ${process.env.FACILITATOR_MODE === "reference" ? "x402 reference implementation of the exact scheme, run as a testnet test tool" : network().facilitatorUrl} |
+| Facilitator | ${process.env.FACILITATOR_MODE === "reference" ? "x402 reference implementation of the exact scheme, run as a testnet test tool" : `the hosted OpenZeppelin Channels facilitator, ${network().facilitatorUrl}`} |
 | Owner | a software passkey on \`${RP_ID}\`, so owner actions could be scripted |
 | Recovery address | \`${recovery}\` |
 | Limits | 1 USDC per payment, 5 payments and 5 USDC in 24 hours |
@@ -449,15 +464,19 @@ testnet and can be opened on the explorer.
 |---|---|---|---|---|
 ${rows}
 
-${steps.filter((s) => s.actual !== s.expected).length === 0 ? "Every step went as expected." : "Some steps did not go as expected; see the bold rows."}
+${stoppedBy ? `**The run stopped before the end:** \`${stoppedBy.split("\n")[0]!.slice(0, 300)}\`` : steps.filter((s) => s.actual !== s.expected).length === 0 ? "Every step went as expected." : "Some steps did not go as expected; see the bold rows."}
 `;
-  const target = resolve(ROOT, "docs/operations/rehearsals", `${day}-testnet.md`);
+  const suffix = process.env.FACILITATOR_MODE === "reference" ? "testnet-reference" : "testnet-hosted";
+  const target = resolve(ROOT, "docs/operations/rehearsals", `${day}-${suffix}.md`);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, record);
   console.log(`\nRecord written to ${target}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .then(() => writeRecord(accounts.a, accounts.b))
+  .catch((err) => {
+    console.error(err);
+    writeRecord(accounts.a, accounts.b, String(err));
+    process.exit(1);
+  });

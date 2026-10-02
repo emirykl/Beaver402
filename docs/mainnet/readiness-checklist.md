@@ -26,7 +26,7 @@ Artifact sha256: _from the release_
 | 8 | A payment emits only the token transfer | yes | contract test, testnet measurement |
 | 9 | The payment's fee is under the facilitator's ceiling | yes, 38,411 of 50,000 | `x402-compat.md` |
 | 10 | The reference facilitator verifies a real payment | yes | `x402-compat.md` |
-| 11 | The hosted facilitator settled a testnet payment started from the MCP tool | | with the reference facilitator: yes, [rehearsal](../operations/rehearsals/2026-10-02-testnet.md); hosted: not yet |
+| 11 | The hosted facilitator settled a testnet payment started from the MCP tool | yes | [hosted rehearsal](../operations/rehearsals/2026-10-02-testnet-hosted.md), [`ed404577`](https://stellar.expert/explorer/testnet/tx/ed40457717d25214420c04a28bb16a14f53b7bfc5e39f0a3cc334ffe1bbefd6e) |
 | 12 | The merchant releases content only after confirming the settlement on the ledger | yes | `merchant-x402.test.ts`, `settlement.test.ts` |
 | 13 | A payment is bound to the exact request, including its query and path case | yes | encoding v2, `merchant-x402.test.ts` |
 
@@ -62,8 +62,8 @@ Artifact sha256: _from the release_
 | 29 | External peer review done, findings recorded | | `docs/security/peer-review.md` |
 | 30 | No open critical or high finding | | `docs/security/findings.md` |
 | 31 | Full testnet rehearsal on the hosted setup: deploy, approve, fund, pay, every scenario | | scripted locally: yes; on Vercel with the real passkey: not yet |
-| 32 | Incident procedure rehearsed on testnet | yes | [rehearsal](../operations/rehearsals/2026-10-02-testnet.md) |
-| 33 | Migration procedure rehearsed on testnet | yes | [rehearsal](../operations/rehearsals/2026-10-02-testnet.md) |
+| 32 | Incident procedure rehearsed on testnet | yes | [hosted rehearsal](../operations/rehearsals/2026-10-02-testnet-hosted.md) |
+| 33 | Migration procedure rehearsed on testnet | yes | [hosted rehearsal](../operations/rehearsals/2026-10-02-testnet-hosted.md) |
 | 34 | Event collector and status page running against testnet | | `rehearsal-testnet.md` |
 
 ## Decision

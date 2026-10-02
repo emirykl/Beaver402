@@ -123,21 +123,27 @@ and into the operating guide.
 
 ## The testnet gate
 
-**Passed end to end with the reference facilitator. The hosted facilitator
-is still to be run.**
+**Passed on 2026-10-02, through the hosted OpenZeppelin Channels
+facilitator.**
 
-On 2026-10-02 the [testnet rehearsal](../operations/rehearsals/2026-10-02-testnet.md)
-ran the whole flow on a freshly deployed account: the merchant's 402, the
-agent's authorization, verification and settlement by the x402 reference
-implementation of the exact scheme, the merchant's own confirmation on the
-ledger and the published proof of intent. One of the payments was started
-from the MCP tool, through an MCP client calling `fetch_paid_resource`:
-[`79ea7717`](https://stellar.expert/explorer/testnet/tx/79ea77174cf81b11b7f3251c8cb40426ea1ab0792700a2b3ef789d391a47826f).
+The [hosted rehearsal](../operations/rehearsals/2026-10-02-testnet-hosted.md)
+ran the whole flow on a freshly deployed account with
+`https://channels.openzeppelin.com/x402/testnet` doing the verification and
+the settlement: the merchant's 402, the agent's authorization, the
+facilitator's verify and settle, the merchant's own confirmation on the
+ledger and the published proof of intent, 42 steps with nothing unexpected.
 
-The settlement transactions were submitted and paid for by the
-facilitator's own account. The first one cost 28,271 stroops in fees.
+The payment started from the MCP tool, through an MCP client calling
+`fetch_paid_resource`:
+[`ed404577`](https://stellar.expert/explorer/testnet/tx/ed40457717d25214420c04a28bb16a14f53b7bfc5e39f0a3cc334ffe1bbefd6e).
+It was submitted from `GCQFTZ6E…T2TE5DVY` and its fee paid through a fee bump
+by `GA6THKUY…KAXVH7TL`, both OpenZeppelin's accounts; none of Beaver402's
+accounts paid anything. It cost 28,382 stroops in fees.
 
-What the gate still needs is the same run with the hosted OpenZeppelin
-facilitator in place of the reference one: whether it applies the same
-rules, and whether it accepts a contract account as the payer. Its
-transactions go here.
+That settles the open questions: the hosted facilitator applies the same
+rules as the reference implementation, accepts a contract account as the
+payer, and accepts the Beaver402 signature in its authorization entry.
+
+An [earlier run](../operations/rehearsals/2026-10-02-testnet-reference.md)
+used the x402 reference implementation as a local test tool, before the
+hosted facilitator's key was set up.
