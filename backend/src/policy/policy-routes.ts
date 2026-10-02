@@ -198,6 +198,66 @@ export function publicConfig() {
   };
 }
 
+/** Everything the panel and the status page show about the account. */
+export async function readPolicyState() {
+  if (!contractId()) {
+    return {
+      frozen: false,
+      agentSigner: null,
+      velocityTxCount: 0,
+      velocityTotalAmount: "0",
+      velocityWindowStart: 0,
+      contractId: "not deployed",
+      merchantApproved: false,
+      velocityMaxTxCount: 0,
+      limits: null,
+    };
+  }
+
+  // query contract state through simulation
+  const frozen = await safeContractBool("is_frozen");
+
+  let agentSigner: string | null = null;
+  try {
+    const signerSim = await callContractView("get_agent_signer");
+    agentSigner = extractBytes(signerSim);
+  } catch {
+    agentSigner = null; // signer revoked or not set
+  }
+
+  // The contract works the window out itself, at the time of the ledger the
+  // simulation runs against, so what it reports is what it will apply to the
+  // next payment.
+  let reading = { txCount: 0, totalAmount: "0", windowStart: 0 };
+  try {
+    const parsed = extractMap(await callContractView("get_velocity_state"));
+    reading = {
+      txCount: Number(parsed.get("tx_count") ?? 0),
+      totalAmount: String(parsed.get("total_amount") ?? "0"),
+      windowStart: Number(parsed.get("window_start") ?? 0),
+    };
+  } catch {
+    // use defaults
+  }
+
+  // The control panel needs these to tell the owner what is still to do and
+  // how much of the budget is left.
+  const merchantApproved = await cached("merchant", isMerchantApproved);
+  const limits = await cached("limits", readLimits);
+
+  return {
+    frozen,
+    agentSigner,
+    velocityTxCount: reading.txCount,
+    velocityTotalAmount: reading.totalAmount,
+    velocityWindowStart: reading.windowStart,
+    contractId: contractId(),
+    merchantApproved,
+    velocityMaxTxCount: limits?.maxTxCount ?? 0,
+    limits,
+  };
+}
+
 export function createPolicyRouter() {
   const router = express.Router();
 
@@ -211,64 +271,8 @@ export function createPolicyRouter() {
   });
 
   router.get("/api/policy/state", async (_req: Request, res: Response) => {
-    if (!contractId()) {
-      res.json({
-        frozen: false,
-        agentSigner: null,
-        velocityTxCount: 0,
-        velocityTotalAmount: "0",
-        velocityWindowStart: 0,
-        contractId: "not deployed",
-        merchantApproved: false,
-        velocityMaxTxCount: 0,
-        limits: null,
-      });
-      return;
-    }
-
     try {
-      // query contract state through simulation
-      const frozen = await safeContractBool("is_frozen");
-
-      let agentSigner: string | null = null;
-      try {
-        const signerSim = await callContractView("get_agent_signer");
-        agentSigner = extractBytes(signerSim);
-      } catch {
-        agentSigner = null; // signer revoked or not set
-      }
-
-      // The contract works the window out itself, at the time of the ledger
-      // the simulation runs against, so what it reports is what it will
-      // apply to the next payment.
-      let reading = { txCount: 0, totalAmount: "0", windowStart: 0 };
-      try {
-        const parsed = extractMap(await callContractView("get_velocity_state"));
-        reading = {
-          txCount: Number(parsed.get("tx_count") ?? 0),
-          totalAmount: String(parsed.get("total_amount") ?? "0"),
-          windowStart: Number(parsed.get("window_start") ?? 0),
-        };
-      } catch {
-        // use defaults
-      }
-
-      // The control panel needs these to tell the owner what is still to do
-      // and how much of the budget is left.
-      const merchantApproved = await cached("merchant", isMerchantApproved);
-      const limits = await cached("limits", readLimits);
-
-      res.json({
-        frozen,
-        agentSigner,
-        velocityTxCount: reading.txCount,
-        velocityTotalAmount: reading.totalAmount,
-        velocityWindowStart: reading.windowStart,
-        contractId: contractId(),
-        merchantApproved,
-        velocityMaxTxCount: limits?.maxTxCount ?? 0,
-        limits,
-      });
+      res.json(await readPolicyState());
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

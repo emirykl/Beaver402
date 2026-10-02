@@ -3,6 +3,7 @@ import { createMerchantRouter } from "./merchant/demo-endpoint.js";
 import { createPasskeyRouter } from "./passkey/passkey-routes.js";
 import { createPolicyRouter } from "./policy/policy-routes.js";
 import { createAgentRouter } from "./agent/agent-routes.js";
+import { createOpsRouter } from "./ops/ops-routes.js";
 import {
   extractRequestFromToolCall,
   isPaymentRequired,
@@ -70,6 +71,9 @@ export function createApp(role: Role = roleFromEnv()) {
 
     // the agent facing route that pays for a resource when asked to
     app.use(createAgentRouter());
+
+    // event collection, the event export and the public status
+    app.use(createOpsRouter());
 
     // MCP tool call interception endpoint
     app.post("/api/mcp/extract", (req, res) => {
