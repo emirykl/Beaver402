@@ -64,6 +64,8 @@ export interface PublicConfig {
   explorer: string;
   contractId: string | null;
   asset: string;
+  /** The merchant this deployment works with, so the agent side can name it. */
+  merchantPubkey: string | null;
 }
 
 export async function fetchConfig(): Promise<PublicConfig | null> {
@@ -188,6 +190,13 @@ export async function allowMerchant(
   merchantPubkey: string
 ): Promise<OwnerActionResult> {
   return runOwnerAction("add_merchant", { pubkey: merchantPubkey });
+}
+
+/** Stop paying a merchant. It can be approved again later. */
+export async function removeMerchant(
+  merchantPubkey: string
+): Promise<OwnerActionResult> {
+  return runOwnerAction("remove_merchant", { pubkey: merchantPubkey });
 }
 
 /** Lower the limits. The contract refuses anything that raises one. */

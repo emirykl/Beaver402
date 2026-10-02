@@ -12,6 +12,7 @@ import {
   fetchConfig,
   reduceLimits,
   recoverFunds,
+  removeMerchant,
   type Limits,
   type PolicyState,
   type PublicConfig,
@@ -102,8 +103,10 @@ export default function App() {
   const [merchantInfo, setMerchantInfo] = useState<MerchantInfo | null>(null);
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  // Recovering the funds empties the account, so it takes two presses.
+  // Recovering the funds and removing the merchant are hard to undo in the
+  // middle of an incident, so each takes two presses.
   const [recoveryArmed, setRecoveryArmed] = useState(false);
+  const [removalArmed, setRemovalArmed] = useState(false);
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
@@ -219,6 +222,9 @@ export default function App() {
   const needsMerchant = policyState.merchantApproved === false;
   const live = !policyState.frozen && policyState.agentSigner !== null;
   const explorer = config?.explorer ?? "https://stellar.expert/explorer/testnet";
+  // The merchant runs as its own deployment on mainnet, so its key comes from
+  // the public config when the merchant's own endpoint is not served here.
+  const merchantKey = merchantInfo?.merchantPubkey ?? config?.merchantPubkey ?? null;
   const limits = policyState.limits ?? null;
 
   // ── Console ─────────────────────────────────────────────────────
@@ -270,12 +276,10 @@ export default function App() {
                 <Button
                   label="APPROVE MERCHANT"
                   busy={loading === "approve"}
-                  disabled={loading !== null || !merchantInfo}
+                  disabled={loading !== null || !merchantKey}
                   onClick={() =>
-                    merchantInfo &&
-                    handleAction("Approve merchant", () =>
-                      allowMerchant(merchantInfo.merchantPubkey)
-                    )
+                    merchantKey &&
+                    handleAction("Approve merchant", () => allowMerchant(merchantKey))
                   }
                 />
               </section>
@@ -351,6 +355,23 @@ export default function App() {
                       }
                       setRecoveryArmed(false);
                       handleAction("Recover", recoverFunds);
+                    }}
+                  />
+                )}
+                {merchantKey && (
+                  <Button
+                    label={removalArmed ? "CONFIRM: STOP PAYING THIS MERCHANT" : "REMOVE MERCHANT"}
+                    danger
+                    busy={loading === "Remove merchant"}
+                    disabled={loading !== null}
+                    onClick={() => {
+                      if (!removalArmed) {
+                        setRemovalArmed(true);
+                        addLog("Press again to remove the merchant; it can be approved again later");
+                        return;
+                      }
+                      setRemovalArmed(false);
+                      handleAction("Remove merchant", () => removeMerchant(merchantKey));
                     }}
                   />
                 )}
