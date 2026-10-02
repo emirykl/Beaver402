@@ -13,10 +13,12 @@ import {
   getSupabase,
   isSupabaseConfigured,
 } from "../lib/supabase.js";
+import { passkey } from "../config/passkey.js";
 
 const RP_NAME = "Beaver402";
-const RP_ID = process.env.RP_ID || "localhost";
-const ORIGIN = process.env.ORIGIN || `http://${RP_ID}:5173`;
+
+/** How long a ceremony may take between its start and its answer. */
+const CHALLENGE_LIFETIME_MS = 5 * 60 * 1000;
 
 export interface StoredCredential {
   credentialID: string;
@@ -25,8 +27,47 @@ export interface StoredCredential {
   transports?: string[];
 }
 
-// pending challenges are ephemeral (only valid for current session)
-const pendingChallenges = new Map<string, string>();
+/**
+ * The challenge a ceremony was started with, until its answer arrives.
+ *
+ * Kept in the database when there is one. A serverless host can answer the
+ * start and the finish of the same ceremony from two different instances,
+ * and a challenge held in one instance's memory is gone from the other.
+ */
+const memoryChallenges = new Map<string, { challenge: string; expiresAt: number }>();
+
+async function rememberChallenge(userId: string, challenge: string): Promise<void> {
+  const expiresAt = Date.now() + CHALLENGE_LIFETIME_MS;
+  if (!isSupabaseConfigured()) {
+    memoryChallenges.set(userId, { challenge, expiresAt });
+    return;
+  }
+  const { error } = await getSupabase()
+    .from("webauthn_challenges")
+    .upsert({ user_id: userId, challenge, expires_at: new Date(expiresAt).toISOString() });
+  if (error) {
+    throw new Error(`failed to store the passkey challenge: ${error.message}`);
+  }
+}
+
+/** Hand back the pending challenge once, and forget it. */
+async function takeChallenge(userId: string): Promise<string | null> {
+  if (!isSupabaseConfigured()) {
+    const entry = memoryChallenges.get(userId);
+    memoryChallenges.delete(userId);
+    return entry && entry.expiresAt > Date.now() ? entry.challenge : null;
+  }
+  const { data, error } = await getSupabase()
+    .from("webauthn_challenges")
+    .delete()
+    .eq("user_id", userId)
+    .select("challenge, expires_at");
+  if (error) {
+    throw new Error(`failed to read the passkey challenge: ${error.message}`);
+  }
+  const row = data?.[0];
+  return row && new Date(row.expires_at).getTime() > Date.now() ? row.challenge : null;
+}
 
 async function getUserCredentials(userId: string): Promise<StoredCredential[]> {
   if (!isSupabaseConfigured()) {
@@ -91,7 +132,7 @@ export async function startRegistration(userId: string, userName: string) {
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
-    rpID: RP_ID,
+    rpID: passkey().rpId,
     userName,
     attestationType: "direct",
     // The contract verifies secp256r1 and nothing else, so only ES256 is
@@ -107,7 +148,7 @@ export async function startRegistration(userId: string, userName: string) {
     })),
   });
 
-  pendingChallenges.set(userId, options.challenge);
+  await rememberChallenge(userId, options.challenge);
   return options;
 }
 
@@ -115,16 +156,17 @@ export async function finishRegistration(
   userId: string,
   response: RegistrationResponseJSON
 ) {
-  const expectedChallenge = pendingChallenges.get(userId);
+  const expectedChallenge = await takeChallenge(userId);
   if (!expectedChallenge) {
     throw new Error("no pending registration challenge");
   }
 
+  const { rpId, origin } = passkey();
   const verification = await verifyRegistrationResponse({
     response,
     expectedChallenge,
-    expectedOrigin: ORIGIN,
-    expectedRPID: RP_ID,
+    expectedOrigin: origin,
+    expectedRPID: rpId,
   });
 
   if (!verification.verified || !verification.registrationInfo) {
@@ -141,8 +183,6 @@ export async function finishRegistration(
 
   await saveCredential(userId, stored);
 
-  pendingChallenges.delete(userId);
-
   return {
     verified: true,
     credentialID: credential.id,
@@ -154,14 +194,14 @@ export async function startAuthentication(userId: string) {
   const creds = await getUserCredentials(userId);
 
   const options = await generateAuthenticationOptions({
-    rpID: RP_ID,
+    rpID: passkey().rpId,
     allowCredentials: creds.map((c) => ({
       id: c.credentialID,
     })),
     userVerification: "required",
   });
 
-  pendingChallenges.set(userId, options.challenge);
+  await rememberChallenge(userId, options.challenge);
   return options;
 }
 
@@ -169,7 +209,7 @@ export async function finishAuthentication(
   userId: string,
   response: AuthenticationResponseJSON
 ) {
-  const expectedChallenge = pendingChallenges.get(userId);
+  const expectedChallenge = await takeChallenge(userId);
   if (!expectedChallenge) {
     throw new Error("no pending authentication challenge");
   }
@@ -182,11 +222,12 @@ export async function finishAuthentication(
 
   const publicKeyUint8 = new Uint8Array(credential.credentialPublicKey);
 
+  const { rpId, origin } = passkey();
   const verification = await verifyAuthenticationResponse({
     response,
     expectedChallenge,
-    expectedOrigin: ORIGIN,
-    expectedRPID: RP_ID,
+    expectedOrigin: origin,
+    expectedRPID: rpId,
     credential: {
       id: credential.credentialID,
       publicKey: publicKeyUint8,
@@ -202,8 +243,6 @@ export async function finishAuthentication(
     response.id,
     verification.authenticationInfo.newCounter
   );
-
-  pendingChallenges.delete(userId);
 
   return { verified: true };
 }

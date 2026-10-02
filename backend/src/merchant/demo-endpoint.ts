@@ -4,22 +4,63 @@ import {
   createSignedChallenge,
   verifyMerchantSignature,
 } from "./challenge-signer.js";
+import { network } from "../config/network.js";
 
-const MERCHANT_SECRET = process.env.MERCHANT_SECRET;
-if (!MERCHANT_SECRET) {
-  throw new Error(
-    "MERCHANT_SECRET environment variable is required. Generate one with: node -e \"console.log(require('@stellar/stellar-sdk').Keypair.random().secret())\""
-  );
+/** 0.1 USDC in stroops (7 decimals). */
+const PRICE = "1000000";
+
+/** How long a challenge stays payable. The contract allows at most 900. */
+const CHALLENGE_SECONDS = 300;
+
+export interface MerchantConfig {
+  keypair: Keypair;
+  /** Where payments land. A classic account with a USDC trustline. */
+  recipient: string;
+  /** The token contract the payment settles through. */
+  asset: string;
+  /** The network passphrase, covered by the challenge signature. */
+  network: string;
+  price: string;
 }
-const MERCHANT_KEYPAIR = Keypair.fromSecret(MERCHANT_SECRET);
-const RECIPIENT = process.env.RECIPIENT_ADDRESS || MERCHANT_KEYPAIR.publicKey();
-// The asset is the token contract the payment settles through, and the
-// network is the passphrase whose hash the contract compares against the
-// network id the ledger reports. Both are covered by the challenge signature.
-const ASSET =
-  process.env.USDC_ISSUER || "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
-const NETWORK = process.env.NETWORK_PASSPHRASE || "Test SDF Network ; September 2015";
-const PRICE = "1000000"; // 0.1 USDC in stroops (7 decimals)
+
+let cached: MerchantConfig | null = null;
+
+/**
+ * Who the merchant is. Read when first needed rather than at import, so a
+ * backend that does not run the merchant never needs its secret.
+ */
+export function merchantConfig(): MerchantConfig {
+  if (cached) return cached;
+
+  const secret = process.env.MERCHANT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "MERCHANT_SECRET environment variable is required. Generate one with: node -e \"console.log(require('@stellar/stellar-sdk').Keypair.random().secret())\""
+    );
+  }
+  const keypair = Keypair.fromSecret(secret);
+  const config = network();
+
+  // On testnet the merchant's own account doubles as the recipient. On
+  // mainnet where the money goes is said explicitly.
+  const recipient = process.env.RECIPIENT_ADDRESS || (config.name === "testnet" ? keypair.publicKey() : "");
+  if (!recipient) {
+    throw new Error("RECIPIENT_ADDRESS is required on mainnet");
+  }
+
+  cached = {
+    keypair,
+    recipient,
+    asset: config.usdcContract,
+    network: config.passphrase,
+    price: PRICE,
+  };
+  return cached;
+}
+
+export function resetMerchantConfig(): void {
+  cached = null;
+}
 
 /** Has the caller already paid for this? */
 function wasPaid(req: Request): boolean {
@@ -30,7 +71,9 @@ function wasPaid(req: Request): boolean {
  * Answer with the price and a challenge signed over this exact request.
  *
  * The endpoint is read back off the request rather than written down, so what
- * the merchant signs is what the merchant was asked for.
+ * the merchant signs is what the merchant was asked for. Behind a proxy the
+ * scheme comes from the proxy, which is why the app trusts it on a host that
+ * terminates TLS in front of it.
  */
 function askForPayment(
   req: Request,
@@ -38,25 +81,26 @@ function askForPayment(
   httpMethod: string,
   body?: string
 ): void {
+  const merchant = merchantConfig();
   const challenge = createSignedChallenge({
-    merchantKeypair: MERCHANT_KEYPAIR,
+    merchantKeypair: merchant.keypair,
     httpMethod,
     endpoint: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
     body,
-    recipient: RECIPIENT,
-    asset: ASSET,
-    amount: PRICE,
-    network: NETWORK,
-    expirySeconds: 300,
+    recipient: merchant.recipient,
+    asset: merchant.asset,
+    amount: merchant.price,
+    network: merchant.network,
+    expirySeconds: CHALLENGE_SECONDS,
   });
 
   res.status(402).json({
     error: "Payment Required",
     paymentDetails: {
-      amount: PRICE,
-      asset: ASSET,
-      recipient: RECIPIENT,
-      network: NETWORK,
+      amount: merchant.price,
+      asset: merchant.asset,
+      recipient: merchant.recipient,
+      network: merchant.network,
     },
     challenge: {
       fields: challenge.fields,
@@ -98,16 +142,17 @@ export function createMerchantRouter() {
   });
 
   router.get("/api/merchant-info", (_req: Request, res: Response) => {
+    const merchant = merchantConfig();
     res.json({
-      merchantPubkey: MERCHANT_KEYPAIR.publicKey(),
-      recipient: RECIPIENT,
-      asset: ASSET,
-      network: NETWORK,
-      price: PRICE,
+      merchantPubkey: merchant.keypair.publicKey(),
+      recipient: merchant.recipient,
+      asset: merchant.asset,
+      network: merchant.network,
+      price: merchant.price,
     });
   });
 
   return router;
 }
 
-export { MERCHANT_KEYPAIR, RECIPIENT, ASSET, NETWORK, PRICE };
+export { verifyMerchantSignature };

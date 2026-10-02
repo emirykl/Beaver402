@@ -17,6 +17,12 @@ import { pathToFileURL } from "node:url";
 
 const BACKEND_URL = process.env.BEAVER402_BACKEND_URL || "http://localhost:3000";
 
+/** What the agent route wants to see before it pays for anything. */
+function authHeaders(): Record<string, string> {
+  const token = process.env.AGENT_API_TOKEN;
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
+
 interface PaidFetchResponse {
   status: number;
   paid: boolean;
@@ -35,7 +41,7 @@ interface PaidFetchResponse {
 async function callBackend(payload: unknown): Promise<PaidFetchResponse> {
   const response = await fetch(`${BACKEND_URL}/api/agent/fetch`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
 

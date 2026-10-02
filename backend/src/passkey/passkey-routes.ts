@@ -12,7 +12,7 @@ import { createRateLimit } from "../lib/rate-limit.js";
 export function createPasskeyRouter() {
   const router = express.Router();
   // Enough for anyone signing in, not enough to guess at a ceremony.
-  router.use(createRateLimit({ windowMs: 60_000, max: 30 }));
+  router.use(createRateLimit({ windowMs: 60_000, max: 30, scope: "passkey" }));
 
   router.post("/api/passkey/register/start", async (req: Request, res: Response) => {
     try {

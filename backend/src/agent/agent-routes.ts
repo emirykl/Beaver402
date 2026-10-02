@@ -2,6 +2,12 @@ import express, { type Request, type Response } from "express";
 
 import { createAdapter, type Beaver402Adapter } from "../adapter/x402-client.js";
 import { paidFetch, type FetchLike } from "./paid-fetch.js";
+import {
+  isAllowedUrl,
+  loadAgentAccess,
+  requireAgentToken,
+  type AgentAccess,
+} from "./agent-guard.js";
 
 /**
  * The one place a signing key is used.
@@ -39,14 +45,21 @@ const nodeFetch: FetchLike = async (url, init) => {
   };
 };
 
-export function createAgentRouter(fetchImpl: FetchLike = nodeFetch) {
+export function createAgentRouter(
+  fetchImpl: FetchLike = nodeFetch,
+  access: AgentAccess = loadAgentAccess()
+) {
   const router = express.Router();
 
-  router.post("/api/agent/fetch", async (req: Request, res: Response) => {
+  router.post("/api/agent/fetch", requireAgentToken(access), async (req: Request, res: Response) => {
     const { url, method, body, headers } = req.body ?? {};
 
     if (!url || typeof url !== "string") {
       res.status(400).json({ error: "url is required" });
+      return;
+    }
+    if (!isAllowedUrl(access, url)) {
+      res.status(403).json({ error: "the agent is not allowed to fetch from that origin" });
       return;
     }
 
