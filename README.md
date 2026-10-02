@@ -14,48 +14,47 @@ Beaver402 closes both gaps with a two party proof of intent. The merchant
 signs a challenge describing the paid request and the settlement terms. The
 buyer independently reconstructs the same fields from what was actually sent.
 A Soroban smart account authorizes settlement only when both signatures and
-every security critical field agree.
+every security critical field agree, and only within limits the owner sets.
+Payments settle through a standard x402 v2 facilitator.
 
 Neither the agent nor a compromised adapter can redefine an approved payment
 on its own, while the owner keeps immediate control through a passkey.
 
-**Stellar testnet only. Testnet USDC, no real value.**
+**Status: running on Stellar testnet; a limited mainnet pilot is being
+prepared.** On mainnet the account will hold at most 10 USDC, pay at most
+1 USDC at a time and at most 5 payments or 5 USDC in any 24 hours.
 
-[A seven minute recording](https://youtu.be/0vFrfGZc1x0) shows the whole thing:
-an agent paying without holding a key, the owner halting it with a passkey, the
-agent key revoked on chain, and the adversarial cases refused. The frames it
-proves each claim with are in [`docs/screenshots`](docs/screenshots).
+[A seven minute recording](https://youtu.be/0vFrfGZc1x0) of the first month
+shows an agent paying without holding a key, the owner halting it with a
+passkey, the agent key revoked on chain, and the adversarial cases refused.
 
-## Deployment
+## Evidence
 
 | | |
 |---|---|
-| Contract | [`CBPE37HQ6CHIKB7F3OFU2BIDAQOLB3QZD2DAO5Y6F6DKUSHLW2JZTX2S`](https://stellar.expert/explorer/testnet/contract/CBPE37HQ6CHIKB7F3OFU2BIDAQOLB3QZD2DAO5Y6F6DKUSHLW2JZTX2S) |
-| Network | Stellar testnet |
-| Owner | a WebAuthn passkey, secp256r1 |
-| Asset | testnet USDC |
-
-Evidence on chain:
-
-| What | Transaction |
-|---|---|
-| A payment both parties agreed on | [`19d9c4e4`](https://stellar.expert/explorer/testnet/tx/19d9c4e4f519e4ab9971c394a6338d9a82b83287f3e90d648ef3e15c49a1219a) |
-| An owner action authorized by passkey | [`61e6485c`](https://stellar.expert/explorer/testnet/tx/61e6485c8ef7df96b92ada8c79687acc69d8ea1b5d307d952d9b9efcab259b48) |
-| The account funded | [`ff0d3fa8`](https://stellar.expert/explorer/testnet/tx/ff0d3fa8de4076b6ea584109c530a3f6a1376847d9a52ac3ebf1f119fc8ec956) |
+| [Testnet rehearsal](docs/operations/rehearsals/2026-10-02-testnet.md) | the whole pilot, run on a fresh account: x402 payments, one started from the MCP tool, every refusal with its reason, the incident drill and the migration |
+| [x402 compatibility](docs/mainnet/x402-compat.md) | what a facilitator requires of the account, and the measurements |
+| [First month](docs/evidence.md) | the original testnet deployment and its transactions |
 
 ## How a payment happens
 
-1. The agent asks for a resource. The merchant answers `402` with a signed
-   challenge covering the request and the settlement terms.
-2. The adapter rebuilds the same description from what was actually sent,
-   not from what the merchant claims was sent. Disagreement stops here.
-3. The transfer is built to move funds **out of the policy account**, which
-   is what puts the contract in the authorization chain.
-4. The contract rebuilds the challenge hash from the fields it was given,
-   verifies the merchant signature against it, and checks that the transfer
-   it is being asked to authorize has the recipient, asset and amount that
-   were agreed. It also checks the nonce, the expiry and the velocity budget.
-5. Only then does the payment settle, and the request is repeated.
+1. The agent asks for a resource. The merchant answers `402` with standard
+   x402 v2 payment requirements, and a challenge signed over this exact
+   request and the settlement terms.
+2. The agent rebuilds the same description from what it actually sent, not
+   from what the merchant claims was sent. Disagreement stops here.
+3. The agent signs one Soroban authorization entry for a USDC transfer **out
+   of the policy account**, which is what puts the contract in the
+   authorization chain, and simulates it. The contract rebuilds the
+   challenge, verifies the merchant signature, checks the transfer is the
+   agreed one, the nonce is new, the challenge is current and the limits
+   hold. A refusal stops here, with the contract's own reason.
+4. The payment goes back to the merchant. The merchant checks it answers its
+   own challenge for this very request, has an x402 facilitator verify and
+   settle it, and confirms on the ledger that exactly the agreed transfer
+   happened.
+5. The merchant publishes the payment's proof of intent from the account and
+   returns the resource, with the settlement and the proof in its receipt.
 
 The contract is given fields rather than hashes on purpose. Deriving the
 hashes itself is what turns the merchant signature into a statement about a
@@ -68,8 +67,8 @@ being authorized, never from which signature the caller offers.
 
 | Path | Key | May do |
 |---|---|---|
-| Payment | agent ed25519, in the backend | spend, within the policy |
-| Owner | passkey secp256r1, in device hardware | freeze, restore, revoke or reinstate the agent, allowlist |
+| Payment | agent ed25519, in the agent backend | spend, within the policy |
+| Owner | passkey secp256r1, in device hardware, bound to the panel's domain | halt, resume, revoke or reinstate the agent, approve or remove the merchant, lower the limits, recover the funds |
 
 An agent signature offered for an owner action is refused. An owner assertion
 offered for a payment is refused. A batch mixing the two is refused, so an
@@ -77,23 +76,30 @@ approved payment cannot carry an unapproved administrative call alongside it.
 
 The owner path ignores the frozen flag, because a frozen account still has to
 accept the call that thaws it. Owner actions do not depend on the agent
-signer existing, so revoking it cannot brick the account.
+signer existing, so revoking it cannot brick the account. Limits can only go
+down, and the contract cannot be upgraded.
 
 ## Documentation
 
 | | |
 |---|---|
-| [Evidence](docs/evidence.md) | what the deployed contract did, with transactions |
-| [Canonical encoding](docs/canonical-encoding.md) | how a challenge and an intent become bytes, and the domain rules |
+| [Canonical encoding](docs/canonical-encoding.md) | exactly what is signed, and how |
 | [Threat model](docs/threat-model.md) | what is defended against, and what is not |
+| [Known limitations](docs/known-limitations.md) | what the pilot does not do |
+| [Operating guide](docs/operations/operating-guide.md) | how it is deployed and run |
+| [Incident response](docs/operations/incident-response.md) | what to do when something goes wrong |
+| [Replacing the account](docs/operations/migration.md) | the migration procedure |
+| [Network configuration](docs/mainnet/network-config.md) | testnet and mainnet side by side |
+| [Readiness checklist](docs/mainnet/readiness-checklist.md) | what has to be true before mainnet |
+| [Findings](docs/security/findings.md) | every issue found, and its fix |
 
 ## Setup
 
 ### Prerequisites
 
-- Node.js 22 or later
-- Rust toolchain with the `wasm32v1-none` target
-- Stellar CLI 27 or later
+- Node.js 24 or later
+- Rust 1.96, pinned in `rust-toolchain.toml`, with the `wasm32v1-none` target
+- Stellar CLI 27
 - A Supabase project
 
 ### 1. Install
@@ -108,9 +114,10 @@ cd frontend && npm install && cd ..
 
 ### 2. Configure Supabase
 
-Run `scripts/supabase-migration.sql` in the Supabase SQL editor, then copy
-`backend/.env.example` to `backend/.env` and fill in the three Supabase
-values. Everything else is written for you in the next step.
+Run `scripts/supabase-migration.sql`, `scripts/supabase-migration-002.sql`
+and `scripts/supabase-migration-003.sql`, in that order, in the Supabase SQL
+editor. Then copy `backend/.env.example` to `backend/.env` and fill in the
+Supabase values. Everything else is written for you in the next step.
 
 ### 3. Create the testnet keys
 
@@ -119,9 +126,7 @@ values. Everything else is written for you in the next step.
 ```
 
 This generates and funds the deployer, agent and merchant accounts, and picks
-free ports. It touches no contract, which it cannot: registering the owner
-passkey needs a running backend, and the backend needs a merchant key to
-start.
+free ports.
 
 ### 4. Register the owner passkey
 
@@ -130,24 +135,27 @@ cd backend && npm run dev      # one terminal
 cd frontend && npm run dev     # another
 ```
 
-Open the control panel at the port the frontend prints, and register a
-passkey. The contract stores the owner as a secp256r1 public key, so this has
-to exist before there is anything to deploy.
+Open the owner panel at `/panel` on the port the frontend prints, and
+register a passkey. The contract stores the owner as a secp256r1 public key
+and the hash of the panel's domain, so this has to exist before there is
+anything to deploy.
 
 ### 5. Deploy
 
 ```bash
+npm --prefix backend run preflight   # checks accounts, trustlines and services
 ./scripts/deploy.sh
 ```
 
-Reads the registered passkey, deploys the contract with it as the owner, and
-records the contract id in `backend/.env`.
+Checks the configuration the way the backend will, reads the registered
+passkey, deploys the contract and records its id in `backend/.env`. On
+mainnet, `./scripts/deploy.sh --network mainnet` also refuses any artifact but
+the reviewed one and asks for confirmation.
 
-### 6. Fund and allowlist
+### 6. Approve and fund
 
-Send testnet USDC to the contract address, then allowlist the demo merchant
-from the control panel. Allowlisting is an owner action, so it asks for the
-passkey.
+Approve the merchant from the panel, which asks for the passkey, then send
+USDC to the contract address within the limits.
 
 ## Using it
 
@@ -160,7 +168,8 @@ cd backend && npm run mcp
 A stdio MCP server offering two tools: one that fetches a resource and pays
 for it when the merchant asks, one that reports the policy state. It holds no
 keys, so the model sees a price, a transaction hash and the content, and
-never anything it could spend.
+never anything it could spend. On mainnet the agent backend requires
+`AGENT_API_TOKEN`, which the MCP server sends.
 
 ### Directly
 
@@ -173,70 +182,61 @@ curl -X POST http://localhost:<port>/api/agent/fetch \
 ## Testing
 
 ```bash
-cargo test                        # contract, 35 tests
-cd backend && npm run test        # backend, 116 tests
-cd frontend && npx tsc --noEmit   # control panel
+cargo test                        # contract
+cd backend && npm run test        # backend
+cd frontend && npx tsc --noEmit   # panel and public pages
 ```
 
 The Rust and TypeScript encoders are checked against the same fixture in
 `test-vectors/vectors.json`, so neither can drift without the other noticing.
-Regenerate it with `npm run vectors`.
+Regenerate it with `npm run vectors`. CI also checks that the contract has no
+upgrade path, runs strict lint and every dependency audit, and builds the
+release WASM with its hash.
 
-### Against the deployed contract
+### Against testnet
 
 ```bash
-cd backend && npm run scenarios
+cd backend && npm run scenarios   # the adversarial cases, against a running backend
+cd backend && npm run rehearse    # the whole pilot on a fresh account, written to docs/operations/rehearsals
 ```
-
-Runs the adversarial cases against testnet and names the error the contract
-raised, rather than reporting only that something was refused.
-
-| Scenario | Result |
-|---|---|
-| A payment both parties agree on | allowed |
-| The endpoint changed after signing | refused, field mismatch |
-| The method changed after signing | refused, field mismatch |
-| A body was added after signing | refused, field mismatch |
-| A merchant nobody approved | refused, `UnauthorizedMerchant` |
-| A challenge that already expired | refused |
-| A payment while the account is frozen | refused, `AccountFrozen` |
-| Ten payments in one window | account froze itself |
-
-Settlement level tampering, where the transfer differs from what was signed,
-is covered by the contract tests rather than here, because the real client
-cannot construct that disagreement.
 
 ## Layout
 
 ```
 contracts/payment_policy/   the Soroban smart account
-  src/lib.rs                the two authorization paths
+  src/lib.rs                the two authorization paths, owner actions, recovery
   src/crypto.rs             canonical encoding and hashing
   src/passkey.rs            WebAuthn assertion verification
-  src/velocity.rs           the circuit breaker
+  src/velocity.rs           the sliding window, replay protection, proofs
+  src/lifetime.rs           keeping the account on the ledger
 backend/
+  src/config/               the network and the passkey domain, validated
+  src/x402/                 the x402 v2 messages
+  src/adapter/              buyer intent and the payment authorization
   src/agent/                the paid fetch, and the route that runs it
-  src/adapter/              buyer intent, payment submission, signature encoding
-  src/merchant/             challenge signer and the demo 402 endpoint
+  src/merchant/             challenge signer, request binding, settlement check
   src/passkey/              WebAuthn, owner key extraction, assertion conversion
   src/policy/               policy state and owner actions
+  src/ops/                  event collection, status, traffic counts
   src/mcp/                  the agent facing server
-  scripts/                  vectors, owner key, adversarial scenarios
-frontend/                   the control panel
-scripts/                    key setup, deploy, database migration
+  scripts/                  vectors, scenarios, rehearsal, preflight, deploy parameters
+frontend/                   the landing page, the status page and the owner panel
+scripts/                    key setup, deploy, database migrations
 test-vectors/               the fixture both languages read
-docs/                       encoding specification and threat model
+docs/                       specification, threat model, operations, evidence
 ```
 
 ## API
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/agent/fetch` | fetch a resource, paying if asked |
+| GET | `/api/config` | the network and the account, public |
+| GET | `/api/status` | the account's live state, public |
+| POST | `/api/agent/fetch` | fetch a resource, paying if asked; needs the agent token on mainnet |
 | GET | `/api/data` | demo merchant, answers 402 |
 | POST | `/api/submit` | demo merchant, 402 on a request with a body |
 | GET | `/api/merchant-info` | who the demo merchant is |
-| GET | `/api/policy/state` | frozen flag, agent signer, velocity |
+| GET | `/api/policy/state` | frozen flag, agent signer, limits, the window |
 | POST | `/api/policy/prepare` | what the owner passkey has to sign |
 | POST | `/api/policy/submit` | carry the assertion back and submit |
 | POST | `/api/passkey/register/start` | begin passkey registration |
@@ -244,6 +244,10 @@ docs/                       encoding specification and threat model
 | POST | `/api/passkey/auth/start` | begin passkey sign in |
 | POST | `/api/passkey/auth/finish` | complete passkey sign in, issue a session |
 | GET | `/api/passkey/credentials/:userId` | whether a passkey is registered |
+| GET, POST | `/api/ops/collect` | collect the account's events; needs the cron secret |
+| GET | `/api/ops/events` | the collected events, JSON or CSV |
+| POST | `/api/metrics` | count a page view or a link, cookieless |
+| GET | `/api/metrics/report` | daily traffic totals |
 | POST | `/api/mcp/extract` | read an HTTP request out of a tool call |
 | GET | `/api/transactions` | payment history |
 | GET | `/health` | health check |
@@ -257,52 +261,22 @@ contract is what enforces that.
 
 ## Environment
 
-| Variable | Description |
-|---|---|
-| `SOROBAN_RPC_URL` | Soroban RPC endpoint |
-| `NETWORK_PASSPHRASE` | Stellar network passphrase |
-| `POLICY_CONTRACT_ID` | the deployed policy account |
-| `FEE_SOURCE_SECRET` | pays for owner actions, approves nothing |
-| `AGENT_SECRET` | the delegated signer |
-| `MERCHANT_SECRET` | signs the demo merchant's challenges |
-| `RECIPIENT_ADDRESS` | where a demo payment lands |
-| `USDC_ISSUER` | the token contract payments settle through |
-| `RP_ID` | WebAuthn relying party, the domain |
-| `ORIGIN` | the control panel origin, has to match where it is served |
-| `SUPABASE_URL` | project URL |
-| `SUPABASE_ANON_KEY` | anonymous key |
-| `SUPABASE_SERVICE_KEY` | service role key |
-| `PORT` | backend port |
-| `FRONTEND_PORT` | control panel port |
+Every variable is described in [`backend/.env.example`](backend/.env.example).
+`BEAVER_NETWORK` picks testnet or mainnet and everything about the network
+follows from it. On mainnet the backend refuses to start without the values
+that have no safe default, and refuses any that disagree with the network.
 
-A passkey is bound to the origin it was registered on. Moving the control
-panel to another domain means registering a new passkey and setting a new
-owner on the contract.
-
-## Storage
-
-| Table | Purpose |
-|---|---|
-| `credentials` | passkey public keys |
-| `sessions` | authenticated sessions, 24 hour expiry |
-| `transactions` | payment log with hashes, amount, status |
-
-Row level security keeps credentials and sessions to the service role. The
-transaction log is readable by the control panel.
-
-## Continuous integration
-
-Three jobs on every push and pull request: contract tests with the release
-WASM build, backend type check and test suite, control panel type check and
-build.
+A passkey is bound to the domain it was registered on, and so is the
+account. Moving the panel to another domain means a new account.
 
 ## Scope
 
-Testnet only. No mainnet, no custody, no third party audit, no production key
-management, no merchant registry beyond the one reference signer. Velocity
-rules are deterministic; there is no behavioural profiling or risk scoring.
-The encoding and the schema here are a reference specification, not a
-standard.
+A limited pilot: one account, one merchant, the builder's own USDC, small
+limits that can only be lowered, an immutable contract, a peer review rather
+than a formal audit. No custody of anyone else's funds, no merchant registry,
+no device recovery for the passkey. See the
+[known limitations](docs/known-limitations.md). The encoding and the schema
+here are a reference specification, not a standard.
 
 ## License
 
