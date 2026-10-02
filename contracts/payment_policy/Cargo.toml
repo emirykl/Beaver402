@@ -13,7 +13,7 @@ soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-ed25519-dalek = "1.0.1"
-rand = "0.7.3"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
 p256 = { version = "0.13", features = ["ecdsa"] }
 sha2 = "0.10"

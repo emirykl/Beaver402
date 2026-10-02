@@ -1,11 +1,10 @@
 #![cfg(test)]
 extern crate std;
 
-use ed25519_dalek::Keypair;
-use ed25519_dalek::Signer;
+use ed25519_dalek::{Signer, SigningKey as Keypair};
 use p256::ecdsa::signature::hazmat::PrehashSigner;
 use p256::ecdsa::{Signature as P256Signature, SigningKey, VerifyingKey};
-use rand::thread_rng;
+use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
 use soroban_sdk::{
     auth::{Context, ContractContext},
@@ -53,7 +52,7 @@ fn pilot_limits() -> VelocityConfig {
 }
 
 fn generate_keypair() -> Keypair {
-    Keypair::generate(&mut thread_rng())
+    Keypair::generate(&mut OsRng)
 }
 
 fn random_bytes(env: &Env) -> [u8; 32] {
@@ -261,7 +260,7 @@ fn create_agent_signature_on_network(
 
     let agent = AgentSignature {
         agent_signature: agent_sig,
-        merchant_pubkey: merchant_kp.public.to_bytes().into_val(env),
+        merchant_pubkey: merchant_kp.verifying_key().to_bytes().into_val(env),
         merchant_signature: merchant_sig,
         request_digest: BytesN::from_array(env, &payment.request_digest),
         recipient: payment.recipient.clone(),
@@ -450,7 +449,7 @@ fn setup_with(limits: VelocityConfig) -> Fixture {
 
     let owner_pub = owner_public_key(&env);
     let rp_id_hash = BytesN::from_array(&env, &sha256(RP_ID.as_bytes()));
-    let agent_pub: BytesN<32> = agent_kp.public.to_bytes().into_val(&env);
+    let agent_pub: BytesN<32> = agent_kp.verifying_key().to_bytes().into_val(&env);
 
     let issuer = Address::generate(&env);
     let asset = env.register_stellar_asset_contract_v2(issuer).address();
@@ -463,7 +462,7 @@ fn setup_with(limits: VelocityConfig) -> Fixture {
     );
     let client = PaymentPolicyContractClient::new(&env, &contract_id);
 
-    let merchant_pub: BytesN<32> = merchant_kp.public.to_bytes().into_val(&env);
+    let merchant_pub: BytesN<32> = merchant_kp.verifying_key().to_bytes().into_val(&env);
     client.add_merchant(&merchant_pub);
 
     StellarAssetClient::new(&env, &asset).mint(&contract_id, &(5 * USDC));
@@ -936,7 +935,7 @@ fn test_the_proof_is_published_from_what_the_account_recorded() {
         nonce: nonce.clone(),
         challenge_hash: BytesN::from_array(&f.env, &challenge_hash(&payment, &TEST_NETWORK_ID)),
         intent_hash: BytesN::from_array(&f.env, &intent_hash(&payment)),
-        merchant_pubkey: f.merchant_kp.public.to_bytes().into_val(&f.env),
+        merchant_pubkey: f.merchant_kp.verifying_key().to_bytes().into_val(&f.env),
         amount: payment.amount,
     };
     assert_eq!(
@@ -1512,7 +1511,7 @@ fn test_set_new_agent_signer() {
     let f = setup();
 
     let replacement = generate_keypair();
-    let replacement_pub: BytesN<32> = replacement.public.to_bytes().into_val(&f.env);
+    let replacement_pub: BytesN<32> = replacement.verifying_key().to_bytes().into_val(&f.env);
     f.client.set_agent_signer(&replacement_pub);
     assert_eq!(f.client.get_agent_signer(), replacement_pub);
 
@@ -1528,7 +1527,7 @@ fn test_set_new_agent_signer() {
 #[test]
 fn test_a_removed_merchant_can_no_longer_be_paid() {
     let f = setup();
-    let merchant_pub: BytesN<32> = f.merchant_kp.public.to_bytes().into_val(&f.env);
+    let merchant_pub: BytesN<32> = f.merchant_kp.verifying_key().to_bytes().into_val(&f.env);
 
     f.client.remove_merchant(&merchant_pub);
     assert!(!f.client.is_merchant(&merchant_pub));
@@ -1539,8 +1538,8 @@ fn test_a_removed_merchant_can_no_longer_be_paid() {
 fn test_query_functions() {
     let f = setup();
 
-    let agent_pub: BytesN<32> = f.agent_kp.public.to_bytes().into_val(&f.env);
-    let merchant_pub: BytesN<32> = f.merchant_kp.public.to_bytes().into_val(&f.env);
+    let agent_pub: BytesN<32> = f.agent_kp.verifying_key().to_bytes().into_val(&f.env);
+    let merchant_pub: BytesN<32> = f.merchant_kp.verifying_key().to_bytes().into_val(&f.env);
 
     assert!(!f.client.is_frozen());
     assert_eq!(f.client.get_agent_signer(), agent_pub);
@@ -1555,7 +1554,7 @@ fn test_query_functions() {
 fn with_merchant_pubkey(env: &Env, sig: Val, merchant_kp: &Keypair) -> Val {
     match sig.into_val(env) {
         PolicySignature::Agent(agent) => PolicySignature::Agent(AgentSignature {
-            merchant_pubkey: merchant_kp.public.to_bytes().into_val(env),
+            merchant_pubkey: merchant_kp.verifying_key().to_bytes().into_val(env),
             ..agent
         })
         .into_val(env),
