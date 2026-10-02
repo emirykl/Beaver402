@@ -1,0 +1,90 @@
+/*
+ * The public pages: the landing page and the status page.
+ *
+ * The same instrument-panel language as the owner console, without its
+ * glitch effects. Layout lives here rather than inline because it has to
+ * change with the width of the screen.
+ */
+
+.site {
+  min-height: 100vh;
+  background: #15100b;
+  color: #ece0cf;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 16px;
+  line-height: 1.7;
+  padding: 0 20px 64px;
+}
+
+.site a { color: #e0a94a; text-decoration: none; }
+.site a:hover, .site a:focus-visible { text-decoration: underline; }
+.site a:focus-visible, .site button:focus-visible { outline: 2px solid #e0a94a; outline-offset: 3px; }
+
+.site-nav {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.site-nav .brand { display: flex; align-items: center; gap: 12px; color: #ece0cf; font-weight: 700; letter-spacing: 3px; margin-right: auto; }
+.site-nav .brand img { width: 32px; height: 32px; }
+.site-nav a.nav-link { color: #9c8a75; font-size: 14px; letter-spacing: 1px; padding: 10px 4px; }
+.site-nav a.nav-link:hover { color: #ece0cf; }
+
+.site-main { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 72px; }
+
+.hero { padding-top: 48px; display: flex; flex-direction: column; gap: 24px; }
+.hero h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.15; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
+.hero p.lead { font-size: 18px; color: #c9b9a3; max-width: 64ch; margin: 0; }
+.hero .badge { align-self: flex-start; font-size: 12px; letter-spacing: 3px; color: #93c06a; border: 1px solid #93c06a55; padding: 4px 10px; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.action {
+  display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px;
+  border: 1px solid #e0a94a66; color: #e0a94a; letter-spacing: 2px; font-size: 14px; font-weight: 700;
+}
+.action.primary { background: #e0a94a; color: #15100b; border-color: #e0a94a; }
+.site a.action:hover { text-decoration: none; border-color: #e0a94a; background: #e0a94a1f; }
+.site a.action.primary:hover { background: #f0bb5c; }
+
+section.block { display: flex; flex-direction: column; gap: 18px; }
+section.block h2 { font-size: 13px; letter-spacing: 4px; color: #ece0cf; margin: 0; font-weight: 700; }
+section.block p.claim { font-size: clamp(20px, 3vw, 26px); line-height: 1.35; margin: 0; max-width: 40ch; color: #ece0cf; }
+section.block p { margin: 0; color: #9c8a75; max-width: 70ch; font-size: 15px; line-height: 1.85; }
+
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; counter-reset: step; }
+.step { background: #1d1610; border: 1px solid #3b2f24; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.step::before { counter-increment: step; content: "0" counter(step); color: #e0a94a; font-size: 13px; letter-spacing: 2px; }
+.step strong { font-size: 15px; }
+.step span { color: #9c8a75; font-size: 14px; line-height: 1.7; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.fact { background: #1d1610; border: 1px solid #3b2f24; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+.fact .value { font-size: 22px; font-weight: 700; color: #ece0cf; }
+.fact .label { color: #9c8a75; font-size: 13px; }
+
+.list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; border-top: 1px solid #3b2f24; }
+.list li { border-bottom: 1px solid #3b2f24; padding: 14px 0; display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+.list li .name { min-width: 15ch; color: #ece0cf; font-size: 15px; }
+.list li .what { color: #9c8a75; font-size: 14px; flex: 1; min-width: 24ch; }
+.list li a { font-size: 14px; }
+
+.mono-id { font-size: 13px; word-break: break-all; color: #c9b9a3; }
+
+.site-footer { max-width: 960px; margin: 72px auto 0; padding-top: 24px; border-top: 1px solid #3b2f24; color: #9c8a75; font-size: 13px; display: flex; gap: 18px; flex-wrap: wrap; }
+
+/* Status */
+.status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.lamp { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; vertical-align: middle; }
+.note { font-size: 13px; color: #9c8a75; }
+.warn { color: #d4674f; }
+
+@media (max-width: 720px) {
+  .steps { grid-template-columns: 1fr; }
+  .site-main { gap: 56px; }
+  .hero { padding-top: 24px; }
+  .site-nav .brand span { display: none; }
+}

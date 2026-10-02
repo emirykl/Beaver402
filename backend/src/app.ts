@@ -4,6 +4,7 @@ import { createPasskeyRouter } from "./passkey/passkey-routes.js";
 import { createPolicyRouter } from "./policy/policy-routes.js";
 import { createAgentRouter } from "./agent/agent-routes.js";
 import { createOpsRouter } from "./ops/ops-routes.js";
+import { createMetricsRouter } from "./ops/metrics-routes.js";
 import {
   extractRequestFromToolCall,
   isPaymentRequired,
@@ -74,6 +75,9 @@ export function createApp(role: Role = roleFromEnv()) {
 
     // event collection, the event export and the public status
     app.use(createOpsRouter());
+
+    // cookieless traffic counts for the landing page
+    app.use(createMetricsRouter());
 
     // MCP tool call interception endpoint
     app.post("/api/mcp/extract", (req, res) => {
