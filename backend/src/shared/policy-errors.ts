@@ -70,6 +70,50 @@ export const POLICY_ERRORS: Record<string, { name: string; reason: string }> = {
     name: "SettlementMismatch",
     reason: "the transfer was not the one both sides signed for",
   },
+  "19": {
+    name: "PaymentLimitExceeded",
+    reason: "the payment is larger than a single payment may be",
+  },
+  "20": {
+    name: "AssetNotAllowed",
+    reason: "the account only pays in its own token",
+  },
+  "21": {
+    name: "ExpiryTooFar",
+    reason: "the challenge stays valid for longer than the account allows",
+  },
+  "22": {
+    name: "LimitIncrease",
+    reason: "limits can only be lowered",
+  },
+  "23": {
+    name: "NotFrozen",
+    reason: "funds can only be recovered from a frozen account",
+  },
+  "24": {
+    name: "NothingToRecover",
+    reason: "the account holds none of that token",
+  },
+  "25": {
+    name: "ProofNotFound",
+    reason: "there is no recorded payment with that nonce",
+  },
+  "26": {
+    name: "ProofAlreadyPublished",
+    reason: "the proof of intent for this payment was already published",
+  },
+  "27": {
+    name: "InvalidConfig",
+    reason: "those limits are not ones the account can run with",
+  },
+  "28": {
+    name: "WrongRelyingParty",
+    reason: "the passkey answered for a different site",
+  },
+  "29": {
+    name: "UserNotVerified",
+    reason: "the passkey did not verify who was holding it",
+  },
 };
 
 /** The policy's code, dug out of whatever the host wrapped it in. */

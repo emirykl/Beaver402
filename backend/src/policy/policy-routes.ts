@@ -2,7 +2,7 @@ import express, { type Request, type Response } from "express";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { isAuthenticated } from "../lib/sessions.js";
 import { createRateLimit } from "../lib/rate-limit.js";
-import { effectiveVelocity } from "./velocity-window.js";
+import { network, rpcServer, explorerContract } from "../config/network.js";
 import {
   isOwnerAction,
   prepareOwnerAction,
@@ -10,10 +10,9 @@ import {
   OWNER_ACTIONS,
 } from "./owner-actions.js";
 
-const SOROBAN_RPC_URL =
-  process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
-const CONTRACT_ID = process.env.POLICY_CONTRACT_ID || "";
-const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
+function contractId(): string {
+  return process.env.POLICY_CONTRACT_ID || "";
+}
 
 /**
  * The session the caller is claiming. A missing header is nobody, which the
@@ -25,7 +24,7 @@ function getSessionId(req: Request): string {
 }
 
 async function callContractView(functionName: string, args: StellarSdk.xdr.ScVal[] = []) {
-  const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
+  const server = rpcServer();
 
   const account = new StellarSdk.Account(
     "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
@@ -34,11 +33,11 @@ async function callContractView(functionName: string, args: StellarSdk.xdr.ScVal
 
   const tx = new StellarSdk.TransactionBuilder(account, {
     fee: "100",
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase: network().passphrase,
   })
     .addOperation(
       StellarSdk.Operation.invokeContractFunction({
-        contract: CONTRACT_ID,
+        contract: contractId(),
         function: functionName,
         args,
       })
@@ -131,15 +130,26 @@ function invalidateCache(): void {
   cache.clear();
 }
 
-/** Whether the owner has approved the merchant this backend demonstrates. */
-async function isDemoMerchantApproved(): Promise<boolean> {
+/**
+ * The merchant this deployment works with, as a public key.
+ *
+ * The merchant runs as its own service with its own secret, so this backend
+ * is told the public key. A single process running both halves for local
+ * development can still derive it from the secret.
+ */
+function merchantPublicKey(): string | null {
+  if (process.env.MERCHANT_PUBKEY) return process.env.MERCHANT_PUBKEY;
   const secret = process.env.MERCHANT_SECRET;
-  if (!secret) return false;
+  return secret ? StellarSdk.Keypair.fromSecret(secret).publicKey() : null;
+}
+
+/** Whether the owner has approved the merchant this deployment uses. */
+async function isMerchantApproved(): Promise<boolean> {
+  const pubkey = merchantPublicKey();
+  if (!pubkey) return false;
 
   try {
-    const raw = StellarSdk.StrKey.decodeEd25519PublicKey(
-      StellarSdk.Keypair.fromSecret(secret).publicKey()
-    );
+    const raw = StellarSdk.StrKey.decodeEd25519PublicKey(pubkey);
     const sim = await callContractView("is_merchant", [
       StellarSdk.xdr.ScVal.scvBytes(Buffer.from(raw)),
     ]);
@@ -150,22 +160,42 @@ async function isDemoMerchantApproved(): Promise<boolean> {
   }
 }
 
-interface VelocityConfigReading {
+export interface LimitsReading {
+  maxPaymentAmount: string;
   maxTxCount: number;
+  maxTotalAmount: string;
   windowSize: number;
 }
 
-async function readVelocityConfig(): Promise<VelocityConfigReading> {
+async function readLimits(): Promise<LimitsReading | null> {
   try {
-    const sim = await callContractView("get_velocity_config");
-    const parsed = extractMap(sim);
+    const parsed = extractMap(await callContractView("get_velocity_config"));
+    if (parsed.size === 0) return null;
     return {
+      maxPaymentAmount: String(parsed.get("max_payment_amount") ?? "0"),
       maxTxCount: Number(parsed.get("max_tx_count") ?? 0),
+      maxTotalAmount: String(parsed.get("max_total_amount") ?? "0"),
       windowSize: Number(parsed.get("window_size") ?? 0),
     };
   } catch {
-    return { maxTxCount: 0, windowSize: 0 };
+    return null;
   }
+}
+
+/** What the public may see about the deployment. Nothing here is secret. */
+export function publicConfig() {
+  const config = network();
+  const id = contractId();
+  return {
+    network: config.name,
+    caip2: config.caip2,
+    explorer: config.explorer,
+    contractId: id || null,
+    contractUrl: id ? explorerContract(id) : null,
+    asset: config.usdcContract,
+    facilitator: config.facilitatorUrl,
+    merchantPubkey: merchantPublicKey(),
+  };
 }
 
 export function createPolicyRouter() {
@@ -174,18 +204,24 @@ export function createPolicyRouter() {
   // Owner actions cost a passkey touch each, so nobody legitimate comes close
   // to this. Reading the state is a GET and stays uncounted, which is what the
   // panel does on every refresh.
-  router.use(createRateLimit({ windowMs: 60_000, max: 30 }));
+  router.use(createRateLimit({ windowMs: 60_000, max: 30, scope: "policy" }));
+
+  router.get("/api/config", (_req: Request, res: Response) => {
+    res.json(publicConfig());
+  });
 
   router.get("/api/policy/state", async (_req: Request, res: Response) => {
-    if (!CONTRACT_ID) {
+    if (!contractId()) {
       res.json({
         frozen: false,
         agentSigner: null,
         velocityTxCount: 0,
         velocityTotalAmount: "0",
+        velocityWindowStart: 0,
         contractId: "not deployed",
         merchantApproved: false,
         velocityMaxTxCount: 0,
+        limits: null,
       });
       return;
     }
@@ -202,10 +238,12 @@ export function createPolicyRouter() {
         agentSigner = null; // signer revoked or not set
       }
 
+      // The contract works the window out itself, at the time of the ledger
+      // the simulation runs against, so what it reports is what it will
+      // apply to the next payment.
       let reading = { txCount: 0, totalAmount: "0", windowStart: 0 };
       try {
-        const velSim = await callContractView("get_velocity_state");
-        const parsed = extractMap(velSim);
+        const parsed = extractMap(await callContractView("get_velocity_state"));
         reading = {
           txCount: Number(parsed.get("tx_count") ?? 0),
           totalAmount: String(parsed.get("total_amount") ?? "0"),
@@ -217,29 +255,19 @@ export function createPolicyRouter() {
 
       // The control panel needs these to tell the owner what is still to do
       // and how much of the budget is left.
-      const merchantApproved = await cached("merchant", isDemoMerchantApproved);
-      const config = await cached("velocityConfig", readVelocityConfig);
-
-      // The counters on chain belong to whichever window was open when they
-      // were last touched, so they are rolled forward here the same way the
-      // contract will roll them forward on the next payment.
-      const velocity = effectiveVelocity(
-        reading,
-        { windowSize: config.windowSize },
-        Math.floor(Date.now() / 1000)
-      );
-      const velocityTxCount = velocity.txCount;
-      const velocityTotalAmount = velocity.totalAmount;
-      const velocityMaxTxCount = config.maxTxCount;
+      const merchantApproved = await cached("merchant", isMerchantApproved);
+      const limits = await cached("limits", readLimits);
 
       res.json({
         frozen,
         agentSigner,
-        velocityTxCount,
-        velocityTotalAmount,
-        contractId: CONTRACT_ID,
+        velocityTxCount: reading.txCount,
+        velocityTotalAmount: reading.totalAmount,
+        velocityWindowStart: reading.windowStart,
+        contractId: contractId(),
         merchantApproved,
-        velocityMaxTxCount,
+        velocityMaxTxCount: limits?.maxTxCount ?? 0,
+        limits,
       });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -267,12 +295,11 @@ export function createPolicyRouter() {
     }
 
     try {
-      const prepared = await prepareOwnerAction(
-        action,
-        CONTRACT_ID,
-        feeSource(),
-        req.body?.pubkey ?? req.body?.merchantPubkey
-      );
+      const prepared = await prepareOwnerAction(action, contractId(), feeSource(), {
+        pubkey: req.body?.pubkey ?? req.body?.merchantPubkey,
+        limits: req.body?.limits,
+        token: req.body?.token,
+      });
       res.json({ success: true, prepared });
     } catch (err) {
       res.status(500).json({ success: false, error: String(err) });
@@ -299,7 +326,7 @@ export function createPolicyRouter() {
       const result = await submitOwnerAction(
         prepared,
         assertion,
-        CONTRACT_ID,
+        contractId(),
         StellarSdk.Keypair.fromSecret(requireFeeSecret())
       );
       invalidateCache();

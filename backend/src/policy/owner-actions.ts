@@ -5,11 +5,8 @@ import {
   toWebAuthnChallenge,
   type OwnerAssertion,
 } from "../passkey/owner-signature.js";
+import { network, rpcServer, verifyNetwork } from "../config/network.js";
 
-const SOROBAN_RPC_URL =
-  process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
-const NETWORK_PASSPHRASE =
-  process.env.NETWORK_PASSPHRASE || StellarSdk.Networks.TESTNET;
 const BASE_FEE = "10000000";
 const AUTH_VALIDITY_LEDGERS = 60;
 
@@ -21,6 +18,8 @@ export const OWNER_ACTIONS = [
   "set_agent_signer",
   "add_merchant",
   "remove_merchant",
+  "reduce_limits",
+  "recover_funds",
 ] as const;
 
 export type OwnerAction = (typeof OWNER_ACTIONS)[number];
@@ -58,10 +57,72 @@ function configuredAgentPubkey(): string {
   return StellarSdk.Keypair.fromSecret(secret).publicKey();
 }
 
+/** New limits, as the panel sends them. Amounts are in stroops. */
+export interface LimitsInput {
+  maxPaymentAmount: string;
+  maxTxCount: number;
+  maxTotalAmount: string;
+  windowSize: number;
+}
+
+/** What an owner action may carry besides its name. */
+export interface OwnerActionInput {
+  /** A merchant or agent key, for the actions that name one. */
+  pubkey?: string;
+  /** For reduce_limits. */
+  limits?: LimitsInput;
+  /** For recover_funds. Defaults to the account's USDC. */
+  token?: string;
+}
+
+/**
+ * The contract's VelocityConfig. A struct travels as a map whose keys have
+ * to be in sorted order.
+ */
+export function limitsToScVal(limits: LimitsInput): StellarSdk.xdr.ScVal {
+  const whole = (value: string | number, label: string): bigint => {
+    const text = String(value);
+    if (!/^\d+$/.test(text)) {
+      throw new Error(`${label} has to be a whole positive number, got ${text}`);
+    }
+    return BigInt(text);
+  };
+
+  const fields: Record<string, StellarSdk.xdr.ScVal> = {
+    max_payment_amount: StellarSdk.nativeToScVal(whole(limits.maxPaymentAmount, "maxPaymentAmount"), { type: "i128" }),
+    max_total_amount: StellarSdk.nativeToScVal(whole(limits.maxTotalAmount, "maxTotalAmount"), { type: "i128" }),
+    max_tx_count: StellarSdk.nativeToScVal(Number(whole(limits.maxTxCount, "maxTxCount")), { type: "u32" }),
+    window_size: StellarSdk.nativeToScVal(whole(limits.windowSize, "windowSize"), { type: "u64" }),
+  };
+
+  return StellarSdk.xdr.ScVal.scvMap(
+    Object.keys(fields)
+      .sort()
+      .map((key) => new StellarSdk.xdr.ScMapEntry({ key: StellarSdk.xdr.ScVal.scvSymbol(key), val: fields[key]! }))
+  );
+}
+
 export function argsFor(
   action: OwnerAction,
-  pubkey?: string
+  input: string | OwnerActionInput = {}
 ): StellarSdk.xdr.ScVal[] {
+  const { pubkey, limits, token } = typeof input === "string" ? { pubkey: input } : input;
+
+  if (action === "reduce_limits") {
+    if (!limits) {
+      throw new Error("reduce_limits needs the new limits");
+    }
+    return [limitsToScVal(limits)];
+  }
+
+  if (action === "recover_funds") {
+    const target = token ?? network().usdcContract;
+    if (!StellarSdk.StrKey.isValidContract(target)) {
+      throw new Error(`recover_funds needs a token contract address, got ${target}`);
+    }
+    return [StellarSdk.Address.fromString(target).toScVal()];
+  }
+
   if (!ACTIONS_TAKING_A_KEY.includes(action)) {
     return [];
   }
@@ -97,15 +158,17 @@ export async function prepareOwnerAction(
   action: OwnerAction,
   contractId: string,
   feeSource: string,
-  pubkey?: string
+  input: string | OwnerActionInput = {}
 ): Promise<PreparedOwnerAction> {
-  const args = argsFor(action, pubkey);
-  const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
+  const args = argsFor(action, input);
+  await verifyNetwork();
+  const server = rpcServer();
+  const passphrase = network().passphrase;
   const account = await server.getAccount(feeSource);
 
   const tx = new StellarSdk.TransactionBuilder(account, {
     fee: BASE_FEE,
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase: passphrase,
   })
     .addOperation(
       StellarSdk.Operation.invokeContractFunction({
@@ -134,7 +197,7 @@ export async function prepareOwnerAction(
   const preimage = StellarSdk.buildAuthorizationEntryPreimage(
     entry,
     validUntilLedger,
-    NETWORK_PASSPHRASE
+    passphrase
   );
   const payload = StellarSdk.hash(preimage.toXDR());
 
@@ -159,7 +222,9 @@ export async function submitOwnerAction(
   contractId: string,
   feeKeypair: StellarSdk.Keypair
 ): Promise<{ txHash: string }> {
-  const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
+  await verifyNetwork();
+  const server = rpcServer();
+  const passphrase = network().passphrase;
   const account = await server.getAccount(feeKeypair.publicKey());
 
   const entry = StellarSdk.xdr.SorobanAuthorizationEntry.fromXDR(
@@ -171,12 +236,12 @@ export async function submitOwnerAction(
     entry,
     async () => ({ signatureScVal: buildOwnerSignatureScVal(assertion) }),
     prepared.validUntilLedger,
-    NETWORK_PASSPHRASE
+    passphrase
   );
 
   const tx = new StellarSdk.TransactionBuilder(account, {
     fee: BASE_FEE,
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase: passphrase,
   })
     .addOperation(
       StellarSdk.Operation.invokeContractFunction({

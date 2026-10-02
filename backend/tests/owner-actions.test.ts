@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Keypair, StrKey } from "@stellar/stellar-sdk";
 
+import { scValToNative } from "@stellar/stellar-sdk";
+
 import { argsFor, isOwnerAction, OWNER_ACTIONS } from "../src/policy/owner-actions.js";
 
 /** The bytes an ScVal is carrying, whatever wrapper the SDK put around them. */
@@ -95,5 +97,44 @@ describe("reinstating the agent signer", () => {
     expect(() => argsFor("set_agent_signer")).toThrow(/AGENT_SECRET/);
 
     process.env.AGENT_SECRET = agent.secret();
+  });
+});
+
+describe("lowering the limits", () => {
+  it("encodes the new limits the way the contract reads them", () => {
+    const [arg] = argsFor("reduce_limits", {
+      limits: { maxPaymentAmount: "5000000", maxTxCount: 3, maxTotalAmount: "20000000", windowSize: 86400 },
+    });
+    expect(scValToNative(arg!)).toEqual({
+      max_payment_amount: 5000000n,
+      max_total_amount: 20000000n,
+      max_tx_count: 3,
+      window_size: 86400n,
+    });
+  });
+
+  it("refuses to guess the limits", () => {
+    expect(() => argsFor("reduce_limits")).toThrow(/needs the new limits/);
+  });
+
+  it("refuses amounts that are not whole numbers", () => {
+    expect(() =>
+      argsFor("reduce_limits", {
+        limits: { maxPaymentAmount: "0.5", maxTxCount: 3, maxTotalAmount: "1", windowSize: 86400 },
+      })
+    ).toThrow(/whole positive number/);
+  });
+});
+
+describe("recovering the funds", () => {
+  it("recovers the account's USDC unless told otherwise", () => {
+    const [arg] = argsFor("recover_funds");
+    expect(scValToNative(arg!)).toBe("CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA");
+  });
+
+  it("refuses something that is not a token contract", () => {
+    expect(() => argsFor("recover_funds", { token: Keypair.random().publicKey() })).toThrow(
+      /token contract address/
+    );
   });
 });

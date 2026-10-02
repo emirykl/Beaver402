@@ -7,14 +7,12 @@ import { verifyMerchantSignature } from "../merchant/challenge-signer.js";
 import { normalizeAmount, requestDigest } from "../shared/hashing.js";
 import { buildAgentSignatureScVal } from "./policy-signature.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { network, rpcServer, verifyNetwork } from "../config/network.js";
 import type {
   SignedChallenge,
   PolicySignaturePayload,
 } from "../shared/types.js";
 
-const SOROBAN_RPC_URL =
-  process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
-const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
 const BASE_FEE = "10000000";
 
 /// How long a signed authorization stays usable, in ledgers. Roughly five
@@ -37,7 +35,6 @@ function isStaleSequence(response: { errorResult?: unknown }): boolean {
 export interface Beaver402AdapterConfig {
   agentKeypair: StellarSdk.Keypair;
   policyContractId: string;
-  network: string;
 }
 
 export interface PaymentResult {
@@ -85,6 +82,23 @@ export class Beaver402Adapter {
     observedEndpoint: string,
     observedBody?: string | Buffer | null
   ): Promise<PaymentResult> {
+    // step 0: the challenge has to be for this network and this account's
+    // token. The contract refuses both anyway, but nothing should be signed
+    // for a network or a token this backend was not set up for.
+    const config = network();
+    if (challenge.fields.network !== config.passphrase) {
+      return {
+        success: false,
+        error: `the challenge is for another network, this backend pays on ${config.name}`,
+      };
+    }
+    if (challenge.fields.asset !== config.usdcContract) {
+      return {
+        success: false,
+        error: `the challenge asks for ${challenge.fields.asset}, this account pays in USDC ${config.usdcContract}`,
+      };
+    }
+
     // step 1: verify merchant signature on the challenge
     if (!verifyMerchantSignature(challenge)) {
       return {
@@ -194,7 +208,7 @@ export class Beaver402Adapter {
         };
       },
       validUntil,
-      NETWORK_PASSPHRASE
+      network().passphrase
     );
   }
 
@@ -202,7 +216,9 @@ export class Beaver402Adapter {
     challenge: SignedChallenge,
     policyPayload: PolicySignaturePayload
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    const server = new StellarSdk.rpc.Server(SOROBAN_RPC_URL);
+    await verifyNetwork();
+    const server = rpcServer();
+    const passphrase = network().passphrase;
     const agentPubkey = this.config.agentKeypair.publicKey();
     const sourceAccount = await server.getAccount(agentPubkey);
 
@@ -224,7 +240,7 @@ export class Beaver402Adapter {
 
     const draft = new StellarSdk.TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
-      networkPassphrase: NETWORK_PASSPHRASE,
+      networkPassphrase: passphrase,
     })
       .addOperation(transfer())
       .setTimeout(300)
@@ -274,7 +290,7 @@ export class Beaver402Adapter {
 
       const authorized = new StellarSdk.TransactionBuilder(account, {
         fee: BASE_FEE,
-        networkPassphrase: NETWORK_PASSPHRASE,
+        networkPassphrase: passphrase,
       })
         .addOperation(
           StellarSdk.Operation.invokeContractFunction({
@@ -358,8 +374,7 @@ export class Beaver402Adapter {
 
 export function createAdapter(
   agentSecret: string,
-  policyContractId: string,
-  network = "testnet"
+  policyContractId: string
 ): Beaver402Adapter {
   // Without a deployed policy there is nothing to authorize against, and the
   // failure would otherwise surface as an unhelpful address parse error deep
@@ -373,6 +388,5 @@ export function createAdapter(
   return new Beaver402Adapter({
     agentKeypair: StellarSdk.Keypair.fromSecret(agentSecret),
     policyContractId,
-    network,
   });
 }
