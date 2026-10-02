@@ -4,11 +4,22 @@ import { getSessionId } from "./session.js";
 
 const API_BASE = "/api/policy";
 
+/** The account's limits. Amounts are in stroops, seven decimals. */
+export interface Limits {
+  maxPaymentAmount: string;
+  maxTxCount: number;
+  maxTotalAmount: string;
+  windowSize: number;
+}
+
 export interface PolicyState {
   frozen: boolean;
   agentSigner: string | null;
   velocityTxCount: number;
   velocityTotalAmount: string;
+  /** When the oldest payment still counted was made, unix seconds. */
+  velocityWindowStart?: number;
+  limits?: Limits | null;
   contractId: string;
   /**
    * Whether the owner has approved the merchant this demo uses. Absent when
@@ -43,7 +54,34 @@ export type OwnerAction =
   | "revoke_agent_signer"
   | "set_agent_signer"
   | "add_merchant"
-  | "remove_merchant";
+  | "remove_merchant"
+  | "reduce_limits"
+  | "recover_funds";
+
+/** What the backend says about where it runs. Nothing in it is secret. */
+export interface PublicConfig {
+  network: "testnet" | "mainnet";
+  explorer: string;
+  contractId: string | null;
+  asset: string;
+}
+
+export async function fetchConfig(): Promise<PublicConfig | null> {
+  try {
+    const res = await fetch("/api/config");
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/** What an owner action carries besides its name. */
+interface ActionInput {
+  pubkey?: string;
+  limits?: Limits;
+  token?: string;
+}
 
 export interface OwnerActionResult {
   success: boolean;
@@ -77,13 +115,13 @@ function jsonHeaders(): Record<string, string> {
  */
 async function runOwnerAction(
   action: OwnerAction,
-  pubkey?: string
+  input: ActionInput = {}
 ): Promise<OwnerActionResult> {
   try {
     const prepareRes = await fetch(`${API_BASE}/prepare`, {
       method: "POST",
       headers: jsonHeaders(),
-      body: JSON.stringify({ action, pubkey }),
+      body: JSON.stringify({ action, ...input }),
     });
     const preparation = await prepareRes.json();
 
@@ -149,7 +187,20 @@ export async function restoreAgentSigner(): Promise<OwnerActionResult> {
 export async function allowMerchant(
   merchantPubkey: string
 ): Promise<OwnerActionResult> {
-  return runOwnerAction("add_merchant", merchantPubkey);
+  return runOwnerAction("add_merchant", { pubkey: merchantPubkey });
+}
+
+/** Lower the limits. The contract refuses anything that raises one. */
+export async function reduceLimits(limits: Limits): Promise<OwnerActionResult> {
+  return runOwnerAction("reduce_limits", { limits });
+}
+
+/**
+ * Send the whole balance to the recovery address fixed when the account was
+ * created. Only works while payments are halted.
+ */
+export async function recoverFunds(): Promise<OwnerActionResult> {
+  return runOwnerAction("recover_funds");
 }
 
 export interface MerchantInfo {

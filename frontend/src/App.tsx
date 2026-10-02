@@ -9,7 +9,12 @@ import {
   revokeAgentSigner,
   restoreAgentSigner,
   fetchTransactions,
+  fetchConfig,
+  reduceLimits,
+  recoverFunds,
+  type Limits,
   type PolicyState,
+  type PublicConfig,
   type Transaction,
 } from "./stellar-ops.js";
 import {
@@ -95,7 +100,10 @@ export default function App() {
   );
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [merchantInfo, setMerchantInfo] = useState<MerchantInfo | null>(null);
+  const [config, setConfig] = useState<PublicConfig | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  // Recovering the funds empties the account, so it takes two presses.
+  const [recoveryArmed, setRecoveryArmed] = useState(false);
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
@@ -106,6 +114,7 @@ export default function App() {
   );
 
   const refresh = useCallback(async () => {
+    setConfig(await fetchConfig());
     setPolicyState(await fetchPolicyState());
     setTransactions(await fetchTransactions());
     setMerchantInfo(await fetchMerchantInfo());
@@ -209,6 +218,8 @@ export default function App() {
 
   const needsMerchant = policyState.merchantApproved === false;
   const live = !policyState.frozen && policyState.agentSigner !== null;
+  const explorer = config?.explorer ?? "https://stellar.expert/explorer/testnet";
+  const limits = policyState.limits ?? null;
 
   // ── Console ─────────────────────────────────────────────────────
   return (
@@ -220,10 +231,12 @@ export default function App() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={topTitle}>BEAVER402</div>
             <div style={topSub}>
-              <span style={topSubLabel}>SMART ACCOUNT</span>
+              <span style={topSubLabel}>
+                {config?.network === "mainnet" ? "MAINNET ACCOUNT" : "TESTNET ACCOUNT"}
+              </span>
               <a
                 style={topSubLink}
-                href={`https://stellar.expert/explorer/testnet/contract/${policyState.contractId}`}
+                href={`${explorer}/contract/${policyState.contractId}`}
                 target="_blank"
                 rel="noreferrer"
                 title={policyState.contractId}
@@ -284,6 +297,18 @@ export default function App() {
                 used={policyState.velocityTxCount}
                 total={policyState.velocityMaxTxCount}
               />
+              {limits && (
+                <>
+                  <Line
+                    label="Spent in window"
+                    value={`${formatAmount(policyState.velocityTotalAmount)} of ${formatAmount(limits.maxTotalAmount)} USDC`}
+                  />
+                  <Line
+                    label="Per payment"
+                    value={`up to ${formatAmount(limits.maxPaymentAmount)} USDC`}
+                  />
+                </>
+              )}
               <p style={body}>
                 {policyState.frozen
                   ? "Every payment is refused until you resume."
@@ -312,6 +337,23 @@ export default function App() {
                     onClick={() => handleAction("Halt", freezePayments)}
                   />
                 )}
+                {policyState.frozen && (
+                  <Button
+                    label={recoveryArmed ? "CONFIRM: SEND ALL FUNDS TO RECOVERY" : "RECOVER FUNDS"}
+                    danger
+                    busy={loading === "Recover"}
+                    disabled={loading !== null}
+                    onClick={() => {
+                      if (!recoveryArmed) {
+                        setRecoveryArmed(true);
+                        addLog("Press again to send the whole balance to the recovery address");
+                        return;
+                      }
+                      setRecoveryArmed(false);
+                      handleAction("Recover", recoverFunds);
+                    }}
+                  />
+                )}
                 {policyState.agentSigner ? (
                   <Button
                     label="REVOKE AGENT KEY"
@@ -330,6 +372,15 @@ export default function App() {
                 )}
               </section>
             )}
+
+            {!needsMerchant && limits && (
+              <LimitsForm
+                current={limits}
+                busy={loading === "Lower limits"}
+                disabled={loading !== null}
+                onSubmit={(next) => handleAction("Lower limits", () => reduceLimits(next))}
+              />
+            )}
           </div>
 
           <div style={column}>
@@ -340,7 +391,7 @@ export default function App() {
               ) : (
                 <div style={scroller}>
                   {transactions.map((tx) => (
-                    <TxRow key={tx.id} tx={tx} />
+                    <TxRow key={tx.id} tx={tx} explorer={explorer} />
                   ))}
                 </div>
               )}
@@ -463,7 +514,108 @@ function Meter({ used, total }: { used: number; total: number }) {
   );
 }
 
-function TxRow({ tx }: { tx: Transaction }) {
+/**
+ * Lower one or more limits. The window is left as it is: a shorter one would
+ * let payments stop counting sooner, which the contract treats as raising a
+ * limit and refuses.
+ */
+function LimitsForm({
+  current,
+  busy,
+  disabled,
+  onSubmit,
+}: {
+  current: Limits;
+  busy: boolean;
+  disabled: boolean;
+  onSubmit: (next: Limits) => void;
+}) {
+  const [perPayment, setPerPayment] = useState(formatExact(current.maxPaymentAmount));
+  const [count, setCount] = useState(String(current.maxTxCount));
+  const [total, setTotal] = useState(formatExact(current.maxTotalAmount));
+
+  const next = {
+    maxPaymentAmount: toStroops(perPayment),
+    maxTxCount: Number.parseInt(count, 10),
+    maxTotalAmount: toStroops(total),
+    windowSize: current.windowSize,
+  };
+  const valid =
+    next.maxPaymentAmount !== null &&
+    next.maxTotalAmount !== null &&
+    Number.isInteger(next.maxTxCount) &&
+    next.maxTxCount > 0 &&
+    BigInt(next.maxPaymentAmount) > 0n &&
+    BigInt(next.maxPaymentAmount) <= BigInt(next.maxTotalAmount);
+  const lower =
+    valid &&
+    BigInt(next.maxPaymentAmount!) <= BigInt(current.maxPaymentAmount) &&
+    next.maxTxCount <= current.maxTxCount &&
+    BigInt(next.maxTotalAmount!) <= BigInt(current.maxTotalAmount);
+  const changed =
+    lower &&
+    (next.maxPaymentAmount !== current.maxPaymentAmount ||
+      next.maxTxCount !== current.maxTxCount ||
+      next.maxTotalAmount !== current.maxTotalAmount);
+
+  return (
+    <section style={panel}>
+      <h2 style={heading}>LIMITS</h2>
+      <p style={body}>Limits can only go down. Raising one needs a new account.</p>
+      <LimitField label="Per payment, USDC" value={perPayment} onChange={setPerPayment} />
+      <LimitField label="Payments per window" value={count} onChange={setCount} />
+      <LimitField label="Total per window, USDC" value={total} onChange={setTotal} />
+      {!lower && valid && <p style={{ ...body, color: red }}>That would raise a limit.</p>}
+      <Button
+        label="LOWER LIMITS"
+        busy={busy}
+        disabled={disabled || !changed}
+        onClick={() =>
+          changed &&
+          onSubmit({
+            maxPaymentAmount: next.maxPaymentAmount!,
+            maxTxCount: next.maxTxCount,
+            maxTotalAmount: next.maxTotalAmount!,
+            windowSize: next.windowSize,
+          })
+        }
+      />
+    </section>
+  );
+}
+
+function LimitField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label style={lineRow}>
+      <span style={lineLabel}>{label}</span>
+      <input
+        value={value}
+        inputMode="decimal"
+        onChange={(event) => onChange(event.target.value)}
+        style={{
+          ...lineValue,
+          width: "6.5em",
+          textAlign: "right",
+          background: "transparent",
+          border: `1px solid ${edge}`,
+          color: text,
+          padding: "2px 6px",
+          font: "inherit",
+        }}
+      />
+    </label>
+  );
+}
+
+function TxRow({ tx, explorer }: { tx: Transaction; explorer: string }) {
   const ok = tx.status === "success";
   return (
     <div style={{ ...txRow, borderLeftColor: ok ? green : red }}>
@@ -476,7 +628,7 @@ function TxRow({ tx }: { tx: Transaction }) {
       {tx.tx_hash ? (
         <a
           style={txLink}
-          href={`https://stellar.expert/explorer/testnet/tx/${tx.tx_hash}`}
+          href={`${explorer}/tx/${tx.tx_hash}`}
           target="_blank"
           rel="noreferrer"
         >
@@ -491,6 +643,22 @@ function TxRow({ tx }: { tx: Transaction }) {
 }
 
 /* ---- Helpers ---- */
+
+/** Stroops as USDC with every significant decimal, for editing. */
+function formatExact(raw: string): string {
+  const value = BigInt(raw);
+  const whole = value / 10_000_000n;
+  const fraction = (value % 10_000_000n).toString().padStart(7, "0").replace(/0+$/, "");
+  return fraction ? `${whole}.${fraction}` : whole.toString();
+}
+
+/** A USDC amount someone typed, in stroops, or null if it is not one. */
+function toStroops(value: string): string | null {
+  const match = value.trim().match(/^(\d+)(?:\.(\d{0,7}))?$/);
+  if (!match) return null;
+  const [, whole, fraction = ""] = match;
+  return (BigInt(whole!) * 10_000_000n + BigInt(fraction.padEnd(7, "0") || "0")).toString();
+}
 
 /** Stroops carry seven decimals, which is not a number anyone reads. */
 function formatAmount(raw: string | null): string {
