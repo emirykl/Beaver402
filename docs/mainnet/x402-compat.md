@@ -123,10 +123,21 @@ and into the operating guide.
 
 ## The testnet gate
 
-Not passed yet. It is passed when a payment started from the MCP tool is
-verified, fee sponsored and settled by the hosted facilitator on testnet,
-followed by the proof event. The transactions go here.
+**Passed end to end with the reference facilitator. The hosted facilitator
+is still to be run.**
 
-Still open until then: whether the hosted facilitator applies the same fee
-ceiling and event rule as the reference implementation, and whether it
-accepts a contract account as the payer.
+On 2026-10-02 the [testnet rehearsal](../operations/rehearsals/2026-10-02-testnet.md)
+ran the whole flow on a freshly deployed account: the merchant's 402, the
+agent's authorization, verification and settlement by the x402 reference
+implementation of the exact scheme, the merchant's own confirmation on the
+ledger and the published proof of intent. One of the payments was started
+from the MCP tool, through an MCP client calling `fetch_paid_resource`:
+[`79ea7717`](https://stellar.expert/explorer/testnet/tx/79ea77174cf81b11b7f3251c8cb40426ea1ab0792700a2b3ef789d391a47826f).
+
+The settlement transactions were submitted and paid for by the
+facilitator's own account. The first one cost 28,271 stroops in fees.
+
+What the gate still needs is the same run with the hosted OpenZeppelin
+facilitator in place of the reference one: whether it applies the same
+rules, and whether it accepts a contract account as the payer. Its
+transactions go here.
