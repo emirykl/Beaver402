@@ -1,0 +1,8 @@
+# The release artifact has to be reproducible: the same source, compiler and
+# Stellar CLI give the same WASM hash on any machine. Change these together
+# with the version in .github/workflows/ci.yml.
+[toolchain]
+channel = "1.96.0"
+targets = ["wasm32v1-none"]
+components = ["clippy"]
+profile = "minimal"

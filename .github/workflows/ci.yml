@@ -2,26 +2,29 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, contract-hardening]
   pull_request:
     branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-Dwarnings"
+  # Builds the release artifact. Pinned with its checksum, because the WASM
+  # hash depends on it and the deployed hash has to be reproducible.
+  STELLAR_CLI_VERSION: "27.0.0"
+  STELLAR_CLI_SHA256: "357bf712f6353c28cd33c794402a3c87231757a5b305e6ef1604365af4fdd556"
 
 jobs:
-  # ── Soroban Contract Tests ─────────────────────────────────────
-  contract-tests:
-    name: Contract Tests
+  # ── Soroban Contract ───────────────────────────────────────────
+  contract:
+    name: Contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # rust-toolchain.toml pins the compiler, the target and clippy.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32v1-none
+        run: rustup show active-toolchain || rustup toolchain install
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -30,18 +33,59 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ runner.os }}-cargo-
+
+      - name: The contract cannot be upgraded
+        # The pilot account is immutable by design. An upgrade entry point
+        # would hand whoever deploys it a way around every limit.
+        run: |
+          if grep -rn "update_current_contract_wasm" contracts/payment_policy/src; then
+            echo "The policy contract must not be upgradeable." >&2
+            exit 1
+          fi
 
       - name: Run contract tests
         run: cargo test --verbose
 
-      - name: Build WASM (release)
-        run: cargo build --release --target wasm32v1-none
+      - name: Strict lint
+        run: cargo clippy --all-targets -- -D warnings
 
-  # ── Backend Tests ──────────────────────────────────────────────
-  backend-tests:
-    name: Backend Tests
+      - name: Audit Rust dependencies
+        run: |
+          cargo install --locked cargo-audit --version 0.22.2
+          cargo audit
+
+      - name: Install the Stellar CLI
+        run: |
+          curl -sSfL -o stellar-cli.tgz \
+            "https://github.com/stellar/stellar-cli/releases/download/v${STELLAR_CLI_VERSION}/stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${STELLAR_CLI_SHA256}  stellar-cli.tgz" | sha256sum --check
+          tar xzf stellar-cli.tgz stellar
+          sudo mv stellar /usr/local/bin/stellar
+          stellar --version
+
+      - name: Build the release WASM
+        run: |
+          stellar contract build
+          sha256sum target/wasm32v1-none/release/payment_policy.wasm | tee wasm.sha256
+          {
+            echo "### Release WASM"
+            echo ""
+            echo "\`$(cut -d' ' -f1 wasm.sha256)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: payment_policy-wasm
+          path: |
+            target/wasm32v1-none/release/payment_policy.wasm
+            wasm.sha256
+
+  # ── Backend ────────────────────────────────────────────────────
+  backend:
+    name: Backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -52,7 +96,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -63,11 +107,17 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run tests
+        # Includes the encoding vectors shared with the contract, the x402
+        # compatibility checks and the interface checks against the
+        # contract's own source.
         run: npx vitest run
 
-  # ── Frontend Build ─────────────────────────────────────────────
-  frontend-build:
-    name: Frontend Build
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+  # ── Frontend ───────────────────────────────────────────────────
+  frontend:
+    name: Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -78,7 +128,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -90,3 +140,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
