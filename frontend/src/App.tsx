@@ -219,8 +219,9 @@ export default function App() {
     );
   }
 
-  const needsMerchant = policyState.merchantApproved === false;
-  const live = !policyState.frozen && policyState.agentSigner !== null;
+  const deployed = /^C[A-Z2-7]{55}$/.test(policyState.contractId);
+  const needsMerchant = deployed && policyState.merchantApproved === false;
+  const live = deployed && !policyState.frozen && policyState.agentSigner !== null;
   const explorer = config?.explorer ?? "https://stellar.expert/explorer/testnet";
   // The merchant runs as its own deployment on mainnet, so its key comes from
   // the public config when the merchant's own endpoint is not served here.
@@ -260,7 +261,7 @@ export default function App() {
               }}
             />
             <span style={{ ...indicatorText, color: live ? green : red }}>
-              {policyState.frozen ? "HALTED" : "ARMED"}
+              {!deployed ? "NO ACCOUNT" : policyState.frozen ? "HALTED" : live ? "ARMED" : "NOT READY"}
             </span>
           </div>
         </header>
