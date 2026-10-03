@@ -195,3 +195,7 @@ that plan does not mean the full Instawards deliverable has been submitted.
 The testnet MCP settlement above was submitted by the hosted facilitator, as
 recorded in the [x402 compatibility report](mainnet/x402-compat.md). It is
 distinct from the earlier [local reference-facilitator rehearsal](operations/rehearsals/2026-10-02-testnet-reference.md).
+
+The [second-month pilot report draft](mainnet/pilot-report.md) brings the
+verified D1 evidence together and keeps D2/D3 rows pending until their
+mainnet, hosted and customer results exist.

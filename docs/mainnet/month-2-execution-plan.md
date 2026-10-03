@@ -71,6 +71,7 @@ Fazlar numara sırasındadır; Faz 4'ün sayfa içeriği ve Faz 7'nin ilk görü
 - [x] **Faz 4 scriptli testnet olay/göç provası:** [hosted prova kaydı](../operations/rehearsals/2026-10-02-testnet-hosted.md) freeze, restore, signer revoke, merchant remove, limit düşürme, recovery ve yeni hesaba göç işlemlerini içeriyor. Gerçek cihaz passkey'i + Vercel provası açık.
 - [x] **Faz 4 landing, collector ve rehber kodu/taslağı:** `/`, `/panel`, `/status`, collector ve metrik modülleri ile [operasyon rehberleri](../operations/operating-guide.md) repoda; frontend/backend derlemeleri ve ilgili backend testleri geçti. Canlı dağıtım ve veri export'u açık.
 - [x] **Faz 5 deploy kayıt şablonu ve ön kontrol kodu:** [deploy kaydı](deployment-record.md) şablonu ve preflight scripti var. Şablondaki mainnet işlem alanları boş; gerçek deploy yapılmadı.
+- [x] **Faz 8 pilot raporu taslağı:** [rapor](pilot-report.md) doğrulanmış D1 kanıtlarını ve D2/D3 için açık kanıt satırlarını bir araya getiriyor; gerçek mainnet ve müşteri sonuçları gelmeden nihai teslim sayılmaz.
 
 **Kabulü henüz tamamlanmayan işler**
 
