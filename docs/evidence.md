@@ -178,3 +178,20 @@ mean building a deliberately malformed authorization entry.
 Both are in `contracts/payment_policy/src/test.rs`, which exercises
 `__check_auth` directly with real signatures rather than through mocked
 authorization.
+
+## Second month evidence — in progress, 2 October 2026
+
+The evidence above belongs to the first-month testnet implementation. The
+second-month release candidate and mainnet pilot are tracked in the
+[second-month plan](mainnet/month-2-execution-plan.md). A checked subtask in
+that plan does not mean the full Instawards deliverable has been submitted.
+
+| Deliverable | Evidence already available | Still required for delivery |
+|---|---|---|
+| D1 — readiness, x402 v2, security | [Hosted OpenZeppelin testnet rehearsal](operations/rehearsals/2026-10-02-testnet-hosted.md), MCP [settlement](https://stellar.expert/explorer/testnet/tx/ed40457717d25214420c04a28bb16a14f53b7bfc5e39f0a3cc334ffe1bbefd6e), linked [PoI event](https://stellar.expert/explorer/testnet/tx/37c6b23123a6c11064b2a30cc73f511f919a245d5c4ff053cc11a87fe6d94782), [local test/artifact/Supabase verification](mainnet/verification-2026-10-02.md) | Tagged release, matching CI artifact, external peer review, completed readiness decision |
+| D2 — controlled mainnet pilot | [Deployment record template](mainnet/deployment-record.md) and testnet rehearsal | Mainnet decision, deployed contract, actual USDC settlement and PoI, owner control transactions, recovery and limit audit |
+| D3 — landing, operations, users | Landing/status/collector code and [testnet incident/migration rehearsal](operations/rehearsals/2026-10-02-testnet-hosted.md) | Public deployment and event export, two evaluation summaries, consented video, hypothesis results, traffic report, final demo and pilot report |
+
+The testnet MCP settlement above was submitted by the hosted facilitator, as
+recorded in the [x402 compatibility report](mainnet/x402-compat.md). It is
+distinct from the earlier [local reference-facilitator rehearsal](operations/rehearsals/2026-10-02-testnet-reference.md).

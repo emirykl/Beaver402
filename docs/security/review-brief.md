@@ -39,6 +39,12 @@ In order of importance.
 6. **`backend/src/adapter/x402-client.ts`**. What the agent agrees to sign.
 7. **`backend/src/config`, `agent-guard.ts`**. Can the backend be pointed at
    the wrong network, or the agent made to pay by someone else?
+8. **`backend/src/app.ts`, `ops/collector.ts`, `ops/ops-routes.ts` and
+   Supabase SQL.** Inspect the public API surface and every path that can
+   return a raw database row or exception. [I14 and I16](findings.md) were
+   closed internally; I15 remains open. Confirm the fixes prevent unauthenticated access to
+   private attempts, secret-bearing diagnostics and a mainnet database
+   accidentally paired with testnet.
 
 ## What changed since the first month
 
@@ -54,6 +60,10 @@ passkey domain and the lifetime were added. See
 - [Known limitations](../known-limitations.md).
 - [Canonical encoding](../canonical-encoding.md): exactly what is signed.
 - `npm test` in `backend/` and `cargo test` at the root run everything.
+- [2 October independent verification](../mainnet/verification-2026-10-02.md)
+  records the current local tests, artifact hash, dependency audit and open
+  Supabase permission check. The branch's release CI run and review artifact
+  should be attached when ready.
 
 ## What to send back
 

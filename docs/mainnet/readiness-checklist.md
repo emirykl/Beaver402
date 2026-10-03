@@ -6,17 +6,19 @@ that says **no** blocks the deployment; it is never waived.
 
 Release candidate: _not tagged yet_
 Artifact sha256: _from the release_
+Independent local check: [2 October verification](verification-2026-10-02.md).
+The current branch still needs a release CI run and external peer review.
 
 ## The release
 
 | # | Control | Yes | Evidence |
 |---|---|---|---|
-| 1 | Contract tests pass | yes | 75 tests, CI |
-| 2 | Backend tests pass | yes | CI |
-| 3 | Strict Clippy is clean | yes | CI |
-| 4 | Rust, backend and frontend dependency audits are clean | yes | CI |
+| 1 | Contract tests pass | yes, local | 75/75, [verification](verification-2026-10-02.md); release CI pending |
+| 2 | Backend tests pass | yes, local | 233/233 after `bc3fcb8`, [verification](verification-2026-10-02.md); release CI pending |
+| 3 | Strict Clippy is clean | yes, local | [verification](verification-2026-10-02.md); release CI pending |
+| 4 | Rust, backend and frontend dependency audits are clean | yes, local | 0 vulnerabilities; Rust informational `paste` warning, [verification](verification-2026-10-02.md); release CI pending |
 | 5 | The contract has no upgrade path | yes | CI check, `lib.rs` |
-| 6 | The artifact is built reproducibly and its hash recorded | | `release.md` |
+| 6 | The artifact is built reproducibly and its hash recorded | | local rebuild matched `963c55c1…6e76d42f`, [verification](verification-2026-10-02.md); tagged CI artifact comparison pending |
 | 7 | The release is tagged | | GitHub release |
 
 ## The x402 path
@@ -48,12 +50,16 @@ Artifact sha256: _from the release_
 |---|---|---|---|
 | 21 | Testnet and mainnet settings are separated and cross-checked | yes | `network-config.md`, tests |
 | 22 | The backend refuses to sign for the wrong network | yes | `adapter-network.test.ts` |
-| 23 | Agent and merchant run as separate deployments with only their own secret | | deployment |
+| 23 | Agent and merchant run as separate deployments with only their own secret | | separate testnet roles respond, [verification](verification-2026-10-02.md); secret isolation still needs deployment settings review |
 | 24 | The agent route needs a token and only fetches listed merchants | yes | `agent-guard.test.ts` |
 | 25 | Production identities created: owner passkey, agent, merchant, fee account | | deployment record |
 | 26 | Recovery address chosen, holds a USDC trustline | | deployment record |
 | 27 | Recipient account holds a USDC trustline | | deployment record |
 | 28 | No secret in the repository, the browser, logs or the model's context | | review |
+| 35 | Mainnet Supabase schema and private table access are verified | | nine tables readable with service role, [verification](verification-2026-10-02.md); SQL Editor RLS/privilege results pending |
+| 36 | Private payment attempts are not exposed by a public API route | yes, testnet | [I14](../security/findings.md) closed in `bc3fcb8`; unauthenticated deployed testnet request now returns 401 |
+| 37 | Public status and error responses cannot reveal provider credentials | no | [I15](../security/findings.md) remains open for existing collector rows and raw hosted logs |
+| 38 | Mainnet env file and commands cannot silently select testnet | yes, local | [I16](../security/findings.md) closed in `bc3fcb8`; `dev:mainnet` stopped on missing mainnet RPC |
 
 ## Review and rehearsal
 
@@ -64,7 +70,7 @@ Artifact sha256: _from the release_
 | 31 | Full testnet rehearsal on the hosted setup: deploy, approve, fund, pay, every scenario | | scripted locally: yes; on Vercel with the real passkey: not yet |
 | 32 | Incident procedure rehearsed on testnet | yes | [hosted rehearsal](../operations/rehearsals/2026-10-02-testnet-hosted.md) |
 | 33 | Migration procedure rehearsed on testnet | yes | [hosted rehearsal](../operations/rehearsals/2026-10-02-testnet-hosted.md) |
-| 34 | Event collector and status page running against testnet | | `rehearsal-testnet.md` |
+| 34 | Event collector and status page running against testnet | | `/api/status` responds, but `collector=null` at [verification](verification-2026-10-02.md); collector run/export pending |
 
 ## Decision
 

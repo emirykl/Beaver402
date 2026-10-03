@@ -17,7 +17,9 @@ Updated as risks are retired or found.
 | R10 | A phished passkey assertion | an attacker acts as owner | **retired** | relying party hash and user verification checked on chain |
 | R11 | RPC drops events before they are collected | gaps in the record | mitigated | collector runs daily and by hand; gaps are reported |
 | R12 | The domain the passkey belongs to changes | owner locked out | mitigated | domain fixed before deployment; changing it is a migration |
-| R13 | Mainnet protocol changes during the pilot | different behaviour | mitigated | protocol 29 measured; scenarios re-run after any upgrade |
+| R13 | Mainnet protocol changes during the pilot | different behaviour | open preflight | testnet RPC reported protocol 29 on 2 October; mainnet RPC version and network identity must be measured before deploy, then scenarios rerun after any upgrade |
 | R14 | The external reviewer is late | the release waits | open | review brief prepared early |
 | R15 | The token balance entry expires | balance unreachable until restored | accepted | at least 120 days on mainnet, longer than the pilot |
 | R16 | High advisories in production dependencies | exploitable backend | **retired** | axios overridden, audits clean, audits in CI |
+| R17 | Collector diagnostics expose a provider credential | secret can appear on public status or in hosted logs | open, mainnet blocker | [I15](../security/findings.md): normalize existing database error rows on read, sanitize hosted logs and verify a canary through public routes before go |
+| R18 | Mainnet Supabase migration or permissions differ from source | private tables may be public or backend operations may fail | open preflight | nine tables are readable by service role; [migration paths reconciled](migration-reconciliation.md), [read-only RLS/privilege query](supabase-verification.sql) awaiting SQL Editor output |
