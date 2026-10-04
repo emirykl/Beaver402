@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 
 import { getSupabase, isSupabaseConfigured } from "./supabase.js";
+import { forLog } from "./public-error.js";
 
 export interface RateLimitOptions {
   /** How long a window lasts, in milliseconds. */
@@ -129,7 +130,7 @@ export function createRateLimit({ windowMs, max, scope = "api", store }: RateLim
     try {
       verdict = counts.hit(key, windowMs, max);
     } catch (err) {
-      console.error("rate limit store failed, letting the request through:", err);
+      console.error("rate limit store failed, letting the request through:", forLog(err));
       next();
       return;
     }
@@ -143,7 +144,7 @@ export function createRateLimit({ windowMs, max, scope = "api", store }: RateLim
     verdict.then(
       (v) => (v.allowed ? next() : refuse(res, v.retryAfterSeconds)),
       (err) => {
-        console.error("rate limit store failed, letting the request through:", err);
+        console.error("rate limit store failed, letting the request through:", forLog(err));
         next();
       }
     );

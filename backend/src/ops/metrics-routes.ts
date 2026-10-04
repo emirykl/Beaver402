@@ -2,7 +2,7 @@ import express, { type Request, type Response } from "express";
 
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import { createRateLimit } from "../lib/rate-limit.js";
-import { failPublicly } from "../lib/public-error.js";
+import { failPublicly, forLog } from "../lib/public-error.js";
 
 /**
  * Privacy preserving traffic counts for the landing page.
@@ -64,7 +64,7 @@ export function createMetricsRouter() {
         p_kind: metric.kind,
         p_target: metric.target,
       });
-      if (error) console.error("could not count the page metric:", error.message);
+      if (error) console.error("could not count the page metric:", forLog(error));
     }
     res.status(204).end();
   });

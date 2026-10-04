@@ -2,6 +2,7 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 
 import { network, rpcServer, verifyNetwork, type NetworkConfig } from "../config/network.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { forLog } from "../lib/public-error.js";
 
 /**
  * Collect the account's on-chain events into the database.
@@ -116,6 +117,27 @@ export function collectorFailure(err: unknown): string {
   return "the collection failed";
 }
 
+const PUBLIC_COLLECTOR_ERRORS = new Set([
+  "the RPC could not be reached",
+  "the RPC no longer holds the requested ledgers",
+  "the database refused the write",
+  "the collection failed",
+]);
+const GAP_SUMMARY = /^ledgers \d+ to \d+ had left the RPC window before they were read$/;
+
+/**
+ * The stored collector error as the public status page may show it.
+ *
+ * Only summaries this code writes pass through. A row written before the
+ * summaries existed, or edited by hand, may hold a raw provider message, so
+ * anything else is shown as the generic summary.
+ */
+export function publicCollectorError(stored: unknown): string | null {
+  if (stored === null || stored === undefined || stored === "") return null;
+  if (typeof stored === "string" && (PUBLIC_COLLECTOR_ERRORS.has(stored) || GAP_SUMMARY.test(stored))) return stored;
+  return "the collection failed";
+}
+
 export interface CollectResult {
   collected: number;
   lastLedger: number;
@@ -204,7 +226,7 @@ export async function collect(
     });
     return { collected, lastLedger, gap };
   } catch (err) {
-    console.error("event collection failed:", err);
+    console.error("event collection failed:", forLog(err));
     await writeState({
       network: config.name,
       cursor: previous?.cursor ?? null,

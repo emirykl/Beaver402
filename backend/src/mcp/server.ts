@@ -14,6 +14,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { pathToFileURL } from "node:url";
+import { forLog } from "../lib/public-error.js";
 
 const BACKEND_URL = process.env.BEAVER402_BACKEND_URL || "http://localhost:3000";
 
@@ -174,7 +175,7 @@ async function main() {
 const entrypointUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
 if (import.meta.url === entrypointUrl) {
   main().catch((err) => {
-    console.error("beaver402 mcp server failed to start:", err);
+    console.error("beaver402 mcp server failed to start:", forLog(err));
     process.exit(1);
   });
 }

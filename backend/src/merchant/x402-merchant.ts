@@ -8,7 +8,7 @@ import { confirmSettlement, type ExpectedTransfer } from "./settlement.js";
 import type { MerchantConfig } from "./demo-endpoint.js";
 import { network, rpcServer } from "../config/network.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
-import { redact } from "../lib/public-error.js";
+import { forLog, redact } from "../lib/public-error.js";
 import {
   decodePaymentSignatureHeader,
   encodePaymentRequiredHeader,
@@ -171,7 +171,7 @@ export function requirePayment(deps: MerchantDeps) {
       }
       settlement = await facilitator.settle(payload, requirements);
     } catch (err) {
-      console.error("facilitator call failed:", err);
+      console.error("facilitator call failed:", forLog(err));
       res.status(502).json({ error: `the facilitator could not be reached: ${redact(err instanceof Error ? err.message : String(err))}` });
       return;
     }
@@ -190,7 +190,7 @@ export function requirePayment(deps: MerchantDeps) {
         amount: merchant.price,
       });
     } catch (err) {
-      console.error("settlement confirmation failed:", err);
+      console.error("settlement confirmation failed:", forLog(err));
       res.status(502).json({ error: `the settlement could not be confirmed: ${redact(err instanceof Error ? err.message : String(err))}` });
       return;
     }
@@ -379,7 +379,7 @@ export function proofPublisher(merchantKeypair: () => StellarSdk.Keypair) {
       }
       throw new Error(`publish_proof ${sent.hash} was not confirmed`);
     } catch (err) {
-      console.error("could not publish the proof of intent:", err);
+      console.error("could not publish the proof of intent:", forLog(err));
       return undefined;
     }
   };

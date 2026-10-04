@@ -7,7 +7,7 @@ import { readPolicyState, publicConfig } from "../policy/policy-routes.js";
 import { network, rpcServer, explorerTx } from "../config/network.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import { failPublicly } from "../lib/public-error.js";
-import { collectorFailure } from "./collector.js";
+import { collectorFailure, publicCollectorError } from "./collector.js";
 
 /**
  * The operational side: collecting events, exporting them, and the public
@@ -121,8 +121,8 @@ export function createOpsRouter() {
       let collector = null;
       let recent: unknown[] = [];
       if (isSupabaseConfigured()) {
-        // Only what the page needs. The stored error is already a fixed
-        // summary, never a raw message.
+        // Only what the page needs. New rows hold a fixed summary, but an
+        // older or hand-edited row may not, so the error is checked again.
         const [stateRow, events] = await Promise.all([
           getSupabase()
             .from("collector_state")
@@ -136,7 +136,7 @@ export function createOpsRouter() {
             .order("ledger", { ascending: false })
             .limit(20),
         ]);
-        collector = stateRow.data ?? null;
+        collector = stateRow.data ? { ...stateRow.data, last_error: publicCollectorError(stateRow.data.last_error) } : null;
         recent = (events.data ?? []).map((row) => ({ ...row, url: explorerTx(row.tx_hash) }));
       }
 

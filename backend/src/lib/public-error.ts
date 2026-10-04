@@ -27,8 +27,30 @@ export function redact(text: string): string {
   return SECRET_PATTERNS.reduce((out, pattern) => out.replace(pattern, "[redacted]"), text);
 }
 
+/**
+ * An error as it may appear in a server log.
+ *
+ * Hosted logs are readable by anyone with access to the project, and they
+ * outlive the request, so the same redaction applies there. The stack stays
+ * because it is the useful part and holds file paths, not credentials.
+ */
+export function forLog(err: unknown): string {
+  if (err instanceof Error) {
+    const cause = err.cause === undefined ? "" : `\ncaused by: ${forLog(err.cause)}`;
+    return redact(err.stack ?? `${err.name}: ${err.message}`) + cause;
+  }
+  if (typeof err === "object" && err !== null) {
+    try {
+      return redact(JSON.stringify(err));
+    } catch {
+      return "[unprintable error]";
+    }
+  }
+  return redact(String(err));
+}
+
 /** Log the detail, answer with a fixed summary. */
 export function failPublicly(res: Response, status: number, summary: string, err: unknown): void {
-  console.error(summary, err);
+  console.error(summary, forLog(err));
   res.status(status).json({ error: summary });
 }
