@@ -1,6 +1,8 @@
 # Review brief
 
-For the external peer reviewer. Thank you for doing this.
+For the external peer reviewer. Thank you for doing this. The
+[reviewer guide](reviewer-guide.md) has the setup, the one command that runs
+every check, and a list of attacks to try.
 
 ## What Beaver402 is
 
@@ -41,8 +43,8 @@ In order of importance.
    the wrong network, or the agent made to pay by someone else?
 8. **`backend/src/app.ts`, `ops/collector.ts`, `ops/ops-routes.ts` and
    Supabase SQL.** Inspect the public API surface and every path that can
-   return a raw database row or exception. [I14 and I16](findings.md) were
-   closed internally; I15 remains open. Confirm the fixes prevent unauthenticated access to
+   return a raw database row or exception. [I14, I15 and I16](findings.md)
+   were closed internally. Confirm the fixes prevent unauthenticated access to
    private attempts, secret-bearing diagnostics and a mainnet database
    accidentally paired with testnet.
 

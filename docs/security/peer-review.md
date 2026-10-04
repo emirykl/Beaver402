@@ -12,7 +12,7 @@ run, or a review of a different commit does not satisfy the SOW requirement.
 | Source commit and release tag | pending |
 | Optimized WASM SHA-256 | pending |
 | CI run reviewed | pending |
-| Review brief | [scope and questions](review-brief.md) |
+| Review brief | [scope and questions](review-brief.md), [how to run it](reviewer-guide.md) |
 
 ## Scope actually reviewed
 
@@ -38,7 +38,7 @@ _Pending reviewer input._
 | | | | | | |
 
 Transfer each finding to [findings.md](findings.md). The existing internal
-findings I14–I16 must be evaluated; the still-open I15 must be closed before mainnet.
+findings I14–I16 were closed internally and must be rechecked.
 Critical and high findings cannot remain open at the Kapı 2 decision.
 
 ## Reviewer conclusion
