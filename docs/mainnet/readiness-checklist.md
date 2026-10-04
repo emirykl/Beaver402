@@ -18,7 +18,7 @@ The current branch still needs a release CI run and external peer review.
 | 3 | Strict Clippy is clean | yes, local | [verification](verification-2026-10-02.md); release CI pending |
 | 4 | Rust, backend and frontend dependency audits are clean | yes, local | 0 vulnerabilities; Rust informational `paste` warning, [verification](verification-2026-10-02.md); release CI pending |
 | 5 | The contract has no upgrade path | yes | CI check, `lib.rs` |
-| 6 | The artifact is built reproducibly and its hash recorded | | local rebuild matched `963c55c1…6e76d42f`, [verification](verification-2026-10-02.md); tagged CI artifact comparison pending |
+| 6 | The artifact is built reproducibly and its hash recorded | | 4 Oct: CI and a local container build agree on `b94e7a95…e19ae73f` ([release.md](release.md)); the earlier `963c55c1…` was a native macOS build, which differs by platform. The release build is now pinned to linux/amd64 in `scripts/build-release.sh`. Tag pending |
 | 7 | The release is tagged | | GitHub release |
 
 ## The x402 path

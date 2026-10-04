@@ -10,8 +10,12 @@
 # the toolchain, every test and audit result, and the WASM hash next
 # to the one CI built for the same commit.
 #
+# The WASM is built by scripts/build-release.sh in a pinned Linux image,
+# the way CI builds it, because a native macOS build gives different
+# bytes from the same source.
+#
 # It reads nothing secret, needs no .env file and sends nothing to
-# any network except package registries and GitHub.
+# any network except package registries, Docker Hub and GitHub.
 # ──────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -48,7 +52,7 @@ need() {
 }
 need cargo   "install Rust with rustup; rust-toolchain.toml picks the version"
 need npm     "install Node.js 22 or newer"
-need stellar "install Stellar CLI 27.0.0 (the version CI pins)"
+need docker  "install Docker; the release WASM is built in a pinned Linux image"
 need shasum  "comes with macOS and most Linux distributions"
 
 # ── Contract ──────────────────────────────────────────────────────
@@ -59,9 +63,9 @@ if command -v cargo-audit >/dev/null 2>&1; then
 else
     RESULTS+=("skip  contract-audit   (cargo install cargo-audit)")
 fi
-run contract-build  stellar contract build
+run contract-build  ./scripts/build-release.sh
 
-WASM="target/wasm32v1-none/release/payment_policy.wasm"
+WASM="target/release-wasm/payment_policy.wasm"
 LOCAL_HASH="$( [ -f "$WASM" ] && shasum -a 256 "$WASM" | cut -d' ' -f1 || echo "not built")"
 LOCAL_BYTES="$( [ -f "$WASM" ] && wc -c <"$WASM" | tr -d ' ' || echo "-")"
 
@@ -83,7 +87,7 @@ if command -v gh >/dev/null 2>&1; then
     if [ -n "$RUN_ID" ]; then
         CI_RUN="$(gh run view "$RUN_ID" --json url -q .url)"
         if gh run download "$RUN_ID" --dir "$LOG/ci" >/dev/null 2>&1; then
-            FOUND="$(find "$LOG/ci" -name wasm.sha256 | head -1)"
+            FOUND="$(find "$LOG/ci" -name '*.sha256' | head -1)"
             [ -n "$FOUND" ] && CI_HASH="$(cut -d' ' -f1 "$FOUND")"
         fi
     fi
@@ -107,7 +111,7 @@ Beaver402 review check — $(date -u +%Y-%m-%dT%H:%MZ)
 commit          $COMMIT
 tag             $TAG
 rustc           $(rustc --version 2>/dev/null)
-stellar         $(stellar --version 2>/dev/null | head -1)
+release build   $(grep -E '^(rustc|stellar) ' "$LOG/contract-build.log" 2>/dev/null | tr '\n' ' ')
 node            $(node --version 2>/dev/null)
 
 contract tests  $CONTRACT_COUNT passed

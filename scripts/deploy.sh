@@ -134,9 +134,17 @@ if [ -z "$RECOVERY_ADDRESS" ]; then
 fi
 
 # ── Step 4: Build ─────────────────────────────────────────────────
-info "Building the contract..."
 cd "$ROOT_DIR"
-stellar contract build >/dev/null
+if [ "$NETWORK" = "mainnet" ]; then
+    # The reviewed hash comes from the pinned Linux build; a native build
+    # on macOS gives different bytes from the same source.
+    info "Building the release artifact in the pinned Linux image..."
+    "$ROOT_DIR/scripts/build-release.sh" >/dev/null
+    WASM_PATH="$ROOT_DIR/target/release-wasm/payment_policy.wasm"
+else
+    info "Building the contract..."
+    stellar contract build >/dev/null
+fi
 
 [ -f "$WASM_PATH" ] || error "WASM not found at $WASM_PATH"
 WASM_HASH=$(shasum -a 256 "$WASM_PATH" | cut -d' ' -f1)

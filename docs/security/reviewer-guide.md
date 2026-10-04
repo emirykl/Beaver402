@@ -19,9 +19,11 @@ git checkout v0.2.0-rc.1        # the tag you were sent
 ```
 
 You need Rust through rustup (`rust-toolchain.toml` picks 1.96.0 and the
-`wasm32v1-none` target), Node.js 22 or newer, [Stellar CLI 27.0.0](https://github.com/stellar/stellar-cli/releases/tag/v27.0.0)
-and, optionally, `cargo install cargo-audit` and the GitHub CLI `gh` so the
-script can fetch the hash CI built.
+`wasm32v1-none` target), Node.js 22 or newer, Docker, and optionally
+`cargo install cargo-audit` and the GitHub CLI `gh` so the script can fetch
+the hash CI built. The release WASM is built inside a pinned Linux image
+(`scripts/build-release.sh`), because a native macOS build gives different
+bytes from the same source; Docker makes the hash the same on any machine.
 
 ## 2. Run the automated checks
 

@@ -9,10 +9,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-Dwarnings"
-  # Builds the release artifact. Pinned with its checksum, because the WASM
-  # hash depends on it and the deployed hash has to be reproducible.
-  STELLAR_CLI_VERSION: "27.0.0"
-  STELLAR_CLI_SHA256: "357bf712f6353c28cd33c794402a3c87231757a5b305e6ef1604365af4fdd556"
 
 jobs:
   # ── Soroban Contract ───────────────────────────────────────────
@@ -56,23 +52,15 @@ jobs:
           cargo install --locked cargo-audit --version 0.22.2
           cargo audit
 
-      - name: Install the Stellar CLI
-        run: |
-          curl -sSfL -o stellar-cli.tgz \
-            "https://github.com/stellar/stellar-cli/releases/download/v${STELLAR_CLI_VERSION}/stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-          echo "${STELLAR_CLI_SHA256}  stellar-cli.tgz" | sha256sum --check
-          tar xzf stellar-cli.tgz stellar
-          sudo mv stellar /usr/local/bin/stellar
-          stellar --version
-
       - name: Build the release WASM
+        # The same script the reviewer and the mainnet deploy run: a pinned
+        # Linux image, the pinned Stellar CLI and rust-toolchain.toml.
         run: |
-          stellar contract build
-          sha256sum target/wasm32v1-none/release/payment_policy.wasm | tee wasm.sha256
+          ./scripts/build-release.sh
           {
             echo "### Release WASM"
             echo ""
-            echo "\`$(cut -d' ' -f1 wasm.sha256)\`"
+            echo "\`$(cut -d' ' -f1 target/release-wasm/payment_policy.wasm.sha256)\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the artifact
@@ -80,8 +68,8 @@ jobs:
         with:
           name: payment_policy-wasm
           path: |
-            target/wasm32v1-none/release/payment_policy.wasm
-            wasm.sha256
+            target/release-wasm/payment_policy.wasm
+            target/release-wasm/payment_policy.wasm.sha256
 
   # ── Backend ────────────────────────────────────────────────────
   backend:
