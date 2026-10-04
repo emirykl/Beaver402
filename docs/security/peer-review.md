@@ -9,9 +9,9 @@ run, or a review of a different commit does not satisfy the SOW requirement.
 | Reviewer and public attribution | pending |
 | Independence from implementation | pending |
 | Review dates | pending |
-| Source commit and release tag | pending |
-| Optimized WASM SHA-256 | pending |
-| CI run reviewed | pending |
+| Source commit and release tag | `36fc236`, `v0.2.0-rc.1` |
+| Optimized WASM SHA-256 | `b94e7a951332b9192696a2f6778a8e3833398172162b305271598285e19ae73f` (pinned Linux build) |
+| CI run reviewed | [37185797472](https://github.com/emirykl/Beaver402/actions/runs/37185797472) |
 | Review brief | [scope and questions](review-brief.md), [how to run it](reviewer-guide.md) |
 
 ## Scope actually reviewed
