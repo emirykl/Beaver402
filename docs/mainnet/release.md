@@ -44,7 +44,6 @@ and refuses any hash other than the reviewed one. A native
 | 2026-09-30 | `d8dae24` | 15,168 | `b47cff38…eb56b96d` | first month, SDK 26 |
 | 2026-10-02 | `3111ebc` | 28,488 | `963c55c19644bddb55ad0c78ba75572cc7bb4289cde517520f820f060e76d42f` | reworked for the mainnet pilot; a native macOS build, so not a release reference |
 | 2026-10-04 | `6203712` | 28,488 | `b94e7a951332b9192696a2f6778a8e3833398172162b305271598285e19ae73f` | the pinned Linux build; [CI run](https://github.com/emirykl/Beaver402/actions/runs/37184988982) and a local container agree. Contract source unchanged since `3111ebc` |
-
 | 2026-10-04 | `36fc236`, tag `v0.2.0-rc.1` | 28,488 | `b94e7a951332b9192696a2f6778a8e3833398172162b305271598285e19ae73f` | first release candidate, sent for external review; [CI run](https://github.com/emirykl/Beaver402/actions/runs/37185797472) matches the local container build |
 
 The reviewed release candidate's hash is the one in the last row, and the deploy
