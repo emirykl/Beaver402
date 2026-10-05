@@ -13,6 +13,8 @@ import {
 import { getSupabase, isSupabaseConfigured } from "./lib/supabase.js";
 import { describePolicyError } from "./shared/policy-errors.js";
 import { network } from "./config/network.js";
+import { isChainEnabled } from "./chains/registry.js";
+import { solana } from "./chains/solana/config.js";
 import { isAuthenticated } from "./lib/sessions.js";
 import { failPublicly } from "./lib/public-error.js";
 
@@ -128,7 +130,7 @@ export function createApp(role: Role = roleFromEnv()) {
         const { data, error } = await supabase
           .from("transactions")
           .select("id, tx_hash, recipient, asset, amount, status, error, created_at")
-          .eq("network", network().passphrase)
+          .eq("network", req.query.chain === "solana" && isChainEnabled("solana") ? solana().caip2 : network().passphrase)
           .order("created_at", { ascending: false })
           .limit(50);
 

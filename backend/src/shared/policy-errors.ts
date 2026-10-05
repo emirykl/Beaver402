@@ -117,6 +117,27 @@ export const POLICY_ERRORS: Record<string, { name: string; reason: string }> = {
 };
 
 /**
+ * Refusals only the Solana program makes. Everything else it reports under
+ * the same names as the Soroban contract.
+ */
+const SOLANA_ONLY: Record<string, string> = {
+  UnexpectedInstruction: "the transaction carried an instruction the account does not accept",
+  MerchantListFull: "the account already has as many approved merchants as it can hold",
+};
+
+/**
+ * The reason a Solana refusal gives. Anchor writes the error's name into
+ * the program logs, which travel inside the RPC error.
+ */
+function solanaRefusal(message: string): string | undefined {
+  const name = message.match(/Error Code: (\w+)\./)?.[1];
+  if (!name) return undefined;
+  const known = Object.values(POLICY_ERRORS).find((e) => e.name === name);
+  const reason = known?.reason ?? SOLANA_ONLY[name];
+  return reason ? `${name}, ${reason}` : `the policy refused this, ${name}`;
+}
+
+/**
  * The policy's code, dug out of whatever the host wrapped it in.
  *
  * Only a code the account itself returned counts: the host reports it as
@@ -144,6 +165,9 @@ function otherContractRefusal(message: string): string | undefined {
 export function policyErrorName(message: string | undefined): string | undefined {
   if (!message) return undefined;
 
+  const solanaName = message.match(/Error Code: (\w+)\./)?.[1];
+  if (solanaName) return solanaName;
+
   const code = codeIn(message);
   if (!code) return undefined;
 
@@ -158,6 +182,9 @@ export function policyErrorName(message: string | undefined): string | undefined
  */
 export function describePolicyError(message: string | undefined): string {
   if (!message) return "";
+
+  const solana = solanaRefusal(message);
+  if (solana) return solana;
 
   const code = codeIn(message);
   if (!code) {
@@ -183,6 +210,8 @@ export function describePolicyError(message: string | undefined): string {
  * reported as the token's.)
  */
 export function describeOwnerActionError(message: string): string {
+  const solana = solanaRefusal(message);
+  if (solana) return solana;
   const fromAuth = codeIn(message);
   const direct = message.match(/HostError: Error\(Contract, #(\d+)\)/)?.[1];
   const code = fromAuth ?? direct;

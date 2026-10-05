@@ -5,6 +5,16 @@ import { createRateLimit } from "../lib/rate-limit.js";
 import { network, rpcServer, explorerContract } from "../config/network.js";
 import { describeOwnerActionError } from "../shared/policy-errors.js";
 import { failPublicly, redact } from "../lib/public-error.js";
+import { enabledChains, isChainEnabled } from "../chains/registry.js";
+import { solana, solanaExplorerAccount } from "../chains/solana/config.js";
+import {
+  isSolanaOwnerAction,
+  prepareSolanaOwnerAction,
+  readPolicyAccount,
+  submitSolanaOwnerAction,
+} from "../chains/solana/owner-actions.js";
+import { velocityState } from "../chains/solana/policy-account.js";
+import { solanaAddressOf } from "../chains/solana/program.js";
 import {
   isOwnerAction,
   prepareOwnerAction,
@@ -184,11 +194,64 @@ async function readLimits(): Promise<LimitsReading | null> {
   }
 }
 
+/** The Solana side of the account, the same shape the panel reads. */
+export async function readSolanaPolicyState() {
+  const config = solana();
+  if (!config.policy) {
+    return {
+      chain: "solana",
+      frozen: false,
+      agentSigner: null,
+      velocityTxCount: 0,
+      velocityTotalAmount: "0",
+      velocityWindowStart: 0,
+      contractId: "not deployed",
+      merchantApproved: false,
+      velocityMaxTxCount: 0,
+      limits: null,
+    };
+  }
+  const account = await readPolicyAccount(config);
+  const window = velocityState(account, Math.floor(Date.now() / 1000));
+  const merchant = merchantPublicKey();
+  return {
+    chain: "solana",
+    frozen: account.frozen,
+    agentSigner: account.agentSigner,
+    velocityTxCount: window.txCount,
+    velocityTotalAmount: window.totalAmount,
+    velocityWindowStart: window.windowStart,
+    contractId: config.policy,
+    merchantApproved: merchant ? account.merchants.includes(solanaAddressOf(merchant)) : false,
+    velocityMaxTxCount: account.limits.maxTxCount,
+    limits: account.limits,
+  };
+}
+
+function solanaPublicConfig() {
+  const config = solana();
+  const merchant = merchantPublicKey();
+  return {
+    cluster: config.cluster,
+    caip2: config.caip2,
+    explorer: config.explorer,
+    programId: config.programId,
+    policy: config.policy,
+    policyUrl: config.policy ? solanaExplorerAccount(config.policy) : null,
+    asset: config.usdcMint,
+    decimals: config.usdcDecimals,
+    merchantPubkey: merchant ? solanaAddressOf(merchant) : null,
+  };
+}
+
 /** What the public may see about the deployment. Nothing here is secret. */
 export function publicConfig() {
   const config = network();
   const id = contractId();
+  const chains = enabledChains();
   return {
+    chains,
+    ...(chains.includes("solana") ? { solana: solanaPublicConfig() } : {}),
     network: config.name,
     caip2: config.caip2,
     explorer: config.explorer,
@@ -272,8 +335,16 @@ export function createPolicyRouter() {
     res.json(publicConfig());
   });
 
-  router.get("/api/policy/state", async (_req: Request, res: Response) => {
+  router.get("/api/policy/state", async (req: Request, res: Response) => {
     try {
+      if (req.query.chain === "solana") {
+        if (!isChainEnabled("solana")) {
+          res.status(404).json({ error: "this deployment does not run on Solana" });
+          return;
+        }
+        res.json(await readSolanaPolicyState());
+        return;
+      }
       res.json(await readPolicyState());
     } catch (err) {
       failPublicly(res, 500, "could not read the account", err);
@@ -292,6 +363,22 @@ export function createPolicyRouter() {
     }
 
     const action = String(req.body?.action ?? "");
+    if (req.body?.chain === "solana") {
+      if (!isChainEnabled("solana") || !isSolanaOwnerAction(action)) {
+        res.status(400).json({ success: false, error: "not an owner action on Solana here" });
+        return;
+      }
+      try {
+        const prepared = await prepareSolanaOwnerAction(action, {
+          pubkey: req.body?.pubkey ?? req.body?.merchantPubkey,
+          limits: req.body?.limits,
+        });
+        res.json({ success: true, prepared });
+      } catch (err) {
+        res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
+      }
+      return;
+    }
     if (!isOwnerAction(action)) {
       res.status(400).json({
         success: false,
@@ -320,6 +407,19 @@ export function createPolicyRouter() {
     }
 
     const { prepared, assertion } = req.body ?? {};
+    if (prepared?.chain === "solana") {
+      if (!isChainEnabled("solana") || !assertion?.signature) {
+        res.status(400).json({ success: false, error: "prepared action and passkey assertion are both required" });
+        return;
+      }
+      try {
+        const result = await submitSolanaOwnerAction(prepared, assertion, requireFeeSecret());
+        res.json({ success: true, txHash: result.txHash });
+      } catch (err) {
+        res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
+      }
+      return;
+    }
     if (!prepared?.authEntry || !assertion?.signature) {
       res.status(400).json({
         success: false,
