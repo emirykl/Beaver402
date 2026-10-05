@@ -8,6 +8,7 @@ dist/
 # Grant forms, scope documents, notes and plans stay local
 *.pdf
 *.txt
+Instawards *.md
 investigations/
 docs/demo-cekimi.md
 
