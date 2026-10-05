@@ -1,0 +1,20 @@
+# The Solana program lives in its own workspace, apart from the Soroban
+# contract at the root, so nothing here can change the Stellar release
+# build or its hash.
+[workspace]
+members = ["programs/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.89.0"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1

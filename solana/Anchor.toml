@@ -1,0 +1,21 @@
+[toolchain]
+anchor_version = "1.2.0"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+beaver402_policy = "6PLoS71vwBV76RnRWuT3yoPHqzXrBdkW53Dn3BL9Uhx5"
+
+[programs.localnet]
+beaver402_policy = "6PLoS71vwBV76RnRWuT3yoPHqzXrBdkW53Dn3BL9Uhx5"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/beaver402-deployer.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]

@@ -1,0 +1,7 @@
+# Host side builds, the IDL and the LiteSVM tests, need this toolchain. The
+# program itself is compiled by the Solana platform tools. The root
+# rust-toolchain.toml stays pinned for the Soroban release build.
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
