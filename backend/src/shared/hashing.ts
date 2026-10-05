@@ -1,5 +1,11 @@
 import { createHash } from "crypto";
 import type { ChallengeFields, IntentFields, PayloadFields } from "./types.js";
+import {
+  isSolanaNetwork,
+  SOLANA_CHALLENGE_DOMAIN,
+  SOLANA_INTENT_DOMAIN,
+  solanaSettlementPreimage,
+} from "../chains/solana/encoding.js";
 
 // The merchant challenge and the buyer intent cover the same fields but are
 // hashed under different domains, so a signature over one can never be
@@ -130,11 +136,22 @@ export function settlementPreimage(fields: PayloadFields): Buffer {
   ]);
 }
 
+/**
+ * The network field says which chain a challenge is for: a Stellar
+ * passphrase, or a Solana CAIP-2 id. Each chain has its own preimage and its
+ * own domains, so a challenge for one can never verify on the other.
+ */
 export function hashChallenge(fields: ChallengeFields): Buffer {
+  if (isSolanaNetwork(fields.network)) {
+    return domainSeparatedHash(SOLANA_CHALLENGE_DOMAIN, solanaSettlementPreimage(fields));
+  }
   return domainSeparatedHash(CHALLENGE_DOMAIN, settlementPreimage(fields));
 }
 
 export function hashIntent(fields: IntentFields): Buffer {
+  if (isSolanaNetwork(fields.network)) {
+    return domainSeparatedHash(SOLANA_INTENT_DOMAIN, solanaSettlementPreimage(fields));
+  }
   return domainSeparatedHash(INTENT_DOMAIN, settlementPreimage(fields));
 }
 

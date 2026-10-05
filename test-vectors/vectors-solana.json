@@ -1,0 +1,128 @@
+{
+  "description": "Shared vectors for the Solana family of the Beaver402 canonical encoding. Generated from the TypeScript implementation and verified from Rust.",
+  "version": "2",
+  "domains": {
+    "request": "beaver402:request:v1",
+    "challenge": "beaver402:challenge:solana:v1",
+    "intent": "beaver402:intent:solana:v1",
+    "owner": "beaver402:owner:solana:v1"
+  },
+  "vectors": [
+    {
+      "name": "basic_payment",
+      "note": "A plain GET with no request body.",
+      "fields": {
+        "version": "2",
+        "merchantPubkey": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "7cVfgArCheMR6Cs4t6vz5rfnqd56vZq4ndaBrY5xkxXy",
+        "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        "amount": "100000",
+        "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "requestDigest": "ff2627918200e8a9d790866fe9eda43bc6afa444093c9d31919a7859d093bbb1",
+      "settlementPreimage": "ff2627918200e8a9d790866fe9eda43bc6afa444093c9d31919a7859d093bbb1623ddd117e7cc562f6631505258cd1dcee81949f8afd1ea294dc47be6ecff3a83b442cb3912157f13a933d0134282d032b5ffecd01a2dbf1b7790608df002ea700000000000186a0b2c97883ba3b24ab842ec5ad7bcc18bcf08e91f9af8ed678b951e6a3e162cc409f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "b62acfd9b08dc582c634496573ab926d26c7b7df44d785ea6d7920329bc138c0",
+      "intentHash": "cf70c3d3e17cd69815ebd85de235d22b755e942ac743040d221f3e1a8df0e240"
+    },
+    {
+      "name": "post_with_body",
+      "note": "A POST whose body is covered by the request digest.",
+      "fields": {
+        "version": "2",
+        "merchantPubkey": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+        "httpMethod": "POST",
+        "normalizedEndpoint": "https://api.merchant.com/query",
+        "bodyHash": "61533431961900f37492f0662134930261b04ce4b7d984cd18a7662fa42b7128",
+        "recipient": "7cVfgArCheMR6Cs4t6vz5rfnqd56vZq4ndaBrY5xkxXy",
+        "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        "amount": "100000",
+        "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "requestDigest": "9f352e2549587686e782e007869ada9e8bba08611ec78717d025da99c39ccf8d",
+      "settlementPreimage": "9f352e2549587686e782e007869ada9e8bba08611ec78717d025da99c39ccf8d623ddd117e7cc562f6631505258cd1dcee81949f8afd1ea294dc47be6ecff3a83b442cb3912157f13a933d0134282d032b5ffecd01a2dbf1b7790608df002ea700000000000186a0b2c97883ba3b24ab842ec5ad7bcc18bcf08e91f9af8ed678b951e6a3e162cc409f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "219915b289019a6152e5faa4af3d10455a9d0135ffb102ed6763dc7d62d519ac",
+      "intentHash": "67fe3d2c13d1dee860c3498c3e67af5c18526a3bb2c0d8538d9ad69c70e543d1"
+    },
+    {
+      "name": "other_recipient",
+      "note": "Only the recipient differs from basic_payment.",
+      "fields": {
+        "version": "2",
+        "merchantPubkey": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH",
+        "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        "amount": "100000",
+        "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "requestDigest": "ff2627918200e8a9d790866fe9eda43bc6afa444093c9d31919a7859d093bbb1",
+      "settlementPreimage": "ff2627918200e8a9d790866fe9eda43bc6afa444093c9d31919a7859d093bbb1f323a84e2c6e7facb10c05210cc6409686d30343f2fb80d4e577f7e39acefa663b442cb3912157f13a933d0134282d032b5ffecd01a2dbf1b7790608df002ea700000000000186a0b2c97883ba3b24ab842ec5ad7bcc18bcf08e91f9af8ed678b951e6a3e162cc409f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "6aa30bd746fc912b0c421a228d744fd2191dbcdb179af63f4fe62bcaa776a542",
+      "intentHash": "23e455f969f58c4157491ffda10bab175e3ce2e2397b98577df79a162617c193"
+    },
+    {
+      "name": "large_amount",
+      "note": "The largest amount a u64 carries.",
+      "fields": {
+        "version": "2",
+        "merchantPubkey": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+        "httpMethod": "GET",
+        "normalizedEndpoint": "https://api.merchant.com/data",
+        "bodyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "recipient": "7cVfgArCheMR6Cs4t6vz5rfnqd56vZq4ndaBrY5xkxXy",
+        "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        "amount": "18446744073709551615",
+        "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+        "nonce": "9f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15",
+        "expiry": "1700000000"
+      },
+      "requestDigest": "ff2627918200e8a9d790866fe9eda43bc6afa444093c9d31919a7859d093bbb1",
+      "settlementPreimage": "ff2627918200e8a9d790866fe9eda43bc6afa444093c9d31919a7859d093bbb1623ddd117e7cc562f6631505258cd1dcee81949f8afd1ea294dc47be6ecff3a83b442cb3912157f13a933d0134282d032b5ffecd01a2dbf1b7790608df002ea7ffffffffffffffffb2c97883ba3b24ab842ec5ad7bcc18bcf08e91f9af8ed678b951e6a3e162cc409f2b7c1d4e6a8035bd91c7f0a3e5d284617b09cf3a2d5e8104f7b6c93a0d2e15000000006553f100",
+      "challengeHash": "6fa5fbba64ed7ea43a00c4b27167748780032d01db338156746d66739ea48b76",
+      "intentHash": "27ac31004a6456b191b2c62bab56a17bec8f18796f7838da6eabbd91e13534ce"
+    }
+  ],
+  "ownerVectors": [
+    {
+      "name": "freeze",
+      "programId": "6PLoS71vwBV76RnRWuT3yoPHqzXrBdkW53Dn3BL9Uhx5",
+      "policy": "5ZWj7a1f8tWkjBESHKgrLmXshuXxqeY9SYcfbshpAqPG",
+      "action": "freeze_payments",
+      "args": "",
+      "ownerNonce": "0",
+      "validUntil": "1700000600",
+      "challenge": "4427e3c9050e62e31503bad418f8ba0a1f110ce61cd9850f8096237153983dc5"
+    },
+    {
+      "name": "add_merchant",
+      "programId": "6PLoS71vwBV76RnRWuT3yoPHqzXrBdkW53Dn3BL9Uhx5",
+      "policy": "5ZWj7a1f8tWkjBESHKgrLmXshuXxqeY9SYcfbshpAqPG",
+      "action": "add_merchant",
+      "args": "850f2d6e02a47af824d09ab69dc42d70cb28cbfa249fb7ee57b9d256c12762ef",
+      "ownerNonce": "3",
+      "validUntil": "1700000600",
+      "challenge": "8f0dd692e5e6985ee965b4af6b0225e8c18a544c4e07710841c007ffe6940315"
+    },
+    {
+      "name": "reduce_limits",
+      "programId": "6PLoS71vwBV76RnRWuT3yoPHqzXrBdkW53Dn3BL9Uhx5",
+      "policy": "5ZWj7a1f8tWkjBESHKgrLmXshuXxqeY9SYcfbshpAqPG",
+      "action": "reduce_limits",
+      "args": "000000000007a1200000000300000000001e84800000000000015180",
+      "ownerNonce": "7",
+      "validUntil": "1700000600",
+      "challenge": "04dae56e95551f4d118ca783c597877ca2d24332dc745605d9cc739c02f3f903"
+    }
+  ]
+}
