@@ -4,6 +4,9 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 
 import { createSignedChallenge } from "./challenge-signer.js";
 import { authorizedTerms, bindPaymentToRequest, PaymentBindingError } from "./payment-binding.js";
+import { address } from "@solana/kit";
+import { isChainEnabled } from "../chains/registry.js";
+import { solanaMerchant, type SolanaMerchant } from "../chains/solana/merchant.js";
 import { confirmSettlement, type ExpectedTransfer } from "./settlement.js";
 import type { MerchantConfig } from "./demo-endpoint.js";
 import { network, rpcServer } from "../config/network.js";
@@ -18,6 +21,7 @@ import {
   MAX_TIMEOUT_SECONDS,
   sameRequirements,
   X402_VERSION,
+  type Beaver402Extension,
   type Beaver402Receipt,
   type PaymentPayload,
   type PaymentRequired,
@@ -35,6 +39,9 @@ export interface Facilitator {
 }
 
 export interface SettledPayment {
+  /** Which network settled it. Defaults to the configured Stellar one. */
+  network?: string;
+  facilitator?: string;
   txHash: string;
   nonce: string;
   challengeHash: string;
@@ -53,6 +60,8 @@ export interface MerchantDeps {
   record: (payment: SettledPayment) => Promise<boolean>;
   /** Publishes the proof of intent and returns its transaction, if it went out. */
   publishProof: (policyAccount: string, nonce: string) => Promise<string | undefined>;
+  /** Selling on Solana as well, when the deployment has it turned on. */
+  solana?: () => SolanaMerchant | null;
 }
 
 /** The standard x402 requirements for this merchant's price. */
@@ -77,7 +86,13 @@ function observed(req: Request): { method: string; url: string; body: string | n
   };
 }
 
-function askForPayment(req: Request, res: Response, merchant: MerchantConfig, error?: string): void {
+function askForPayment(
+  req: Request,
+  res: Response,
+  merchant: MerchantConfig,
+  error?: string,
+  solana?: SolanaMerchant | null
+): void {
   const request = observed(req);
   const challenge = createSignedChallenge({
     merchantKeypair: merchant.keypair,
@@ -91,12 +106,24 @@ function askForPayment(req: Request, res: Response, merchant: MerchantConfig, er
     expirySeconds: CHALLENGE_SECONDS,
   });
 
+  const accepts = [requirementsFor(merchant)];
+  const extension: Beaver402Extension = { challenge };
+  if (solana) {
+    // One challenge per network, each over this same request. The agent
+    // pays on whichever it holds funds on.
+    accepts.push(solana.requirements());
+    extension.challenges = {
+      [network().caip2]: challenge,
+      [solana.caip2]: solana.challenge(request),
+    };
+  }
+
   const required: PaymentRequired = {
     x402Version: X402_VERSION,
     error: error ?? "Payment Required",
     resource: { url: request.url, description: "Beaver402 reference resource", mimeType: "application/json" },
-    accepts: [requirementsFor(merchant)],
-    extensions: { [EXTENSION]: { challenge } },
+    accepts,
+    extensions: { [EXTENSION]: extension },
   };
 
   res.setHeader(HEADERS.required, encodePaymentRequiredHeader(required));
@@ -124,9 +151,11 @@ function askForPayment(req: Request, res: Response, merchant: MerchantConfig, er
 export function requirePayment(deps: MerchantDeps) {
   return async function payment(req: Request, res: Response, next: NextFunction): Promise<void> {
     const merchant = deps.merchant();
+    const solana = deps.solana?.() ?? null;
+    const ask = (error?: string) => askForPayment(req, res, merchant, error, solana);
     const header = req.get(HEADERS.signature);
     if (!header) {
-      askForPayment(req, res, merchant);
+      ask();
       return;
     }
 
@@ -138,9 +167,14 @@ export function requirePayment(deps: MerchantDeps) {
       return;
     }
 
+    if (solana && payload.accepted?.network === solana.caip2) {
+      await solanaPayment(req, res, next, deps, payload, solana, ask);
+      return;
+    }
+
     const requirements = requirementsFor(merchant);
     if (payload.x402Version !== X402_VERSION || !payload.accepted || !sameRequirements(payload.accepted, requirements)) {
-      askForPayment(req, res, merchant, "the payment does not match what this resource costs");
+      ask("the payment does not match what this resource costs");
       return;
     }
 
@@ -157,7 +191,7 @@ export function requirePayment(deps: MerchantDeps) {
       }));
     } catch (err) {
       const reason = err instanceof PaymentBindingError ? err.message : "the payment could not be read";
-      askForPayment(req, res, merchant, reason);
+      ask(reason);
       return;
     }
 
@@ -166,7 +200,7 @@ export function requirePayment(deps: MerchantDeps) {
     try {
       const verdict = await facilitator.verify(payload, requirements);
       if (!verdict.isValid) {
-        askForPayment(req, res, merchant, `the facilitator refused the payment: ${verdict.invalidReason ?? "invalid"}`);
+        ask(`the facilitator refused the payment: ${verdict.invalidReason ?? "invalid"}`);
         return;
       }
       settlement = await facilitator.settle(payload, requirements);
@@ -178,7 +212,7 @@ export function requirePayment(deps: MerchantDeps) {
 
     if (!settlement.success) {
       res.setHeader(HEADERS.response, encodePaymentResponseHeader(settlement));
-      askForPayment(req, res, merchant, `settlement failed: ${settlement.errorReason ?? "unknown"}`);
+      ask(`settlement failed: ${settlement.errorReason ?? "unknown"}`);
       return;
     }
 
@@ -218,6 +252,65 @@ export function requirePayment(deps: MerchantDeps) {
     );
     next();
   };
+}
+
+/**
+ * A payment on Solana. The merchant reads it, binds it to this request,
+ * settles it itself as the fee payer and confirms it on the ledger. The
+ * proof of intent is part of the payment there, so the receipt points at
+ * the payment's own transaction.
+ */
+async function solanaPayment(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  deps: MerchantDeps,
+  payload: PaymentPayload,
+  solana: SolanaMerchant,
+  ask: (error?: string) => void
+): Promise<void> {
+  const requirements = solana.requirements();
+  if (payload.x402Version !== X402_VERSION || !payload.accepted || !sameRequirements(payload.accepted, requirements)) {
+    ask("the payment does not match what this resource costs");
+    return;
+  }
+
+  let settled: Awaited<ReturnType<SolanaMerchant["settle"]>>;
+  try {
+    settled = await solana.settle(payload, observed(req));
+  } catch (err) {
+    if (err instanceof PaymentBindingError) {
+      ask(err.message);
+      return;
+    }
+    console.error("solana settlement failed:", forLog(err));
+    res.status(502).json({ error: `the payment could not be settled: ${redact(err instanceof Error ? err.message : String(err))}` });
+    return;
+  }
+
+  const { settlement, terms, challengeHash } = settled;
+  const fresh = await deps.record({
+    network: solana.caip2,
+    facilitator: "merchant",
+    txHash: settlement.transaction,
+    nonce: terms.nonce,
+    challengeHash,
+    payer: terms.payer,
+    recipient: terms.recipient,
+    asset: terms.asset,
+    amount: terms.amount,
+  });
+  if (!fresh) {
+    res.status(409).json({ error: "this payment has already been used" });
+    return;
+  }
+
+  const receipt: Beaver402Receipt = { challengeHash, nonce: terms.nonce, proofTransaction: settlement.transaction };
+  res.setHeader(
+    HEADERS.response,
+    encodePaymentResponseHeader({ ...settlement, extensions: { ...settlement.extensions, [EXTENSION]: receipt } })
+  );
+  next();
 }
 
 // ── The real dependencies ─────────────────────────────────────────
@@ -324,12 +417,12 @@ export async function recordSettlement(payment: SettledPayment): Promise<boolean
     tx_hash: payment.txHash,
     nonce: payment.nonce,
     challenge_hash: payment.challengeHash,
-    network: network().passphrase,
+    network: payment.network ?? network().passphrase,
     payer: payment.payer,
     recipient: payment.recipient,
     asset: payment.asset,
     amount: payment.amount,
-    facilitator: network().facilitatorUrl,
+    facilitator: payment.facilitator ?? network().facilitatorUrl,
   });
   if (!error) return true;
   // A unique violation means this payment was seen before.
@@ -385,6 +478,23 @@ export function proofPublisher(merchantKeypair: () => StellarSdk.Keypair) {
   };
 }
 
+let solanaSide: SolanaMerchant | null | undefined;
+
+/** The Solana side of the demo merchant, when BEAVER_CHAINS turns it on. */
+export function liveSolanaMerchant(merchant: () => MerchantConfig): SolanaMerchant | null {
+  if (solanaSide !== undefined) return solanaSide;
+  if (!isChainEnabled("solana")) {
+    solanaSide = null;
+    return solanaSide;
+  }
+  const recipient = process.env.SOLANA_RECIPIENT_ADDRESS;
+  solanaSide = solanaMerchant({
+    keypair: merchant().keypair,
+    recipient: recipient ? address(recipient) : undefined,
+  });
+  return solanaSide;
+}
+
 export function liveMerchantDeps(merchant: () => MerchantConfig): MerchantDeps {
   return {
     merchant,
@@ -392,5 +502,6 @@ export function liveMerchantDeps(merchant: () => MerchantConfig): MerchantDeps {
     confirm: (txHash, expected) => confirmSettlement(txHash, expected),
     record: recordSettlement,
     publishProof: proofPublisher(() => merchant().keypair),
+    solana: () => liveSolanaMerchant(merchant),
   };
 }
