@@ -9,13 +9,15 @@
     "dev": "tsx --env-file-if-exists=.env src/index.ts",
     "mcp": "tsx --env-file-if-exists=.env src/mcp/server.ts",
     "vectors": "tsx scripts/generate-vectors.ts",
+    "vectors:solana": "tsx scripts/generate-solana-vectors.ts",
     "owner:key": "tsx --env-file-if-exists=.env scripts/owner-key.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "scenarios": "tsx --env-file-if-exists=.env scripts/scenarios.ts",
     "dev:mainnet": "BEAVER_NETWORK=mainnet tsx --env-file=.env.mainnet src/index.ts",
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
-    "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts"
+    "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts",
+    "solana:init": "tsx --env-file-if-exists=.env scripts/solana-init.ts"
   },
   "keywords": [
     "stellar",
@@ -28,6 +30,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@simplewebauthn/server": "^13.3.2",
+    "@solana-program/compute-budget": "^0.19.0",
+    "@solana-program/token": "^0.17.0",
+    "@solana/kit": "^8.4.0",
     "@stellar/stellar-sdk": "^16.3.1",
     "@supabase/supabase-js": "^2.112.2",
     "@x402/core": "2.28.0",
