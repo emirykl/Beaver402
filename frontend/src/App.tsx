@@ -17,6 +17,9 @@ import {
   type PolicyState,
   type PublicConfig,
   type Transaction,
+  type Chain,
+  getChain,
+  setChain,
 } from "./stellar-ops.js";
 import {
   registerPasskey,
@@ -102,6 +105,7 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [merchantInfo, setMerchantInfo] = useState<MerchantInfo | null>(null);
   const [config, setConfig] = useState<PublicConfig | null>(null);
+  const [chain, setChainState] = useState<Chain>(getChain());
   const [authError, setAuthError] = useState<string | null>(null);
   // Recovering the funds and removing the merchant are hard to undo in the
   // middle of an incident, so each takes two presses.
@@ -164,6 +168,15 @@ export default function App() {
     refresh();
   }, [refresh]);
 
+  const switchChain = useCallback(
+    (next: Chain) => {
+      setChain(next);
+      setChainState(next);
+      refresh();
+    },
+    [refresh]
+  );
+
   const handleAction = useCallback(
     async (
       action: string,
@@ -219,13 +232,27 @@ export default function App() {
     );
   }
 
-  const deployed = /^C[A-Z2-7]{55}$/.test(policyState.contractId);
+  const onSolana = chain === "solana";
+  unitDecimals = onSolana ? config?.solana?.decimals ?? 6 : 7;
+  const deployed = onSolana
+    ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(policyState.contractId)
+    : /^C[A-Z2-7]{55}$/.test(policyState.contractId);
   const needsMerchant = deployed && policyState.merchantApproved === false;
   const live = deployed && !policyState.frozen && policyState.agentSigner !== null;
   const explorer = config?.explorer ?? "https://stellar.expert/explorer/testnet";
+  const solanaExplorer = config?.solana?.explorer ?? "https://explorer.solana.com";
+  const cluster = `?cluster=${config?.solana?.cluster ?? "devnet"}`;
+  const accountUrl = onSolana
+    ? `${solanaExplorer}/address/${policyState.contractId}${cluster}`
+    : `${explorer}/contract/${policyState.contractId}`;
+  const txUrl = (hash: string) => (onSolana ? `${solanaExplorer}/tx/${hash}${cluster}` : `${explorer}/tx/${hash}`);
   // The merchant runs as its own deployment on mainnet, so its key comes from
-  // the public config when the merchant's own endpoint is not served here.
-  const merchantKey = merchantInfo?.merchantPubkey ?? config?.merchantPubkey ?? null;
+  // the public config when the merchant's own endpoint is not served here. On
+  // Solana the same key is written in base58.
+  const merchantKey = onSolana
+    ? config?.solana?.merchantPubkey ?? null
+    : merchantInfo?.merchantPubkey ?? config?.merchantPubkey ?? null;
+  const multiChain = config?.chains?.includes("solana") ?? false;
   const limits = policyState.limits ?? null;
 
   // ── Console ─────────────────────────────────────────────────────
@@ -239,11 +266,15 @@ export default function App() {
             <div style={topTitle}>BEAVER402</div>
             <div style={topSub}>
               <span style={topSubLabel}>
-                {config?.network === "mainnet" ? "MAINNET ACCOUNT" : "TESTNET ACCOUNT"}
+                {onSolana
+                  ? "SOLANA DEVNET ACCOUNT"
+                  : config?.network === "mainnet"
+                    ? "MAINNET ACCOUNT"
+                    : "TESTNET ACCOUNT"}
               </span>
               <a
                 style={topSubLink}
-                href={`${explorer}/contract/${policyState.contractId}`}
+                href={accountUrl}
                 target="_blank"
                 rel="noreferrer"
                 title={policyState.contractId}
@@ -252,6 +283,25 @@ export default function App() {
               </a>
             </div>
           </div>
+          {multiChain ? (
+            <div style={chainSwitch} role="group" aria-label="Chain">
+              {(["stellar", "solana"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={chain === option}
+                  style={{
+                    ...chainButton,
+                    color: chain === option ? text : dim,
+                    borderColor: chain === option ? text : edge,
+                  }}
+                  onClick={() => switchChain(option)}
+                >
+                  {option.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div style={indicator}>
             <span
               style={{
@@ -413,7 +463,7 @@ export default function App() {
               ) : (
                 <div style={scroller}>
                   {transactions.map((tx) => (
-                    <TxRow key={tx.id} tx={tx} explorer={explorer} />
+                    <TxRow key={tx.id} tx={tx} txUrl={txUrl} />
                   ))}
                 </div>
               )}
@@ -637,7 +687,7 @@ function LimitField({
   );
 }
 
-function TxRow({ tx, explorer }: { tx: Transaction; explorer: string }) {
+function TxRow({ tx, txUrl }: { tx: Transaction; txUrl: (hash: string) => string }) {
   const ok = tx.status === "success";
   return (
     <div style={{ ...txRow, borderLeftColor: ok ? green : red }}>
@@ -650,7 +700,7 @@ function TxRow({ tx, explorer }: { tx: Transaction; explorer: string }) {
       {tx.tx_hash ? (
         <a
           style={txLink}
-          href={`${explorer}/tx/${tx.tx_hash}`}
+          href={txUrl(tx.tx_hash)}
           target="_blank"
           rel="noreferrer"
         >
@@ -664,29 +714,55 @@ function TxRow({ tx, explorer }: { tx: Transaction; explorer: string }) {
   );
 }
 
+const chainSwitch: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  flexShrink: 0,
+};
+
+const chainButton: React.CSSProperties = {
+  background: "transparent",
+  border: `1px solid ${edge}`,
+  padding: "4px 8px",
+  font: "inherit",
+  fontSize: 11,
+  letterSpacing: 1,
+  cursor: "pointer",
+};
+
 /* ---- Helpers ---- */
 
-/** Stroops as USDC with every significant decimal, for editing. */
+/**
+ * Decimals of the USDC on the chain being shown: seven on Stellar, six on
+ * Solana. Set while the console renders, before anything is formatted.
+ */
+let unitDecimals = 7;
+
+function unit(): bigint {
+  return 10n ** BigInt(unitDecimals);
+}
+
+/** Smallest units as USDC with every significant decimal, for editing. */
 function formatExact(raw: string): string {
   const value = BigInt(raw);
-  const whole = value / 10_000_000n;
-  const fraction = (value % 10_000_000n).toString().padStart(7, "0").replace(/0+$/, "");
+  const whole = value / unit();
+  const fraction = (value % unit()).toString().padStart(unitDecimals, "0").replace(/0+$/, "");
   return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
-/** A USDC amount someone typed, in stroops, or null if it is not one. */
+/** A USDC amount someone typed, in smallest units, or null if it is not one. */
 function toStroops(value: string): string | null {
-  const match = value.trim().match(/^(\d+)(?:\.(\d{0,7}))?$/);
+  const match = value.trim().match(new RegExp(`^(\\d+)(?:\\.(\\d{0,${unitDecimals}}))?$`));
   if (!match) return null;
   const [, whole, fraction = ""] = match;
-  return (BigInt(whole!) * 10_000_000n + BigInt(fraction.padEnd(7, "0") || "0")).toString();
+  return (BigInt(whole!) * unit() + BigInt(fraction.padEnd(unitDecimals, "0") || "0")).toString();
 }
 
-/** Stroops carry seven decimals, which is not a number anyone reads. */
+/** Smallest units are not a number anyone reads. */
 function formatAmount(raw: string | null): string {
   if (!raw) return "0.00";
   try {
-    return (Number(BigInt(raw)) / 10_000_000).toFixed(2);
+    return (Number(BigInt(raw)) / Number(unit())).toFixed(2);
   } catch {
     return raw;
   }

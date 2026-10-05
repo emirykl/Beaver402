@@ -4,6 +4,35 @@ import { getSessionId } from "./session.js";
 
 const API_BASE = "/api/policy";
 
+/** The chain the panel is looking at. The same passkey owns both accounts. */
+export type Chain = "stellar" | "solana";
+
+const CHAIN_KEY = "beaver402.chain";
+let chain: Chain = (() => {
+  try {
+    return localStorage.getItem(CHAIN_KEY) === "solana" ? "solana" : "stellar";
+  } catch {
+    return "stellar";
+  }
+})();
+
+export function getChain(): Chain {
+  return chain;
+}
+
+export function setChain(next: Chain): void {
+  chain = next;
+  try {
+    localStorage.setItem(CHAIN_KEY, next);
+  } catch {
+    // a remembered choice is a convenience, not a requirement
+  }
+}
+
+function chainQuery(): string {
+  return chain === "solana" ? "?chain=solana" : "";
+}
+
 /** The account's limits. Amounts are in stroops, seven decimals. */
 export interface Limits {
   maxPaymentAmount: string;
@@ -32,7 +61,7 @@ export interface PolicyState {
 
 export async function fetchPolicyState(): Promise<PolicyState> {
   try {
-    const res = await fetch(`${API_BASE}/state`);
+    const res = await fetch(`${API_BASE}/state${chainQuery()}`);
     if (!res.ok) throw new Error("failed to fetch policy state");
     return await res.json();
   } catch {
@@ -66,6 +95,16 @@ export interface PublicConfig {
   asset: string;
   /** The merchant this deployment works with, so the agent side can name it. */
   merchantPubkey: string | null;
+  /** The chains this deployment runs on. Absent means Stellar alone. */
+  chains?: Chain[];
+  solana?: {
+    cluster: string;
+    explorer: string;
+    policy: string | null;
+    asset: string;
+    decimals: number;
+    merchantPubkey: string | null;
+  };
 }
 
 export async function fetchConfig(): Promise<PublicConfig | null> {
@@ -91,12 +130,11 @@ export interface OwnerActionResult {
   error?: string;
 }
 
+/** What the backend prepared. Its shape differs by chain; only the
+ *  challenge is read here, the rest goes back as it came. */
 interface PreparedAction {
-  action: OwnerAction;
-  args: string[];
   challenge: string;
-  authEntry: string;
-  validUntilLedger: number;
+  [key: string]: unknown;
 }
 
 /** Owner routes want the session the passkey earned, not a fixed name. */
@@ -123,7 +161,7 @@ async function runOwnerAction(
     const prepareRes = await fetch(`${API_BASE}/prepare`, {
       method: "POST",
       headers: jsonHeaders(),
-      body: JSON.stringify({ action, ...input }),
+      body: JSON.stringify({ action, ...input, ...(chain === "solana" ? { chain } : {}) }),
     });
     const preparation = await prepareRes.json();
 
@@ -245,7 +283,7 @@ export interface Transaction {
 /** The owner's payment log. It needs the session the passkey earned. */
 export async function fetchTransactions(): Promise<Transaction[]> {
   try {
-    const res = await fetch("/api/transactions", { headers: jsonHeaders() });
+    const res = await fetch(`/api/transactions${chainQuery()}`, { headers: jsonHeaders() });
     if (!res.ok) return [];
     const data = await res.json();
     return data.transactions ?? [];
