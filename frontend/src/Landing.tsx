@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { fetchConfig, type PublicConfig } from "./stellar-ops.js";
 import { trackClick, trackView, type Link } from "./track.js";
+import { SolanaMark, StellarMark } from "./chain-logos.js";
 import "./landing.css";
 
 const REPOSITORY = "https://github.com/emirykl/Beaver402";
@@ -57,7 +58,7 @@ export function Nav({ current }: { current: "/" | "/status" }) {
 /** Mark elements as seen once they scroll into view, so CSS can animate them in. */
 function useReveal(deps: unknown[]) {
   useEffect(() => {
-    const targets = document.querySelectorAll(".ld-reveal, .ld-statement, .ld-flow");
+    const targets = document.querySelectorAll(".ld-reveal, .ld-statement, .ld-pipe, .ld-checks, .ld-device");
     if (!("IntersectionObserver" in window)) {
       targets.forEach((el) => el.classList.add("in"));
       return;
@@ -139,69 +140,42 @@ function Statement({ words, accent }: { words: string; accent: string[] }) {
   );
 }
 
-const icon = {
-  signature: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19c2.5 0 3-6 5-6s1 4 3 4 2-3 3.5-3S18 16 20 16" />
-      <path d="M14.5 4.5l5 5L11 18H6v-5z" />
+const delay = (seconds: number) => ({ ["--ld-delay" as string]: `${seconds}s` }) as React.CSSProperties;
+
+/** The parties a payment passes between, in order. */
+const PIPE = ["Merchant", "Agent", "Beaver402", "Ledger"];
+
+/** What the account checks before it lets a payment through, in the order it checks. */
+const CHECKS: { name: string; detail: string }[] = [
+  { name: "Account is active", detail: "Not frozen by you or by a limit" },
+  { name: "Agent key is yours", detail: "The one key you delegated, not revoked" },
+  { name: "Merchant is approved", detail: "On the list only your passkey can change" },
+  { name: "Merchant signed this request", detail: "Method, endpoint, query and body" },
+  { name: "Terms match the signature", detail: "Recipient, amount, token and network" },
+  { name: "Challenge is fresh", detail: "Unused nonce, expires within 15 minutes" },
+  { name: "Within your limits", detail: "Per payment, count and total in 24 hours" },
+];
+
+function Check() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 12.5l4 4L18 8" />
     </svg>
-  ),
-  check: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="M16 16l4.5 4.5" />
-      <path d="M8.5 11l1.8 1.8L13.8 9.3" />
+  );
+}
+
+function Fingerprint() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+      <path d="M12 11v3.5c0 2-.6 3.8-1.6 5.3" />
+      <path d="M8.6 9.4A4 4 0 0116 11v2.6c0 2.6-.7 4.9-1.9 6.9" />
+      <path d="M5.3 16.6c.5-1.3.7-2.6.7-4.1V11a6 6 0 0111.3-2.8" />
+      <path d="M18 11.5v1c0 1.6-.2 3.2-.6 4.7" />
+      <path d="M4 7.8A8.6 8.6 0 0118.7 5.3" />
+      <path d="M8.9 20.4c.9-1.4 1.5-3 1.6-4.8" />
     </svg>
-  ),
-  shield: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z" />
-      <path d="M9 12l2.2 2.2L15.5 10" />
-    </svg>
-  ),
-  bolt: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13 2.5L4.5 13.5H12l-1 8 8.5-11H12z" />
-    </svg>
-  ),
-  pause: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M10 9v6M14 9v6" />
-    </svg>
-  ),
-  key: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8" cy="15" r="4" />
-      <path d="M11 12l8.5-8.5M16 7l2.5 2.5M18.5 4.5L21 7" />
-      <path d="M3 3l18 18" opacity="0.55" />
-    </svg>
-  ),
-  store: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 10v10h16V10M3 5h18l-1.5 5h-15z" />
-      <path d="M9.5 20v-5h5v5" />
-    </svg>
-  ),
-  down: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 6h16M7 12h10M10 18h4" />
-    </svg>
-  ),
-  vault: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 8.8V7M12 17v-1.8M15.2 12H17M7 12h1.8" />
-    </svg>
-  ),
-  lock: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
-      <path d="M8.5 10.5V7.5a3.5 3.5 0 017 0v3" />
-    </svg>
-  ),
-};
+  );
+}
 
 export default function Landing() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
@@ -230,12 +204,6 @@ export default function Landing() {
             <img src="/beaver402-mark.png" alt="" />
             <span>Beaver402</span>
           </a>
-          <a className="ld-link" href="#how">
-            How it works
-          </a>
-          <a className="ld-link" href="#evidence">
-            Evidence
-          </a>
           <a className="ld-link" href="/status" onClick={() => trackClick("/", "status")}>
             Status
           </a>
@@ -252,60 +220,110 @@ export default function Landing() {
         <header className="ld-hero">
           <div className="ld-glow" aria-hidden="true" />
           <img className="ld-logo" src="/beaver402-mark.png" alt="Beaver402, a beaver holding a shield" />
-          <span className="ld-chip">
-            <span className="ld-dot" aria-hidden="true" />
-            {onMainnet ? "Live on Stellar mainnet · limited pilot" : "Running on Stellar testnet"}
-          </span>
+          <p className="ld-kicker">AI Agent Payment Security Layer</p>
           <h1>
             <span className="ld-line">Your agent pays.</span>
             <span className="ld-line ld-gradient">Only what you approved.</span>
           </h1>
           <p className="ld-sub">
-            A smart account for AI agents that pay with x402. <strong>The merchant and the agent must agree on the
-            exact payment</strong>, your limits always hold, and your passkey has the last word.
+            Beaver402 sits between your AI agent and your money. Every x402 payment is checked on chain before a
+            cent moves.
           </p>
-          <div className="ld-actions">
-            <a className="ld-button" href="/status" onClick={() => trackClick("/", "status")}>
-              See it live
-            </a>
-            <Out className="ld-more" href={DEMO} link="demo">
-              Watch the demo
-            </Out>
-          </div>
           <span className="ld-scroll" aria-hidden="true" />
         </header>
 
         <section className="ld-section" aria-label="The risk">
-          <Statement
-            words="A valid payment is not the same as an approved one."
-            accent={["approved", "one"]}
-          />
-          <p className="ld-lead ld-center ld-reveal" style={{ textAlign: "center", marginLeft: "auto", marginRight: "auto" }}>
+          <Statement words="A valid payment is not the same as an approved one." accent={["approved", "one"]} />
+          <p className="ld-lead ld-reveal" style={{ textAlign: "center", marginLeft: "auto", marginRight: "auto" }}>
             A rewritten request, a manipulated prompt or a retry loop can all produce payments that look perfectly
             valid. Beaver402 refuses every one nobody agreed to.
           </p>
         </section>
 
-        <section className="ld-section ld-center" id="how" aria-labelledby="how-title">
-          <p className="ld-eyebrow ld-reveal">How it works</p>
-          <h2 className="ld-title ld-reveal" id="how-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
-            Two signatures. One payment.
-          </h2>
-          <div className="ld-flow">
-            {[
-              { i: icon.signature, t: "Merchant signs", d: "The exact request, price and recipient." },
-              { i: icon.check, t: "Agent checks", d: "Signs only what it really sent." },
-              { i: icon.shield, t: "Account decides", d: "Rebuilds it on chain. Refuses any difference." },
-              { i: icon.bolt, t: "Payment settles", d: "On the ledger, with a public proof of intent." },
-            ].map((step, n) => (
-              <div className="ld-step ld-reveal" key={step.t} style={{ ["--ld-delay" as string]: `${0.15 * n}s` }}>
-                <div className="ld-step-icon">{step.i}</div>
-                <h3>{step.t}</h3>
-                <p>{step.d}</p>
+        <section className="ld-section" id="how" aria-labelledby="how-title">
+          <div className="ld-center">
+            <p className="ld-eyebrow ld-reveal">How it works</p>
+            <h2 className="ld-title ld-reveal" id="how-title" style={delay(0.08)}>
+              Every payment, checked on chain.
+            </h2>
+          </div>
+
+          <div className="ld-pipe" aria-label="The path of a payment">
+            <div className="ld-pipe-track">
+              <span className="ld-pipe-light" />
+            </div>
+            {PIPE.map((party, n) => (
+              <div className={n === 2 ? "ld-pipe-node own" : "ld-pipe-node"} key={party} style={delay(0.2 + n * 0.18)}>
+                <span className="ld-pipe-dot">{n === 2 ? <img src="/beaver402-mark.png" alt="" /> : null}</span>
+                <span className="ld-pipe-name">{party}</span>
               </div>
             ))}
           </div>
-          <p className="ld-reveal" style={{ marginTop: 48 }}>
+
+          <div className="ld-flowbox">
+            <div className="ld-request ld-reveal">
+              <div className="ld-request-head">
+                <span className="ld-request-badge">402</span>
+                <span>Payment required</span>
+              </div>
+              <dl>
+                <div>
+                  <dt>Request</dt>
+                  <dd>
+                    <span className="ld-method">GET</span> /api/forecast
+                  </dd>
+                </div>
+                <div>
+                  <dt>Price</dt>
+                  <dd>0.10 USDC</dd>
+                </div>
+                <div>
+                  <dt>Pay to</dt>
+                  <dd className="ld-mono">GBX4…7Q2M</dd>
+                </div>
+                <div>
+                  <dt>Network</dt>
+                  <dd>{onMainnet ? "Stellar mainnet" : "Stellar testnet"}</dd>
+                </div>
+                <div>
+                  <dt>Nonce</dt>
+                  <dd className="ld-mono">8f3a…09c1</dd>
+                </div>
+                <div>
+                  <dt>Expires</dt>
+                  <dd>in 5 minutes</dd>
+                </div>
+              </dl>
+              <div className="ld-request-sig">
+                <span>Signed by the merchant</span>
+                <span className="ld-mono">ed25519</span>
+              </div>
+            </div>
+
+            <ol className="ld-checks">
+              {CHECKS.map((check, n) => (
+                <li key={check.name} style={delay(0.35 + n * 0.22)}>
+                  <span className="ld-tick">
+                    <Check />
+                  </span>
+                  <div>
+                    <strong>{check.name}</strong>
+                    <span>{check.detail}</span>
+                  </div>
+                </li>
+              ))}
+              <li className="ld-settled" style={delay(0.35 + CHECKS.length * 0.22)}>
+                <span className="ld-tick">
+                  <Check />
+                </span>
+                <div>
+                  <strong>Paid</strong>
+                  <span>Settled on the ledger, with a public proof of intent</span>
+                </div>
+              </li>
+            </ol>
+          </div>
+          <p className="ld-reveal ld-center" style={{ marginTop: 40 }}>
             <Out className="ld-more" href={doc("docs/threat-model.md")} link="threat-model">
               What it defends against
             </Out>
@@ -314,7 +332,7 @@ export default function Landing() {
 
         <section className="ld-section ld-center" aria-labelledby="limits-title">
           <p className="ld-eyebrow ld-reveal">Limits</p>
-          <h2 className="ld-title ld-reveal" id="limits-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+          <h2 className="ld-title ld-reveal" id="limits-title" style={delay(0.08)}>
             Real money. Deliberately little.
           </h2>
           <div className="ld-numbers">
@@ -322,165 +340,182 @@ export default function Landing() {
               <CountUp to={1} unit="USDC" />
               <p className="ld-label">per payment, at most</p>
             </div>
-            <div className="ld-number ld-reveal" style={{ ["--ld-delay" as string]: "0.12s" }}>
+            <div className="ld-number ld-reveal" style={delay(0.12)}>
               <CountUp to={5} unit="payments" />
               <p className="ld-label">in any 24 hours</p>
             </div>
-            <div className="ld-number ld-reveal" style={{ ["--ld-delay" as string]: "0.24s" }}>
+            <div className="ld-number ld-reveal" style={delay(0.24)}>
               <CountUp to={5} unit="USDC" />
               <p className="ld-label">in any 24 hours</p>
             </div>
           </div>
-          <p className="ld-note ld-reveal">
-            {icon.lock}
-            Limits only go down. Reaching one freezes the account.
-          </p>
+          <p className="ld-note ld-reveal">Limits only go down. Reaching one freezes the account.</p>
         </section>
 
-        <section className="ld-section" aria-labelledby="owner-title">
-          <div className="ld-center">
+        <section className="ld-section ld-owner" aria-labelledby="owner-title">
+          <div className="ld-owner-text">
             <p className="ld-eyebrow ld-reveal">Owner control</p>
-            <h2 className="ld-title ld-reveal" id="owner-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+            <h2 className="ld-title ld-reveal" id="owner-title" style={delay(0.08)}>
               Your passkey. Your rules.
             </h2>
+            <ul className="ld-powers">
+              {[
+                ["Freeze", "every payment at once, and resume when ready."],
+                ["Revoke", "the agent's key, and give it back when safe."],
+                ["Approve", "the only merchants that can be paid."],
+                ["Lower", "any limit. Raising one is refused on chain."],
+                ["Recover", "everything to the address fixed at creation."],
+              ].map(([verb, rest], n) => (
+                <li className="ld-reveal" key={verb} style={delay(0.1 + n * 0.08)}>
+                  <strong>{verb}</strong> {rest}
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="ld-bento">
-            <div className="ld-tile wide ld-reveal">
-              <span className="ld-icon">{icon.pause}</span>
+
+          <div className="ld-device" aria-hidden="true">
+            <div className="ld-device-head">
+              <img src="/beaver402-mark.png" alt="" />
               <div>
-                <h3>Stop everything at once.</h3>
-                <p>Freeze every payment with a touch, and resume when you are ready.</p>
+                <strong>Owner</strong>
+                <span>Beaver402 account</span>
               </div>
             </div>
-            <div className="ld-tile wide ld-reveal" style={{ ["--ld-delay" as string]: "0.1s" }}>
-              <span className="ld-icon">{icon.key}</span>
-              <div>
-                <h3>Take the key away.</h3>
-                <p>Revoke the agent instantly. Give it back when it is safe.</p>
-              </div>
+            <div className="ld-row">
+              <span>Payments</span>
+              <span className="ld-switch">
+                <span />
+              </span>
             </div>
-            <div className="ld-tile ld-reveal">
-              <span className="ld-icon">{icon.store}</span>
-              <div>
-                <h3>Choose who gets paid.</h3>
-                <p>Only merchants you approved.</p>
-              </div>
+            <div className="ld-row">
+              <span>Agent key</span>
+              <span className="ld-row-value">
+                <span className="ld-mono">GA7Q…K2P</span>
+                <span className="ld-pill">Revoke</span>
+              </span>
             </div>
-            <div className="ld-tile ld-reveal" style={{ ["--ld-delay" as string]: "0.1s" }}>
-              <span className="ld-icon">{icon.down}</span>
-              <div>
-                <h3>Tighten the limits.</h3>
-                <p>Loosening is refused on chain.</p>
-              </div>
+            <div className="ld-row">
+              <span>Merchants</span>
+              <span className="ld-row-value">
+                <span className="ld-avatars">
+                  <span />
+                </span>
+                1 approved
+              </span>
             </div>
-            <div className="ld-tile ld-reveal" style={{ ["--ld-delay" as string]: "0.2s" }}>
-              <span className="ld-icon">{icon.vault}</span>
-              <div>
-                <h3>Recover the funds.</h3>
-                <p>To the address fixed at creation.</p>
-              </div>
+            <div className="ld-row ld-row-stack">
+              <span className="ld-row-line">
+                <span>Spent today</span>
+                <span className="ld-row-value">1.40 / 5 USDC</span>
+              </span>
+              <span className="ld-bar">
+                <span />
+              </span>
+            </div>
+            <div className="ld-passkey">
+              <span className="ld-print">
+                <Fingerprint />
+              </span>
+              <span>Confirm with passkey</span>
             </div>
           </div>
         </section>
 
         <section className="ld-section ld-center" aria-labelledby="chains-title">
           <p className="ld-eyebrow ld-reveal">Standard rails</p>
-          <h2 className="ld-title ld-reveal" id="chains-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+          <h2 className="ld-title ld-reveal" id="chains-title" style={delay(0.08)}>
             x402, with one extra signature.
           </h2>
-          <p className="ld-lead ld-reveal" style={{ ["--ld-delay" as string]: "0.16s" }}>
+          <p className="ld-lead ld-reveal" style={delay(0.16)}>
             Standard x402 payments in USDC. Every check runs inside the account itself, before anything settles.
           </p>
           <div className="ld-chains">
             <div className="ld-chain ld-reveal">
-              <span className="ld-chain-mark stellar">S</span>
-              <div style={{ textAlign: "left" }}>
-                <strong>Stellar</strong>
-                <span>{onMainnet ? "Mainnet pilot" : "Testnet"} · Soroban smart account</span>
-              </div>
+              <StellarMark className="ld-chain-logo stellar" />
+              <strong>Stellar</strong>
+              <span>{onMainnet ? "Mainnet pilot" : "Testnet"} · Soroban smart account</span>
             </div>
-            {onSolana && (
-              <div className="ld-chain ld-reveal" style={{ ["--ld-delay" as string]: "0.12s" }}>
-                <span className="ld-chain-mark solana">◎</span>
-                <div style={{ textAlign: "left" }}>
-                  <strong>Solana</strong>
-                  <span>Devnet · Anchor program</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="ld-section" id="evidence" aria-labelledby="evidence-title">
-          <div className="ld-center">
-            <p className="ld-eyebrow ld-reveal">Evidence</p>
-            <h2 className="ld-title ld-reveal" id="evidence-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
-              Don't trust us. Check.
-            </h2>
-          </div>
-          <div className="ld-proofs">
-            {contractUrl ? (
-              <Out className="ld-proof ld-reveal" href={contractUrl} link="contract">
-                <strong>The account</strong>
-                <span className="ld-id">{config?.contractId}</span>
-                <em>On the explorer</em>
-              </Out>
-            ) : (
-              <div className="ld-proof ld-reveal">
-                <strong>The account</strong>
-                <span>Not deployed yet</span>
-              </div>
-            )}
-            <a className="ld-proof ld-reveal" href="/status" onClick={() => trackClick("/", "status")} style={{ ["--ld-delay" as string]: "0.08s" }}>
-              <strong>Live status</strong>
-              <span>Limits, the window, recent transactions.</span>
-              <em>Status</em>
-            </a>
-            <Out className="ld-proof ld-reveal" href={doc("docs/evidence.md")} link="evidence">
-              <strong>Evidence index</strong>
-              <span>Every claim and what proves it.</span>
-              <em>Index</em>
-            </Out>
-            <Out className="ld-proof ld-reveal" href={doc("docs/mainnet/deployment-record.md")} link="deployment-record">
-              <strong>Deployment record</strong>
-              <span>Commit, artifact hash, every transaction.</span>
-              <em>Record</em>
-            </Out>
-            <Out className="ld-proof ld-reveal" href={DEMO} link="demo">
-              <strong>Demonstration</strong>
-              <span>The whole flow in one take.</span>
-              <em>Video</em>
-            </Out>
-            <Out className="ld-proof ld-reveal" href={doc("docs/known-limitations.md")} link="limitations">
-              <strong>What it does not do</strong>
-              <span>Every known limitation, in plain words.</span>
-              <em>Limitations</em>
-            </Out>
+            <div className="ld-chain-divider ld-reveal" style={delay(0.1)} />
+            <div className="ld-chain ld-reveal" style={delay(0.2)}>
+              <SolanaMark className="ld-chain-logo" />
+              <strong>Solana</strong>
+              <span>{onSolana ? "Devnet · Anchor program" : "Devnet · coming next"}</span>
+            </div>
           </div>
         </section>
 
         <section className="ld-closing" aria-label="Get started">
           <img className="ld-reveal" src="/beaver402-mark.png" alt="" />
-          <h2 className="ld-title ld-reveal" style={{ margin: "0 auto", ["--ld-delay" as string]: "0.08s" }}>
+          <h2 className="ld-title ld-reveal" style={{ margin: "0 auto", ...delay(0.08) }}>
             Let your agent pay. Safely.
           </h2>
-          <div className="ld-actions ld-reveal" style={{ ["--ld-delay" as string]: "0.16s" }}>
+          <div className="ld-actions ld-reveal" style={delay(0.16)}>
             <a className="ld-button" href="/panel" onClick={() => trackClick("/", "panel")}>
               Open the owner panel
             </a>
-            <Out className="ld-more" href={REPOSITORY} link="repository">
-              Read the code
+            <Out className="ld-more" href={DEMO} link="demo">
+              Watch the demo
             </Out>
           </div>
         </section>
       </main>
 
       <footer className="ld-footer">
-        <span>Beaver402</span>
-        <span>Supported by Stellar Community Fund Instawards, Stellar Türkiye</span>
-        <a href={REPOSITORY} target="_blank" rel="noreferrer">
-          MIT licensed
-        </a>
+        <div className="ld-footer-card">
+          <div className="ld-footer-brand">
+            <img src="/beaver402-mark.png" alt="" />
+            <strong>Beaver402</strong>
+            <p>The payment security layer for AI agents.</p>
+            <span className="ld-support">Supported by Stellar Community Fund Instawards and Stellar Türkiye</span>
+          </div>
+          <div className="ld-footer-cols">
+            <div>
+              <h4>Product</h4>
+              <a href="/panel" onClick={() => trackClick("/", "panel")}>
+                Owner panel
+              </a>
+              <a href="/status" onClick={() => trackClick("/", "status")}>
+                Live status
+              </a>
+              <Out href={DEMO} link="demo">
+                Demo video
+              </Out>
+            </div>
+            <div>
+              <h4>Proof</h4>
+              <Out href={doc("docs/evidence.md")} link="evidence">
+                Evidence index
+              </Out>
+              <Out href={doc("docs/mainnet/deployment-record.md")} link="deployment-record">
+                Deployment record
+              </Out>
+              <Out href={doc("docs/threat-model.md")} link="threat-model">
+                Threat model
+              </Out>
+              <Out href={doc("docs/known-limitations.md")} link="limitations">
+                Known limitations
+              </Out>
+            </div>
+            <div>
+              <h4>Code</h4>
+              <Out href={REPOSITORY} link="repository">
+                GitHub
+              </Out>
+              {contractUrl ? (
+                <Out href={contractUrl} link="contract">
+                  Contract on the explorer
+                </Out>
+              ) : null}
+              <Out href={doc("docs/canonical-encoding.md")} link="encoding">
+                What is signed
+              </Out>
+            </div>
+          </div>
+          <div className="ld-footer-bottom">
+            <span>© 2026 Beaver402</span>
+            <span>MIT licensed</span>
+          </div>
+        </div>
       </footer>
     </div>
   );
