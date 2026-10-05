@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { fetchConfig, type PublicConfig } from "./stellar-ops.js";
 import { trackClick, trackView, type Link } from "./track.js";
-import { SolanaMark, StellarMark } from "./chain-logos.js";
+import { SolanaMark, StellarMark, XMark } from "./chain-logos.js";
 import "./landing.css";
 
 const REPOSITORY = "https://github.com/emirykl/Beaver402";
 const DEMO = "https://youtu.be/0vFrfGZc1x0";
+const X_ACCOUNT = "https://x.com/Beaver402";
 const doc = (path: string) => `${REPOSITORY}/blob/main/${path}`;
 
 /** An outbound link that is counted when followed. */
@@ -81,7 +82,7 @@ function useReveal(deps: unknown[]) {
 }
 
 /** A number that counts up from zero the first time it is seen. */
-function CountUp({ to, unit }: { to: number; unit: string }) {
+function CountUp({ to, unit, decimals = 0 }: { to: number; unit: string; decimals?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [value, setValue] = useState(0);
 
@@ -100,13 +101,13 @@ function CountUp({ to, unit }: { to: number; unit: string }) {
         observer.disconnect();
         const start = performance.now();
         const tick = (now: number) => {
-          const t = Math.min(1, (now - start) / 1400);
-          setValue(Math.round(to * (1 - Math.pow(1 - t, 4))));
+          const t = Math.min(1, (now - start) / 2000);
+          setValue(to * (1 - Math.pow(1 - t, 3)));
           if (t < 1) frame = requestAnimationFrame(tick);
         };
         frame = requestAnimationFrame(tick);
       },
-      { threshold: 0.6 }
+      { threshold: 0.5 }
     );
     observer.observe(el);
     return () => {
@@ -117,7 +118,7 @@ function CountUp({ to, unit }: { to: number; unit: string }) {
 
   return (
     <span className="ld-value" ref={ref}>
-      {value}
+      {value.toFixed(decimals)}
       <span className="ld-unit">{unit}</span>
     </span>
   );
@@ -146,14 +147,14 @@ const delay = (seconds: number) => ({ ["--ld-delay" as string]: `${seconds}s` })
 const PIPE = ["Merchant", "Agent", "Beaver402", "Ledger"];
 
 /** What the account checks before it lets a payment through, in the order it checks. */
-const CHECKS: { name: string; detail: string }[] = [
-  { name: "Account is active", detail: "Not frozen by you or by a limit" },
-  { name: "Agent key is yours", detail: "The one key you delegated, not revoked" },
-  { name: "Merchant is approved", detail: "On the list only your passkey can change" },
-  { name: "Merchant signed this request", detail: "Method, endpoint, query and body" },
-  { name: "Terms match the signature", detail: "Recipient, amount, token and network" },
-  { name: "Challenge is fresh", detail: "Unused nonce, expires within 15 minutes" },
-  { name: "Within your limits", detail: "Per payment, count and total in 24 hours" },
+const CHECKS = [
+  "Account is active",
+  "Agent key is yours",
+  "Merchant is approved",
+  "Merchant signed this request",
+  "Terms match the signature",
+  "Challenge is fresh",
+  "Within your limits",
 ];
 
 function Check() {
@@ -229,7 +230,6 @@ export default function Landing() {
             Beaver402 sits between your AI agent and your money. Every x402 payment is checked on chain before a
             cent moves.
           </p>
-          <span className="ld-scroll" aria-hidden="true" />
         </header>
 
         <section className="ld-section" aria-label="The risk">
@@ -285,49 +285,27 @@ export default function Landing() {
                   <dt>Network</dt>
                   <dd>{onMainnet ? "Stellar mainnet" : "Stellar testnet"}</dd>
                 </div>
-                <div>
-                  <dt>Nonce</dt>
-                  <dd className="ld-mono">8f3a…09c1</dd>
-                </div>
-                <div>
-                  <dt>Expires</dt>
-                  <dd>in 5 minutes</dd>
-                </div>
               </dl>
-              <div className="ld-request-sig">
-                <span>Signed by the merchant</span>
-                <span className="ld-mono">ed25519</span>
-              </div>
+              <div className="ld-request-sig">Signed by the merchant</div>
             </div>
 
             <ol className="ld-checks">
               {CHECKS.map((check, n) => (
-                <li key={check.name} style={delay(0.35 + n * 0.22)}>
+                <li key={check} style={delay(0.3 + n * 0.2)}>
                   <span className="ld-tick">
                     <Check />
                   </span>
-                  <div>
-                    <strong>{check.name}</strong>
-                    <span>{check.detail}</span>
-                  </div>
+                  {check}
                 </li>
               ))}
-              <li className="ld-settled" style={delay(0.35 + CHECKS.length * 0.22)}>
+              <li className="ld-settled" style={delay(0.3 + CHECKS.length * 0.2)}>
                 <span className="ld-tick">
                   <Check />
                 </span>
-                <div>
-                  <strong>Paid</strong>
-                  <span>Settled on the ledger, with a public proof of intent</span>
-                </div>
+                Paid
               </li>
             </ol>
           </div>
-          <p className="ld-reveal ld-center" style={{ marginTop: 40 }}>
-            <Out className="ld-more" href={doc("docs/threat-model.md")} link="threat-model">
-              What it defends against
-            </Out>
-          </p>
         </section>
 
         <section className="ld-section ld-center" aria-labelledby="limits-title">
@@ -337,7 +315,7 @@ export default function Landing() {
           </h2>
           <div className="ld-numbers">
             <div className="ld-number ld-reveal">
-              <CountUp to={1} unit="USDC" />
+              <CountUp to={1} decimals={2} unit="USDC" />
               <p className="ld-label">per payment, at most</p>
             </div>
             <div className="ld-number ld-reveal" style={delay(0.12)}>
@@ -345,7 +323,7 @@ export default function Landing() {
               <p className="ld-label">in any 24 hours</p>
             </div>
             <div className="ld-number ld-reveal" style={delay(0.24)}>
-              <CountUp to={5} unit="USDC" />
+              <CountUp to={5} decimals={2} unit="USDC" />
               <p className="ld-label">in any 24 hours</p>
             </div>
           </div>
@@ -450,10 +428,14 @@ export default function Landing() {
             Let your agent pay. Safely.
           </h2>
           <div className="ld-actions ld-reveal" style={delay(0.16)}>
-            <a className="ld-button" href="/panel" onClick={() => trackClick("/", "panel")}>
-              Open the owner panel
+            <a className="ld-social" href={X_ACCOUNT} target="_blank" rel="noreferrer">
+              <XMark className="ld-social-icon" />
+              Follow @Beaver402
             </a>
-            <Out className="ld-more" href={DEMO} link="demo">
+            <Out className="ld-social ld-social-play" href={DEMO} link="demo">
+              <svg className="ld-social-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M8 5.5v13l11-6.5z" />
+              </svg>
               Watch the demo
             </Out>
           </div>
@@ -461,7 +443,7 @@ export default function Landing() {
       </main>
 
       <footer className="ld-footer">
-        <div className="ld-footer-card">
+        <div className="ld-footer-card ld-reveal">
           <div className="ld-footer-brand">
             <img src="/beaver402-mark.png" alt="" />
             <strong>Beaver402</strong>
@@ -480,6 +462,9 @@ export default function Landing() {
               <Out href={DEMO} link="demo">
                 Demo video
               </Out>
+              <a href={X_ACCOUNT} target="_blank" rel="noreferrer">
+                X / Twitter
+              </a>
             </div>
             <div>
               <h4>Proof</h4>
