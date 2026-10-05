@@ -83,6 +83,11 @@ export interface ObservedRequest {
 
 export interface MerchantTerms {
   keypair: StellarSdk.Keypair;
+  /**
+   * The merchant key as the challenge wrote it on this chain. Defaults to
+   * the Stellar form; on Solana the same key is written in base58.
+   */
+  merchantPubkey?: string;
   recipient: string;
   asset: string;
   amount: string;
@@ -104,7 +109,7 @@ export function bindPaymentToRequest(
   merchant: MerchantTerms,
   now: number = Math.floor(Date.now() / 1000)
 ): { challengeHash: string } {
-  const ownKey = Buffer.from(StellarSdk.StrKey.decodeEd25519PublicKey(merchant.keypair.publicKey()));
+  const ownKey = merchant.keypair.rawPublicKey();
   if (!terms.merchantPubkey.equals(ownKey)) {
     throw new PaymentBindingError("the payment answers another merchant's challenge");
   }
@@ -124,7 +129,7 @@ export function bindPaymentToRequest(
 
   const fields: ChallengeFields = {
     version: ENCODING_VERSION,
-    merchantPubkey: merchant.keypair.publicKey(),
+    merchantPubkey: merchant.merchantPubkey ?? merchant.keypair.publicKey(),
     httpMethod: request.method,
     normalizedEndpoint: request.url,
     bodyHash: hashBody(request.body ?? null),
