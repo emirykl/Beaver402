@@ -1,4 +1,6 @@
-import type { Beaver402Adapter, PreparedPayment } from "../adapter/x402-client.js";
+import type { PreparedPayment } from "../adapter/x402-client.js";
+import type { PaymentAdapter } from "../adapter/multi-chain.js";
+import { solanaExplorerTx } from "../chains/solana/config.js";
 import { describePolicyError } from "../shared/policy-errors.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import { explorerTx, network } from "../config/network.js";
@@ -105,10 +107,10 @@ async function logPayment(entry: LogEntry): Promise<void> {
       recipient: fields?.recipient ?? null,
       asset: fields?.asset ?? null,
       amount: fields?.amount ?? null,
-      network: network().passphrase,
+      network: fields?.network ?? network().passphrase,
       status: entry.success ? "success" : "failed",
       error: entry.error ?? null,
-      facilitator: entry.success ? network().facilitatorUrl : null,
+      facilitator: entry.success ? (prepared.chain === "solana" ? "merchant" : network().facilitatorUrl) : null,
       proof_tx_hash: entry.proofTxHash ?? null,
     });
   } catch {
@@ -129,7 +131,7 @@ async function logPayment(entry: LogEntry): Promise<void> {
  */
 export async function paidFetch(
   request: PaidFetchRequest,
-  adapter: Beaver402Adapter,
+  adapter: PaymentAdapter,
   fetchImpl: FetchLike
 ): Promise<PaidFetchResult> {
   const method = (request.method ?? "GET").toUpperCase();
@@ -202,7 +204,8 @@ export async function paidFetch(
     content,
     payment: {
       txHash: settlement.transaction,
-      explorerUrl: explorerTx(settlement.transaction),
+      explorerUrl:
+        prepared.chain === "solana" ? solanaExplorerTx(settlement.transaction) : explorerTx(settlement.transaction),
       proofTxHash: receipt?.proofTransaction,
       challengeHash: prepared.challengeHash,
       intentHash: prepared.intentHash,

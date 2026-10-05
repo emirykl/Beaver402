@@ -1,6 +1,9 @@
 import express, { type Request, type Response } from "express";
 
-import { createAdapter, type Beaver402Adapter } from "../adapter/x402-client.js";
+import { createAdapter } from "../adapter/x402-client.js";
+import { chainPreference, MultiChainAdapter, type ChainAdapter, type PaymentAdapter } from "../adapter/multi-chain.js";
+import { enabledChains, type ChainId } from "../chains/registry.js";
+import { SolanaAdapter } from "../chains/solana/adapter.js";
 import { paidFetch, type FetchLike } from "./paid-fetch.js";
 import {
   isAllowedUrl,
@@ -17,9 +20,9 @@ import { redact } from "../lib/public-error.js";
  * result of a payment. The key stays here, is read from the environment, and
  * is never returned in a response.
  */
-let adapter: Beaver402Adapter | null = null;
+let adapter: PaymentAdapter | null = null;
 
-function getAdapter(): Beaver402Adapter {
+function getAdapter(): PaymentAdapter {
   if (adapter) return adapter;
 
   const agentSecret = process.env.AGENT_SECRET;
@@ -27,7 +30,13 @@ function getAdapter(): Beaver402Adapter {
     throw new Error("AGENT_SECRET is required to authorize payments");
   }
 
-  adapter = createAdapter(agentSecret, process.env.POLICY_CONTRACT_ID || "");
+  // One agent key, the delegated signer on every chain it pays on.
+  const build: Record<ChainId, () => ChainAdapter> = {
+    stellar: () => createAdapter(agentSecret, process.env.POLICY_CONTRACT_ID || ""),
+    solana: () => new SolanaAdapter(agentSecret),
+  };
+  const chains = chainPreference(enabledChains()).map((chain) => ({ chain, adapter: build[chain]() }));
+  adapter = chains.length === 1 ? chains[0]!.adapter : new MultiChainAdapter(chains);
   return adapter;
 }
 
