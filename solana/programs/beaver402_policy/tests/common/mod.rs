@@ -338,6 +338,73 @@ impl Env {
         }
     }
 
+    /// Send instructions and return the program logs of a transaction that
+    /// went through.
+    pub fn send_logs(&mut self, instructions: &[Instruction], extra: &[&Keypair]) -> Result<Vec<String>, String> {
+        self.svm.expire_blockhash();
+        let mut signers: Vec<&Keypair> = vec![&self.payer];
+        signers.extend_from_slice(extra);
+        let message = Message::new(instructions, Some(&self.payer.pubkey()));
+        let tx = Transaction::new(&signers, message, self.svm.latest_blockhash());
+        self.svm
+            .send_transaction(tx)
+            .map(|meta| meta.logs)
+            .map_err(|failed| format!("{:?}", failed.err))
+    }
+
+    /// Point the helpers at another policy account of the same owner. The
+    /// account does not have to exist yet.
+    pub fn use_policy(&mut self, policy_id: [u8; 32]) {
+        self.policy_id = policy_id;
+        self.policy = Pubkey::find_program_address(&[POLICY_SEED, &policy_id], &program_id()).0;
+        self.vault = get_associated_token_address(&self.policy, &self.mint);
+    }
+
+    /// Create a second mint with the same decimals as the account's.
+    pub fn other_mint(&mut self) -> Pubkey {
+        let mint = Pubkey::new_unique();
+        let mut data = vec![0u8; Mint::LEN];
+        Mint {
+            mint_authority: COption::Some(self.payer.pubkey()),
+            supply: 1_000_000_000_000,
+            decimals: 6,
+            is_initialized: true,
+            freeze_authority: COption::None,
+        }
+        .pack_into_slice(&mut data);
+        self.svm
+            .set_account(
+                mint,
+                Account {
+                    lamports: self.svm.minimum_balance_for_rent_exemption(Mint::LEN),
+                    data,
+                    owner: spl_token_interface::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            )
+            .unwrap();
+        mint
+    }
+
+    /// A token account of any mint, at its owner's associated address.
+    pub fn token_account_of(&mut self, owner: Pubkey, mint: Pubkey, amount: u64) -> Pubkey {
+        let address = get_associated_token_address(&owner, &mint);
+        self.svm
+            .set_account(
+                address,
+                Account {
+                    lamports: self.svm.minimum_balance_for_rent_exemption(TokenAccount::LEN),
+                    data: token_account(mint, owner, amount),
+                    owner: spl_token_interface::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            )
+            .unwrap();
+        address
+    }
+
     // ── Payments ─────────────────────────────────────────────────
 
     pub fn next_nonce(&mut self) -> [u8; 32] {
@@ -502,18 +569,37 @@ impl Env {
         assertion: &Assertion,
     ) -> (Instruction, OwnerProof) {
         let valid_until = assertion.valid_until.unwrap_or(self.now() + 300);
-        let args = Self::action_args(action, pubkey, limits);
-        let expected = challenge(&self.policy, action, &args, self.state().owner_nonce, valid_until);
+        let expected = self.owner_challenge(action, pubkey, limits, valid_until);
         let carried = assertion.challenge.unwrap_or(expected);
-        let encoded = String::from_utf8(base64url_encode(&carried).to_vec()).unwrap();
-        let client_data_json = format!(
-            r#"{{"type":"{}","challenge":"{}","origin":"https://{}","crossOrigin":false}}"#,
-            assertion.kind, encoded, RP_ID
-        )
-        .into_bytes();
+        let client_data_json = client_data(&assertion.kind, &encode_challenge(&carried));
+        self.signed_assertion(passkey, client_data_json, &assertion.rp_id, assertion.flags, valid_until)
+    }
 
-        let mut message = sha256(assertion.rp_id.as_bytes()).to_vec();
-        message.push(assertion.flags);
+    /// The challenge the passkey has to sign for an action on this account
+    /// right now.
+    pub fn owner_challenge(
+        &self,
+        action: &str,
+        pubkey: Option<Pubkey>,
+        limits: Option<VelocityConfig>,
+        valid_until: u64,
+    ) -> [u8; 32] {
+        let args = Self::action_args(action, pubkey, limits);
+        challenge(&self.policy, action, &args, self.state().owner_nonce, valid_until)
+    }
+
+    /// Sign whatever clientDataJSON a test hands over, so it can break the
+    /// JSON itself rather than the values in it.
+    pub fn signed_assertion(
+        &self,
+        passkey: &Passkey,
+        client_data_json: Vec<u8>,
+        rp_id: &str,
+        flags: u8,
+        valid_until: u64,
+    ) -> (Instruction, OwnerProof) {
+        let mut message = sha256(rp_id.as_bytes()).to_vec();
+        message.push(flags);
         message.extend_from_slice(&[0, 0, 0, 1]);
         message.extend_from_slice(&sha256(&client_data_json));
 
@@ -544,4 +630,45 @@ impl Env {
     pub fn owner(&mut self, action: &str) -> Result<(), String> {
         self.owner_action(action, None, None, Assertion::default())
     }
+}
+
+/// clientDataJSON the way a browser writes it for an assertion.
+pub fn client_data(kind: &str, challenge: &str) -> Vec<u8> {
+    format!(
+        r#"{{"type":"{}","challenge":"{}","origin":"https://{}","crossOrigin":false}}"#,
+        kind, challenge, RP_ID
+    )
+    .into_bytes()
+}
+
+pub fn encode_challenge(challenge: &[u8; 32]) -> String {
+    String::from_utf8(base64url_encode(challenge).to_vec()).unwrap()
+}
+
+/// The events this program emitted, read from the logs of a transaction.
+pub fn events<E: anchor_lang::Event + anchor_lang::AnchorDeserialize>(logs: &[String]) -> Vec<E> {
+    logs.iter()
+        .filter_map(|line| line.strip_prefix("Program data: "))
+        .map(base64_decode)
+        .filter(|data| data.starts_with(E::DISCRIMINATOR))
+        .map(|data| E::try_from_slice(&data[E::DISCRIMINATOR.len()..]).unwrap())
+        .collect()
+}
+
+fn base64_decode(text: &str) -> Vec<u8> {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = Vec::new();
+    let mut buffer = 0u32;
+    let mut bits = 0;
+    for byte in text.bytes().filter(|b| *b != b'=') {
+        let value = ALPHABET.iter().position(|c| *c == byte).unwrap() as u32;
+        buffer = (buffer << 6) | value;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buffer >> bits) as u8);
+            buffer &= (1 << bits) - 1;
+        }
+    }
+    out
 }
