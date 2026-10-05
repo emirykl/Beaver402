@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { fetchConfig, type PublicConfig } from "./stellar-ops.js";
 import { trackClick, trackView, type Link } from "./track.js";
+import "./landing.css";
 
 const REPOSITORY = "https://github.com/emirykl/Beaver402";
 const DEMO = "https://youtu.be/0vFrfGZc1x0";
@@ -53,239 +54,428 @@ export function Nav({ current }: { current: "/" | "/status" }) {
   );
 }
 
+/** Mark elements as seen once they scroll into view, so CSS can animate them in. */
+function useReveal(deps: unknown[]) {
+  useEffect(() => {
+    const targets = document.querySelectorAll(".ld-reveal, .ld-statement, .ld-flow");
+    if (!("IntersectionObserver" in window)) {
+      targets.forEach((el) => el.classList.add("in"));
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in");
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.2, rootMargin: "0px 0px -8% 0px" }
+    );
+    targets.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
+
+/** A number that counts up from zero the first time it is seen. */
+function CountUp({ to, unit }: { to: number; unit: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (still || !("IntersectionObserver" in window)) {
+      setValue(to);
+      return;
+    }
+    let frame = 0;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        observer.disconnect();
+        const start = performance.now();
+        const tick = (now: number) => {
+          const t = Math.min(1, (now - start) / 1400);
+          setValue(Math.round(to * (1 - Math.pow(1 - t, 4))));
+          if (t < 1) frame = requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
+      },
+      { threshold: 0.6 }
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [to]);
+
+  return (
+    <span className="ld-value" ref={ref}>
+      {value}
+      <span className="ld-unit">{unit}</span>
+    </span>
+  );
+}
+
+/** A sentence whose words light up one after another. */
+function Statement({ words, accent }: { words: string; accent: string[] }) {
+  return (
+    <p className="ld-statement">
+      {words.split(" ").map((word, i) => (
+        <span
+          key={i}
+          className={accent.includes(word.replace(/[.,]/g, "")) ? "ld-word ld-accent" : "ld-word"}
+          style={{ transitionDelay: `${i * 70}ms` }}
+        >
+          {word}{" "}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+const icon = {
+  signature: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19c2.5 0 3-6 5-6s1 4 3 4 2-3 3.5-3S18 16 20 16" />
+      <path d="M14.5 4.5l5 5L11 18H6v-5z" />
+    </svg>
+  ),
+  check: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M16 16l4.5 4.5" />
+      <path d="M8.5 11l1.8 1.8L13.8 9.3" />
+    </svg>
+  ),
+  shield: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z" />
+      <path d="M9 12l2.2 2.2L15.5 10" />
+    </svg>
+  ),
+  bolt: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2.5L4.5 13.5H12l-1 8 8.5-11H12z" />
+    </svg>
+  ),
+  pause: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M10 9v6M14 9v6" />
+    </svg>
+  ),
+  key: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11 12l8.5-8.5M16 7l2.5 2.5M18.5 4.5L21 7" />
+      <path d="M3 3l18 18" opacity="0.55" />
+    </svg>
+  ),
+  store: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 10v10h16V10M3 5h18l-1.5 5h-15z" />
+      <path d="M9.5 20v-5h5v5" />
+    </svg>
+  ),
+  down: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 6h16M7 12h10M10 18h4" />
+    </svg>
+  ),
+  vault: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 8.8V7M12 17v-1.8M15.2 12H17M7 12h1.8" />
+    </svg>
+  ),
+  lock: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+      <path d="M8.5 10.5V7.5a3.5 3.5 0 017 0v3" />
+    </svg>
+  ),
+};
+
 export default function Landing() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     trackView("/");
     fetchConfig().then(setConfig);
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useReveal([config]);
 
   const contractUrl = config?.contractId ? `${config.explorer}/contract/${config.contractId}` : null;
   const onMainnet = config?.network === "mainnet";
+  const onSolana = config?.chains?.includes("solana") ?? false;
 
   return (
-    <div className="site">
-      <Nav current="/" />
-      <main className="site-main">
-        <header className="hero">
-          <span className="badge">{onMainnet ? "LIVE ON STELLAR MAINNET · LIMITED PILOT" : "STELLAR TESTNET"}</span>
-          <h1>Your agent can only pay for what you approved.</h1>
-          <p className="lead">
-            Beaver402 is a Stellar smart account that settles an x402 payment only when the merchant and
-            the buyer describe the same one, within limits the owner sets, under a passkey only the owner
-            holds.
+    <div className="ld">
+      <nav className={scrolled ? "ld-nav scrolled" : "ld-nav"} aria-label="Site">
+        <div className="ld-nav-inner">
+          <a className="ld-brand" href="/">
+            <img src="/beaver402-mark.png" alt="" />
+            <span>Beaver402</span>
+          </a>
+          <a className="ld-link" href="#how">
+            How it works
+          </a>
+          <a className="ld-link" href="#evidence">
+            Evidence
+          </a>
+          <a className="ld-link" href="/status" onClick={() => trackClick("/", "status")}>
+            Status
+          </a>
+          <a className="ld-link" href={REPOSITORY} target="_blank" rel="noreferrer" onClick={() => trackClick("/", "repository")}>
+            Code
+          </a>
+          <a className="ld-cta" href="/panel" onClick={() => trackClick("/", "panel")}>
+            Owner panel
+          </a>
+        </div>
+      </nav>
+
+      <main>
+        <header className="ld-hero">
+          <div className="ld-glow" aria-hidden="true" />
+          <img className="ld-logo" src="/beaver402-mark.png" alt="Beaver402, a beaver holding a shield" />
+          <span className="ld-chip">
+            <span className="ld-dot" aria-hidden="true" />
+            {onMainnet ? "Live on Stellar mainnet · limited pilot" : "Running on Stellar testnet"}
+          </span>
+          <h1>
+            <span className="ld-line">Your agent pays.</span>
+            <span className="ld-line ld-gradient">Only what you approved.</span>
+          </h1>
+          <p className="ld-sub">
+            A smart account for AI agents that pay with x402. <strong>The merchant and the agent must agree on the
+            exact payment</strong>, your limits always hold, and your passkey has the last word.
           </p>
-          <div className="actions">
-            <a className="action primary" href="/status" onClick={() => trackClick("/", "status")}>
-              SEE IT LIVE
+          <div className="ld-actions">
+            <a className="ld-button" href="/status" onClick={() => trackClick("/", "status")}>
+              See it live
             </a>
-            <a className="action" href="#evidence">
-              CHECK THE EVIDENCE
-            </a>
-            <Out className="action" href={DEMO} link="demo">
-              WATCH THE DEMO
+            <Out className="ld-more" href={DEMO} link="demo">
+              Watch the demo
             </Out>
           </div>
+          <span className="ld-scroll" aria-hidden="true" />
         </header>
 
-        <section className="block" aria-labelledby="risk">
-          <h2 id="risk">THE RISK</h2>
-          <p className="claim">A valid payment is not the same as an approved one.</p>
-          <p>
-            x402 lets software pay for an API on its own: the server answers 402, the client pays, the
-            server serves. When an agent holds the key, every payment the protocol accepts goes through. A
-            manipulated prompt, a rewritten request or a retry loop can all produce payments that are
-            perfectly valid and that nobody meant to make.
+        <section className="ld-section" aria-label="The risk">
+          <Statement
+            words="A valid payment is not the same as an approved one."
+            accent={["approved", "one"]}
+          />
+          <p className="ld-lead ld-center ld-reveal" style={{ textAlign: "center", marginLeft: "auto", marginRight: "auto" }}>
+            A rewritten request, a manipulated prompt or a retry loop can all produce payments that look perfectly
+            valid. Beaver402 refuses every one nobody agreed to.
           </p>
         </section>
 
-        <section className="block" aria-labelledby="how">
-          <h2 id="how">HOW IT WORKS</h2>
-          <p className="claim">Two parties have to describe the same payment before the account pays it.</p>
-          <div className="steps">
-            <div className="step">
-              <strong>The merchant signs</strong>
-              <span>
-                Its 402 answer carries a challenge signed over the exact request: method, endpoint, query,
-                body, price, recipient, token, network, a nonce and an expiry.
-              </span>
-            </div>
-            <div className="step">
-              <strong>The agent rebuilds it</strong>
-              <span>
-                The agent reconstructs the request from what it actually sent and refuses to sign anything
-                that differs from what the merchant signed.
-              </span>
-            </div>
-            <div className="step">
-              <strong>The account decides</strong>
-              <span>
-                The smart account rebuilds the challenge on chain, checks the merchant is approved, the
-                transfer is the agreed one, the nonce is new and the limits hold. Otherwise it refuses.
-              </span>
-            </div>
-            <div className="step">
-              <strong>The payment settles</strong>
-              <span>
-                A standard x402 facilitator settles the transfer. The merchant confirms it on the ledger,
-                releases the resource and publishes the proof of intent.
-              </span>
-            </div>
+        <section className="ld-section ld-center" id="how" aria-labelledby="how-title">
+          <p className="ld-eyebrow ld-reveal">How it works</p>
+          <h2 className="ld-title ld-reveal" id="how-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+            Two signatures. One payment.
+          </h2>
+          <div className="ld-flow">
+            {[
+              { i: icon.signature, t: "Merchant signs", d: "The exact request, price and recipient." },
+              { i: icon.check, t: "Agent checks", d: "Signs only what it really sent." },
+              { i: icon.shield, t: "Account decides", d: "Rebuilds it on chain. Refuses any difference." },
+              { i: icon.bolt, t: "Payment settles", d: "On the ledger, with a public proof of intent." },
+            ].map((step, n) => (
+              <div className="ld-step ld-reveal" key={step.t} style={{ ["--ld-delay" as string]: `${0.15 * n}s` }}>
+                <div className="ld-step-icon">{step.i}</div>
+                <h3>{step.t}</h3>
+                <p>{step.d}</p>
+              </div>
+            ))}
           </div>
-          <p>
-            <Out href={doc("docs/canonical-encoding.md")} link="encoding">
-              What exactly is signed
-            </Out>{" "}
-            ·{" "}
-            <Out href={doc("docs/threat-model.md")} link="threat-model">
+          <p className="ld-reveal" style={{ marginTop: 48 }}>
+            <Out className="ld-more" href={doc("docs/threat-model.md")} link="threat-model">
               What it defends against
             </Out>
           </p>
         </section>
 
-        <section className="block" aria-labelledby="stellar">
-          <h2 id="stellar">BUILT ON STELLAR AND X402</h2>
-          <p className="claim">Standard rails, with one extra signature.</p>
-          <p>
-            Payments use the x402 v2 exact scheme on Stellar. The payer signs only a Soroban authorization
-            entry; an existing facilitator builds the transaction, pays the network fee and submits it. USDC
-            moves through its Stellar Asset Contract. The policy is a custom account contract, so every
-            check runs inside the account's own <code>__check_auth</code>, before anything settles.{" "}
-            <Out href={doc("docs/mainnet/x402-compat.md")} link="x402">
-              How it fits the facilitator
-            </Out>
-          </p>
-        </section>
-
-        <section className="block" aria-labelledby="limits">
-          <h2 id="limits">PILOT LIMITS</h2>
-          <p className="claim">Real money, deliberately little of it.</p>
-          <div className="facts">
-            <div className="fact">
-              <span className="value">1 USDC</span>
-              <span className="label">most a single payment can move</span>
+        <section className="ld-section ld-center" aria-labelledby="limits-title">
+          <p className="ld-eyebrow ld-reveal">Limits</p>
+          <h2 className="ld-title ld-reveal" id="limits-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+            Real money. Deliberately little.
+          </h2>
+          <div className="ld-numbers">
+            <div className="ld-number ld-reveal">
+              <CountUp to={1} unit="USDC" />
+              <p className="ld-label">per payment, at most</p>
             </div>
-            <div className="fact">
-              <span className="value">5 payments</span>
-              <span className="label">in any 24 hours</span>
+            <div className="ld-number ld-reveal" style={{ ["--ld-delay" as string]: "0.12s" }}>
+              <CountUp to={5} unit="payments" />
+              <p className="ld-label">in any 24 hours</p>
             </div>
-            <div className="fact">
-              <span className="value">5 USDC</span>
-              <span className="label">in any 24 hours</span>
-            </div>
-            <div className="fact">
-              <span className="value">10 USDC</span>
-              <span className="label">most the account ever holds</span>
+            <div className="ld-number ld-reveal" style={{ ["--ld-delay" as string]: "0.24s" }}>
+              <CountUp to={5} unit="USDC" />
+              <p className="ld-label">in any 24 hours</p>
             </div>
           </div>
-          <p>
-            Limits can only go down. The contract has no upgrade path, so nobody, not even the people who
-            deployed it, can raise them. Reaching a limit freezes the account until the owner looks.
+          <p className="ld-note ld-reveal">
+            {icon.lock}
+            Limits only go down. Reaching one freezes the account.
           </p>
         </section>
 
-        <section className="block" aria-labelledby="owner">
-          <h2 id="owner">THE OWNER STAYS IN CONTROL</h2>
-          <p className="claim">One passkey, on the owner's device, overrides everything else.</p>
-          <ul className="list">
-            <li>
-              <span className="name">Halt and resume</span>
-              <span className="what">Stop every payment at once, and let them through again.</span>
-            </li>
-            <li>
-              <span className="name">Revoke the agent</span>
-              <span className="what">Take the agent's key away, and give it back when it is safe.</span>
-            </li>
-            <li>
-              <span className="name">Choose the merchant</span>
-              <span className="what">Only a merchant the owner approved can be paid at all.</span>
-            </li>
-            <li>
-              <span className="name">Lower the limits</span>
-              <span className="what">Tighten any limit. Loosening is refused by the contract.</span>
-            </li>
-            <li>
-              <span className="name">Recover the funds</span>
-              <span className="what">
-                Send the whole balance to the recovery address fixed when the account was created.
-              </span>
-            </li>
-          </ul>
-          <p>
-            <a href="/panel" onClick={() => trackClick("/", "panel")}>
+        <section className="ld-section" aria-labelledby="owner-title">
+          <div className="ld-center">
+            <p className="ld-eyebrow ld-reveal">Owner control</p>
+            <h2 className="ld-title ld-reveal" id="owner-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+              Your passkey. Your rules.
+            </h2>
+          </div>
+          <div className="ld-bento">
+            <div className="ld-tile wide ld-reveal">
+              <span className="ld-icon">{icon.pause}</span>
+              <div>
+                <h3>Stop everything at once.</h3>
+                <p>Freeze every payment with a touch, and resume when you are ready.</p>
+              </div>
+            </div>
+            <div className="ld-tile wide ld-reveal" style={{ ["--ld-delay" as string]: "0.1s" }}>
+              <span className="ld-icon">{icon.key}</span>
+              <div>
+                <h3>Take the key away.</h3>
+                <p>Revoke the agent instantly. Give it back when it is safe.</p>
+              </div>
+            </div>
+            <div className="ld-tile ld-reveal">
+              <span className="ld-icon">{icon.store}</span>
+              <div>
+                <h3>Choose who gets paid.</h3>
+                <p>Only merchants you approved.</p>
+              </div>
+            </div>
+            <div className="ld-tile ld-reveal" style={{ ["--ld-delay" as string]: "0.1s" }}>
+              <span className="ld-icon">{icon.down}</span>
+              <div>
+                <h3>Tighten the limits.</h3>
+                <p>Loosening is refused on chain.</p>
+              </div>
+            </div>
+            <div className="ld-tile ld-reveal" style={{ ["--ld-delay" as string]: "0.2s" }}>
+              <span className="ld-icon">{icon.vault}</span>
+              <div>
+                <h3>Recover the funds.</h3>
+                <p>To the address fixed at creation.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="ld-section ld-center" aria-labelledby="chains-title">
+          <p className="ld-eyebrow ld-reveal">Standard rails</p>
+          <h2 className="ld-title ld-reveal" id="chains-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+            x402, with one extra signature.
+          </h2>
+          <p className="ld-lead ld-reveal" style={{ ["--ld-delay" as string]: "0.16s" }}>
+            Standard x402 payments in USDC. Every check runs inside the account itself, before anything settles.
+          </p>
+          <div className="ld-chains">
+            <div className="ld-chain ld-reveal">
+              <span className="ld-chain-mark stellar">S</span>
+              <div style={{ textAlign: "left" }}>
+                <strong>Stellar</strong>
+                <span>{onMainnet ? "Mainnet pilot" : "Testnet"} · Soroban smart account</span>
+              </div>
+            </div>
+            {onSolana && (
+              <div className="ld-chain ld-reveal" style={{ ["--ld-delay" as string]: "0.12s" }}>
+                <span className="ld-chain-mark solana">◎</span>
+                <div style={{ textAlign: "left" }}>
+                  <strong>Solana</strong>
+                  <span>Devnet · Anchor program</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="ld-section" id="evidence" aria-labelledby="evidence-title">
+          <div className="ld-center">
+            <p className="ld-eyebrow ld-reveal">Evidence</p>
+            <h2 className="ld-title ld-reveal" id="evidence-title" style={{ ["--ld-delay" as string]: "0.08s" }}>
+              Don't trust us. Check.
+            </h2>
+          </div>
+          <div className="ld-proofs">
+            {contractUrl ? (
+              <Out className="ld-proof ld-reveal" href={contractUrl} link="contract">
+                <strong>The account</strong>
+                <span className="ld-id">{config?.contractId}</span>
+                <em>On the explorer</em>
+              </Out>
+            ) : (
+              <div className="ld-proof ld-reveal">
+                <strong>The account</strong>
+                <span>Not deployed yet</span>
+              </div>
+            )}
+            <a className="ld-proof ld-reveal" href="/status" onClick={() => trackClick("/", "status")} style={{ ["--ld-delay" as string]: "0.08s" }}>
+              <strong>Live status</strong>
+              <span>Limits, the window, recent transactions.</span>
+              <em>Status</em>
+            </a>
+            <Out className="ld-proof ld-reveal" href={doc("docs/evidence.md")} link="evidence">
+              <strong>Evidence index</strong>
+              <span>Every claim and what proves it.</span>
+              <em>Index</em>
+            </Out>
+            <Out className="ld-proof ld-reveal" href={doc("docs/mainnet/deployment-record.md")} link="deployment-record">
+              <strong>Deployment record</strong>
+              <span>Commit, artifact hash, every transaction.</span>
+              <em>Record</em>
+            </Out>
+            <Out className="ld-proof ld-reveal" href={DEMO} link="demo">
+              <strong>Demonstration</strong>
+              <span>The whole flow in one take.</span>
+              <em>Video</em>
+            </Out>
+            <Out className="ld-proof ld-reveal" href={doc("docs/known-limitations.md")} link="limitations">
+              <strong>What it does not do</strong>
+              <span>Every known limitation, in plain words.</span>
+              <em>Limitations</em>
+            </Out>
+          </div>
+        </section>
+
+        <section className="ld-closing" aria-label="Get started">
+          <img className="ld-reveal" src="/beaver402-mark.png" alt="" />
+          <h2 className="ld-title ld-reveal" style={{ margin: "0 auto", ["--ld-delay" as string]: "0.08s" }}>
+            Let your agent pay. Safely.
+          </h2>
+          <div className="ld-actions ld-reveal" style={{ ["--ld-delay" as string]: "0.16s" }}>
+            <a className="ld-button" href="/panel" onClick={() => trackClick("/", "panel")}>
               Open the owner panel
             </a>
-          </p>
-        </section>
-
-        <section className="block" id="evidence" aria-labelledby="evidence-heading">
-          <h2 id="evidence-heading">EVIDENCE</h2>
-          <p className="claim">Every claim here can be checked without trusting us.</p>
-          <ul className="list">
-            <li>
-              <span className="name">The account</span>
-              <span className="what">
-                {config?.contractId ? <span className="mono-id">{config.contractId}</span> : "Not deployed yet"}
-              </span>
-              {contractUrl && (
-                <Out href={contractUrl} link="contract">
-                  On the explorer
-                </Out>
-              )}
-            </li>
-            <li>
-              <span className="name">Live status</span>
-              <span className="what">Limits, what the window has used, recent transactions.</span>
-              <a href="/status" onClick={() => trackClick("/", "status")}>
-                Status
-              </a>
-            </li>
-            <li>
-              <span className="name">Deployment record</span>
-              <span className="what">Source commit, artifact hash, parameters, every transaction.</span>
-              <Out href={doc("docs/mainnet/deployment-record.md")} link="deployment-record">
-                Record
-              </Out>
-            </li>
-            <li>
-              <span className="name">Evidence index</span>
-              <span className="what">Each claim, and the transaction or test that proves it.</span>
-              <Out href={doc("docs/evidence.md")} link="evidence">
-                Index
-              </Out>
-            </li>
-            <li>
-              <span className="name">Demonstration</span>
-              <span className="what">The whole flow, recorded in one take.</span>
-              <Out href={DEMO} link="demo">
-                Video
-              </Out>
-            </li>
-            <li>
-              <span className="name">Source</span>
-              <span className="what">Contract, backend, panel, tests and documentation.</span>
-              <Out href={REPOSITORY} link="repository">
-                Repository
-              </Out>
-            </li>
-          </ul>
-        </section>
-
-        <section className="block" aria-labelledby="limitations">
-          <h2 id="limitations">WHAT IT DOES NOT DO</h2>
-          <p>
-            Whoever holds the owner's device is the owner; there is no recovery for a lost passkey yet. A
-            compromised backend can spend up to the limits with an approved merchant, and the owner can stop
-            it. Nothing judges whether a price is fair. The pilot works with one merchant, holds no one
-            else's money, and has had a peer review rather than a formal audit.{" "}
-            <Out href={doc("docs/known-limitations.md")} link="limitations">
-              All known limitations
+            <Out className="ld-more" href={REPOSITORY} link="repository">
+              Read the code
             </Out>
-          </p>
+          </div>
         </section>
       </main>
-      <footer className="site-footer">
+
+      <footer className="ld-footer">
         <span>Beaver402</span>
         <span>Supported by Stellar Community Fund Instawards, Stellar Türkiye</span>
         <a href={REPOSITORY} target="_blank" rel="noreferrer">
