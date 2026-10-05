@@ -119,6 +119,9 @@ and `scripts/supabase-migration-003.sql`, in that order, in the Supabase SQL
 editor. Then copy `backend/.env.example` to `backend/.env` and fill in the
 Supabase values. Everything else is written for you in the next step.
 
+For the separate mainnet Supabase project, use the versioned baseline and
+verification steps in [`docs/mainnet/supabase.md`](docs/mainnet/supabase.md).
+
 ### 3. Create the testnet keys
 
 ```bash
