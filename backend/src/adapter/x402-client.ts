@@ -10,13 +10,14 @@ import { normalizeAmount, requestDigest } from "../shared/hashing.js";
 import { buildAgentSignatureScVal } from "./policy-signature.js";
 import { network, rpcServer, verifyNetwork } from "../config/network.js";
 import {
+  challengeFor,
   challengeFrom,
   X402_VERSION,
   type PaymentPayload,
   type PaymentRequired,
   type PaymentRequirements,
 } from "../x402/protocol.js";
-import type { SignedChallenge, PolicySignaturePayload } from "../shared/types.js";
+import type { SignedChallenge, SignedIntent, PolicySignaturePayload } from "../shared/types.js";
 
 /** The longest a challenge may stay valid. Mirrors MAX_CHALLENGE_LIFETIME. */
 const MAX_CHALLENGE_LIFETIME = 900;
@@ -36,6 +37,8 @@ export interface Beaver402AdapterConfig {
 
 /** The result of turning a 402 answer into a payment, before anything settles. */
 export interface PreparedPayment {
+  /** Which chain the payment was prepared for. */
+  chain?: "stellar" | "solana";
   success: boolean;
   error?: string;
   /** What to send back to the merchant in PAYMENT-SIGNATURE. */
@@ -51,6 +54,14 @@ export class Beaver402Adapter {
 
   constructor(config: Beaver402AdapterConfig) {
     this.config = config;
+  }
+
+  /** Whether the merchant offers the Stellar payment this account makes. */
+  accepts(required: PaymentRequired): boolean {
+    const config = network();
+    return !!required.accepts?.some(
+      (r) => r.scheme === "exact" && r.network === config.caip2 && r.asset === config.usdcContract
+    );
   }
 
   /**
@@ -85,7 +96,7 @@ export class Beaver402Adapter {
     }
 
     // step 2: the Beaver402 challenge, for this network and this token
-    const challenge = challengeFrom(required);
+    const challenge = challengeFor(required, config.caip2) ?? challengeFrom(required);
     if (!challenge) {
       return { success: false, error: "the merchant asked for payment without a signed Beaver402 challenge" };
     }
@@ -102,45 +113,17 @@ export class Beaver402Adapter {
       };
     }
 
-    // step 3: the challenge and the x402 requirements have to describe the
-    // same payment, or the facilitator would settle something the merchant
-    // never signed for
-    const disagreement = describeDisagreement(challenge, requirements);
-    if (disagreement) {
-      return { success: false, error: `the challenge and the payment requirements disagree on ${disagreement}` };
+    const vetted = vetChallenge(challenge, requirements, observedMethod, observedEndpoint, observedBody);
+    if (!vetted.ok) {
+      return { success: false, error: vetted.error, challengeHash: vetted.challengeHash, intentHash: vetted.intentHash };
     }
-
-    // step 4: verify merchant signature on the challenge
-    if (!verifyMerchantSignature(challenge)) {
-      return { success: false, error: "merchant signature verification failed" };
-    }
-
-    // step 5: create buyer intent from the observed request and compare
-    const intent = createIntentFromChallenge(challenge, observedMethod, observedEndpoint, observedBody);
-    const matchResult = verifyChallengeIntentMatch(challenge, intent);
-    if (!matchResult.matches) {
-      return {
-        success: false,
-        error: `challenge-intent mismatch: ${matchResult.reason}`,
-        challengeHash: challenge.hash,
-        intentHash: intent.hash,
-      };
-    }
-
-    // step 6: expiry, the way the contract will judge it
-    const now = Math.floor(Date.now() / 1000);
-    const expiry = parseInt(challenge.fields.expiry, 10);
-    if (!expiry || now > expiry) {
-      return { success: false, error: "challenge has expired" };
-    }
-    if (expiry - now > MAX_CHALLENGE_LIFETIME) {
-      return { success: false, error: "the challenge stays valid for longer than the account allows" };
-    }
+    const intent = vetted.intent;
 
     // step 7: build the transfer and have the policy account authorize it
     try {
       const transaction = await this.authorizedTransfer(challenge, requirements);
       return {
+        chain: "stellar",
         success: true,
         payload: {
           x402Version: X402_VERSION,
@@ -278,6 +261,58 @@ export class Beaver402Adapter {
 
     return StellarSdk.rpc.assembleTransaction(authorized, simulated).build().toXDR();
   }
+}
+
+export type Vetted =
+  | { ok: true; intent: SignedIntent }
+  | { ok: false; error: string; challengeHash?: string; intentHash?: string };
+
+/**
+ * The checks every chain makes before anything is signed: steps 3 to 6.
+ *
+ * 3. The challenge and the x402 requirements describe the same payment, or
+ *    the settlement would be for something the merchant never signed.
+ * 4. The merchant really signed the challenge.
+ * 5. The adapter's own reconstruction of the request agrees with it.
+ * 6. The challenge is current, judged the way the account will judge it.
+ */
+export function vetChallenge(
+  challenge: SignedChallenge,
+  requirements: PaymentRequirements,
+  observedMethod: string,
+  observedEndpoint: string,
+  observedBody?: string | Buffer | null
+): Vetted {
+  const disagreement = describeDisagreement(challenge, requirements);
+  if (disagreement) {
+    return { ok: false, error: `the challenge and the payment requirements disagree on ${disagreement}` };
+  }
+
+  if (!verifyMerchantSignature(challenge)) {
+    return { ok: false, error: "merchant signature verification failed" };
+  }
+
+  const intent = createIntentFromChallenge(challenge, observedMethod, observedEndpoint, observedBody);
+  const matchResult = verifyChallengeIntentMatch(challenge, intent);
+  if (!matchResult.matches) {
+    return {
+      ok: false,
+      error: `challenge-intent mismatch: ${matchResult.reason}`,
+      challengeHash: challenge.hash,
+      intentHash: intent.hash,
+    };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = parseInt(challenge.fields.expiry, 10);
+  if (!expiry || now > expiry) {
+    return { ok: false, error: "challenge has expired" };
+  }
+  if (expiry - now > MAX_CHALLENGE_LIFETIME) {
+    return { ok: false, error: "the challenge stays valid for longer than the account allows" };
+  }
+
+  return { ok: true, intent };
 }
 
 /** The first field on which a challenge and the x402 requirements differ. */

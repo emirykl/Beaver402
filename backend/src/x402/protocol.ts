@@ -55,8 +55,23 @@ export const EXTENSION = "beaver402";
 export const MAX_TIMEOUT_SECONDS = 60;
 
 export interface Beaver402Extension {
+  /** The challenge for the Stellar payment, where Beaver402 started. */
   challenge: SignedChallenge;
+  /**
+   * One challenge per network the merchant accepts, keyed by CAIP-2. Each
+   * is signed over the same request but that network's settlement terms,
+   * so a payment on one network can never answer another network's.
+   */
+  challenges?: Record<string, SignedChallenge>;
 }
+
+/**
+ * The x402 scheme for a Beaver402 payment on Solana. Not `exact`: the
+ * payment is the policy program's pay instruction rather than a bare token
+ * transfer, so a standard exact facilitator would refuse it, and the
+ * merchant settles it itself. See docs/solana/design.md.
+ */
+export const SOLANA_SCHEME = "beaver402";
 
 /** What Beaver402 adds to a settlement response. */
 export interface Beaver402Receipt {
@@ -82,6 +97,25 @@ export function challengeFrom(required: PaymentRequired): SignedChallenge | null
     return null;
   }
   return challenge as SignedChallenge;
+}
+
+function isSignedChallenge(value: unknown): value is SignedChallenge {
+  const c = value as Partial<SignedChallenge> | undefined;
+  return (
+    !!c &&
+    typeof c === "object" &&
+    !!c.fields &&
+    typeof c.hash === "string" &&
+    typeof c.merchantSignature === "string" &&
+    typeof c.merchantPubkey === "string"
+  );
+}
+
+/** The challenge the merchant signed for one network, if it sent one. */
+export function challengeFor(required: PaymentRequired, caip2: string): SignedChallenge | null {
+  const extension = required.extensions?.[EXTENSION] as Partial<Beaver402Extension> | undefined;
+  const keyed = extension?.challenges?.[caip2];
+  return isSignedChallenge(keyed) ? keyed : null;
 }
 
 /** Whether two sets of requirements ask for the same payment. */
