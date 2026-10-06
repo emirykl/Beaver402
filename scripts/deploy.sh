@@ -56,8 +56,9 @@ MAX_TX_COUNT="${MAX_TX_COUNT:-5}"
 MAX_TOTAL_AMOUNT="${MAX_TOTAL_AMOUNT:-50000000}"
 WINDOW_SIZE="${WINDOW_SIZE:-86400}"
 
-# Matches the identifier the control panel registers under.
-PASSKEY_USER="${PASSKEY_USER:-beaver402-owner}"
+# Matches the identifier the control panel registers under. The local
+# panel enrols its own owner, because a passkey only works on its domain.
+PASSKEY_USER="${PASSKEY_USER:-}"
 
 # ── Colors ────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -106,6 +107,13 @@ EXPLORER=$(json_value "$PARAMS" explorer)
 RP_ID=$(json_value "$PARAMS" rpId)
 RP_ID_HASH=$(json_value "$PARAMS" rpIdHash)
 NET_ARGS=(--rpc-url "$RPC_URL" --network-passphrase "$NETWORK_PASSPHRASE")
+
+if [ -z "$PASSKEY_USER" ]; then
+    case "$RP_ID" in
+        localhost|127.0.0.1) PASSKEY_USER="beaver402-owner-local" ;;
+        *) PASSKEY_USER="beaver402-owner" ;;
+    esac
+fi
 
 info "Network:  $NETWORK ($RPC_URL)"
 info "USDC:     $USDC_CONTRACT"

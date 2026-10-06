@@ -165,8 +165,19 @@ function systemTransfer(from: Address, to: Address, lamports: bigint): Instructi
   };
 }
 
+function rpId(): string {
+  return process.env.RP_ID || "localhost";
+}
+
+function isLocal(host: string): boolean {
+  return host === "localhost" || host === "127.0.0.1";
+}
+
 async function ownerKey(): Promise<Buffer> {
-  const user = process.env.PASSKEY_USER || "beaver402-owner";
+  // The owner has to be a passkey made for the same domain the account is
+  // bound to below, or no assertion can ever satisfy it. The local panel
+  // enrols its own owner, see ownerId in frontend/src/App.tsx.
+  const user = process.env.PASSKEY_USER || (isLocal(rpId()) ? "beaver402-owner-local" : "beaver402-owner");
   const { data, error } = await getSupabase()
     .from("credentials")
     .select("public_key, created_at")
@@ -211,7 +222,6 @@ async function main() {
     const policyId = randomBytes(32);
     policy = await policyAddress(config.programId, policyId);
     const vault = await associatedToken(policy, mint);
-    const rpId = process.env.RP_ID || "localhost";
     await send(
       payer,
       [
@@ -221,7 +231,7 @@ async function main() {
           {
             policyId,
             owner: await ownerKey(),
-            rpIdHash: createHash("sha256").update(rpId).digest(),
+            rpIdHash: createHash("sha256").update(rpId()).digest(),
             networkId: createHash("sha256").update(config.caip2).digest(),
             agentSigner: agent,
             recovery,
