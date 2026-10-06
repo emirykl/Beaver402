@@ -139,6 +139,9 @@ export async function startRegistration(userId: string, userName: string) {
     // offered. Left to its own devices an authenticator may hand back an
     // Ed25519 or RSA key, and the passkey would be useless as an owner.
     supportedAlgorithmIDs: [-7],
+    // The owner touches this Mac to approve, so offer its own authenticator
+    // first rather than a phone or a security key.
+    preferredAuthenticatorType: "localDevice",
     authenticatorSelection: {
       residentKey: "required",
       userVerification: "required",
