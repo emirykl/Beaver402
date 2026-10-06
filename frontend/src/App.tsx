@@ -83,6 +83,16 @@ interface LogEntry {
 
 let logId = 0;
 
+/**
+ * A passkey only works on the domain it was made for, and the local panel
+ * shares its database with the hosted one. So the local panel enrols an
+ * owner of its own, which never collides with the hosted owner's passkey.
+ */
+function ownerId(): string {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" ? "beaver402-owner-local" : "beaver402-owner";
+}
+
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [policyState, setPolicyState] = useState<PolicyState>({
@@ -124,7 +134,7 @@ export default function App() {
   }, []);
 
   const handleAuth = useCallback(async () => {
-    const userId = "beaver402-owner";
+    const userId = ownerId();
     setAuthError(null);
 
     const signIn = async () => {
