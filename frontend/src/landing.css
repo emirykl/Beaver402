@@ -62,6 +62,9 @@
 .ld-brand:hover img { transform: rotate(-8deg) scale(1.06); }
 .ld-nav a.ld-link { font-size: 16px; color: rgba(245, 245, 247, 0.78); transition: color 0.2s ease; }
 .ld-nav a.ld-link:hover { color: #fff; }
+.ld-nav a.ld-icon-link { display: grid; place-items: center; }
+.ld-nav a.ld-icon-link svg { width: 24px; height: 24px; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+.ld-nav a.ld-icon-link:hover svg { transform: scale(1.12); }
 .ld-nav a.ld-cta {
   font-size: 16px;
   padding: 10px 22px;
@@ -641,7 +644,7 @@
 @media (max-width: 600px) {
   .ld-nav { height: 60px; }
   .ld-kicker { letter-spacing: 0.14em; font-size: 12px; }
-  .ld-nav a.ld-link { display: none; }
+  .ld-nav a.ld-link:not(.ld-icon-link) { display: none; }
   .ld-brand { font-size: 18px; }
   .ld-brand img { width: 36px; height: 36px; }
   .ld-nav a.ld-cta { font-size: 14px; padding: 8px 16px; }

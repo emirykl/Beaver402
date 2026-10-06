@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { fetchConfig, type PublicConfig } from "./stellar-ops.js";
 import { trackClick, trackView, type Link } from "./track.js";
-import { SolanaMark, StellarMark, XMark } from "./chain-logos.js";
+import { GitHubMark, SolanaMark, StellarMark, XMark } from "./chain-logos.js";
 import "./landing.css";
 
 const REPOSITORY = "https://github.com/emirykl/Beaver402";
@@ -208,8 +208,16 @@ export default function Landing() {
           <a className="ld-link" href="/status" onClick={() => trackClick("/", "status")}>
             Status
           </a>
-          <a className="ld-link" href={REPOSITORY} target="_blank" rel="noreferrer" onClick={() => trackClick("/", "repository")}>
-            Code
+          <a
+            className="ld-link ld-icon-link"
+            href={REPOSITORY}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Source code on GitHub"
+            title="GitHub"
+            onClick={() => trackClick("/", "repository")}
+          >
+            <GitHubMark />
           </a>
           <a className="ld-cta" href="/panel" onClick={() => trackClick("/", "panel")}>
             Owner panel
