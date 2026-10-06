@@ -1,0 +1,207 @@
+/*
+ * The status page, in the landing page's language. It builds on
+ * landing.css and only adds what a live reading needs: state lamps,
+ * gauges and a timeline.
+ */
+
+.st-hero {
+  position: relative;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 140px 22px 40px;
+}
+.st-hero .ld-glow { top: 8%; }
+.st-title {
+  position: relative;
+  margin-top: 18px;
+  font-size: clamp(52px, 9vw, 104px);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  animation: ld-rise 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
+}
+.st-overall {
+  position: relative;
+  margin-top: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 26px;
+  border-radius: 980px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #26262a;
+  animation: ld-rise 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.65s both;
+}
+.st-sub {
+  position: relative;
+  margin-top: 22px;
+  font-size: 17px;
+  color: var(--ld-dim);
+  animation: ld-rise 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.8s both;
+}
+.st-error { color: #ff8a80; margin-top: 16px; font-size: 15px; }
+
+/* Tones, shared by the lamps and the words next to them. */
+.good { --st-tone: var(--ld-green); }
+.bad { --st-tone: #ff6b5e; }
+.wait { --st-tone: var(--ld-amber); }
+.st-lamp {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--st-tone);
+  box-shadow: 0 0 14px var(--st-tone);
+  animation: ld-pulse 2.4s ease-in-out infinite;
+}
+.st-overall { color: var(--st-tone); }
+
+.st-section { padding-top: 64px; padding-bottom: 64px; }
+.st-heading { font-size: clamp(30px, 4.4vw, 46px); font-weight: 700; letter-spacing: -0.04em; margin-bottom: 28px; }
+
+/* The account */
+.st-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 22px 26px;
+  border-radius: 24px;
+  background: var(--ld-card);
+  border: 1px solid #1f1f22;
+}
+.st-id { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; letter-spacing: 0; color: var(--ld-text); word-break: break-all; }
+.st-account-actions { display: flex; gap: 10px; }
+.st-chip {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 980px;
+  border: 1px solid #2c2c30;
+  background: #1a1a1d;
+  color: var(--ld-text);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.st-chip:hover { background: #232327; transform: scale(1.04); }
+.st-chip.amber { color: var(--ld-amber); }
+
+.st-states { margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.st-state {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px;
+  border-radius: 24px;
+  background: var(--ld-card);
+  border: 1px solid #1f1f22;
+}
+.st-label { font-size: 14px; color: var(--ld-dim); font-weight: 500; }
+.st-value { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: var(--st-tone); }
+
+/* Gauges */
+.st-gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.st-gauge {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 34px 24px 28px;
+  border-radius: 28px;
+  background: var(--ld-card);
+  border: 1px solid #1f1f22;
+}
+.st-gauge svg { width: 180px; height: 180px; transform: rotate(-90deg); }
+.st-ring-back { fill: none; stroke: #222226; stroke-width: 9; }
+.st-ring {
+  fill: none;
+  stroke: var(--ld-amber);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-dashoffset: var(--st-length);
+  transition: stroke-dashoffset 2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s;
+  filter: drop-shadow(0 0 8px rgba(232, 168, 73, 0.45));
+}
+.st-gauge.in .st-ring { stroke-dashoffset: calc(var(--st-length) * (1 - var(--st-share))); }
+.st-gauge-text {
+  position: absolute;
+  top: 34px;
+  width: 180px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.st-gauge-text .ld-value { font-size: 44px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.st-gauge-text .ld-unit { display: none; }
+.st-of { margin-top: 6px; font-size: 14px; color: var(--ld-dim); }
+.st-gauge-label { font-size: 16px; color: var(--ld-dim); font-weight: 500; }
+.st-cap { justify-content: center; }
+.st-cap-value { height: 180px; display: grid; place-items: center; }
+.st-cap-value .ld-value { font-size: 64px; font-weight: 700; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+.st-cap-value .ld-unit { font-size: 0.36em; margin-left: 6px; color: var(--ld-dim); }
+
+/* Timeline */
+.st-timeline { list-style: none; position: relative; padding-left: 4px; }
+.st-timeline::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--ld-amber), #222 80%);
+}
+.st-timeline li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--ld-line);
+}
+.st-dot {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin-left: 0;
+  border-radius: 50%;
+  background: #000;
+  border: 2px solid var(--ld-amber);
+  box-shadow: 0 0 10px rgba(232, 168, 73, 0.5);
+  z-index: 1;
+}
+.st-event { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.st-event strong { font-size: 18px; font-weight: 600; }
+.st-event span { font-size: 14px; color: var(--ld-dim); }
+.st-timeline a { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; color: var(--ld-amber); letter-spacing: 0; }
+.st-timeline a:hover { color: var(--ld-amber-soft); }
+.st-empty { color: var(--ld-dim); font-size: 17px; }
+.st-note { margin-top: 18px; font-size: 14px; color: var(--ld-faint); }
+
+@media (max-width: 900px) {
+  .st-states { grid-template-columns: repeat(2, 1fr); }
+  .st-gauges { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .st-hero { padding: 110px 16px 24px; min-height: 60vh; }
+  .st-overall { font-size: 17px; padding: 12px 20px; }
+  .st-states { grid-template-columns: 1fr; }
+  .st-id { font-size: 13px; }
+  .st-timeline a { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-ring { transition: none; }
+  .st-title, .st-overall, .st-sub { animation: none; }
+}

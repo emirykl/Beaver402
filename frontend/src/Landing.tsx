@@ -11,7 +11,7 @@ const X_ACCOUNT = "https://x.com/Beaver402";
 const doc = (path: string) => `${REPOSITORY}/blob/main/${path}`;
 
 /** An outbound link that is counted when followed. */
-function Out({
+export function Out({
   href,
   link,
   className,
@@ -29,35 +29,8 @@ function Out({
   );
 }
 
-export function Nav({ current }: { current: "/" | "/status" }) {
-  return (
-    <nav className="site-nav" aria-label="Site">
-      <a className="brand" href="/">
-        <img src="/beaver402-logo.png" alt="" />
-        <span>BEAVER402</span>
-      </a>
-      {current !== "/status" && (
-        <a className="nav-link" href="/status" onClick={() => trackClick("/", "status")}>
-          STATUS
-        </a>
-      )}
-      {current !== "/" && (
-        <a className="nav-link" href="/">
-          HOME
-        </a>
-      )}
-      <a className="nav-link" href={REPOSITORY} target="_blank" rel="noreferrer" onClick={() => trackClick(current, "repository")}>
-        CODE
-      </a>
-      <a className="nav-link" href="/panel" onClick={() => trackClick(current, "panel")}>
-        OWNER
-      </a>
-    </nav>
-  );
-}
-
 /** Mark elements as seen once they scroll into view, so CSS can animate them in. */
-function useReveal(deps: unknown[]) {
+export function useReveal(deps: unknown[]) {
   useEffect(() => {
     const targets = document.querySelectorAll(".ld-reveal, .ld-statement, .ld-pipe, .ld-checks, .ld-device");
     if (!("IntersectionObserver" in window)) {
@@ -82,7 +55,7 @@ function useReveal(deps: unknown[]) {
 }
 
 /** A number that counts up from zero the first time it is seen. */
-function CountUp({ to, unit, decimals = 0 }: { to: number; unit: string; decimals?: number }) {
+export function CountUp({ to, unit, decimals = 0 }: { to: number; unit: string; decimals?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [value, setValue] = useState(0);
 
@@ -141,7 +114,7 @@ function Statement({ words, accent }: { words: string; accent: string[] }) {
   );
 }
 
-const delay = (seconds: number) => ({ ["--ld-delay" as string]: `${seconds}s` }) as React.CSSProperties;
+export const delay = (seconds: number) => ({ ["--ld-delay" as string]: `${seconds}s` }) as React.CSSProperties;
 
 /** The parties a payment passes between, in order. */
 const PIPE = ["Merchant", "Agent", "Beaver402", "Ledger"];
@@ -178,17 +151,130 @@ function Fingerprint() {
   );
 }
 
-export default function Landing() {
-  const [config, setConfig] = useState<PublicConfig | null>(null);
+/** The header every public page shares. It turns to glass once the page scrolls. */
+export function SiteNav({ page }: { page: "/" | "/status" }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    trackView("/");
-    fetchConfig().then(setConfig);
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <nav className={scrolled ? "ld-nav scrolled" : "ld-nav"} aria-label="Site">
+      <div className="ld-nav-inner">
+        <a className="ld-brand" href="/">
+          <img src="/beaver402-mark.png" alt="" />
+          <span>Beaver402</span>
+        </a>
+        {page === "/status" ? (
+          <a className="ld-link" href="/">
+            Home
+          </a>
+        ) : (
+          <a className="ld-link" href="/status" onClick={() => trackClick(page, "status")}>
+            Status
+          </a>
+        )}
+        <a
+          className="ld-link ld-icon-link"
+          href={REPOSITORY}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Source code on GitHub"
+          title="GitHub"
+          onClick={() => trackClick(page, "repository")}
+        >
+          <GitHubMark />
+        </a>
+        <a className="ld-cta" href="/panel" onClick={() => trackClick(page, "panel")}>
+          Owner panel
+        </a>
+      </div>
+    </nav>
+  );
+}
+
+/** The footer card every public page shares. */
+export function SiteFooter({ page = "/" }: { page?: "/" | "/status" }) {
+  const [config, setConfig] = useState<PublicConfig | null>(null);
+  useEffect(() => {
+    fetchConfig().then(setConfig);
+  }, []);
+  const contractUrl = config?.contractId ? `${config.explorer}/contract/${config.contractId}` : null;
+
+  return (
+    <footer className="ld-footer">
+      <div className="ld-footer-card ld-reveal">
+        <div className="ld-footer-brand">
+          <img src="/beaver402-mark.png" alt="" />
+          <strong>Beaver402</strong>
+          <p>The payment security layer for AI agents.</p>
+          <span className="ld-support">Supported by Stellar Community Fund Instawards and Stellar Türkiye</span>
+        </div>
+        <div className="ld-footer-cols">
+          <div>
+            <h4>Product</h4>
+            <a href="/panel" onClick={() => trackClick(page, "panel")}>
+              Owner panel
+            </a>
+            <a href="/status" onClick={() => trackClick(page, "status")}>
+              Live status
+            </a>
+            <Out href={DEMO} link="demo">
+              Demo video
+            </Out>
+            <a href={X_ACCOUNT} target="_blank" rel="noreferrer">
+              X / Twitter
+            </a>
+          </div>
+          <div>
+            <h4>Proof</h4>
+            <Out href={doc("docs/evidence.md")} link="evidence">
+              Evidence index
+            </Out>
+            <Out href={doc("docs/mainnet/deployment-record.md")} link="deployment-record">
+              Deployment record
+            </Out>
+            <Out href={doc("docs/threat-model.md")} link="threat-model">
+              Threat model
+            </Out>
+            <Out href={doc("docs/known-limitations.md")} link="limitations">
+              Known limitations
+            </Out>
+          </div>
+          <div>
+            <h4>Code</h4>
+            <Out href={REPOSITORY} link="repository">
+              GitHub
+            </Out>
+            {contractUrl ? (
+              <Out href={contractUrl} link="contract">
+                Contract on the explorer
+              </Out>
+            ) : null}
+            <Out href={doc("docs/canonical-encoding.md")} link="encoding">
+              What is signed
+            </Out>
+          </div>
+        </div>
+        <div className="ld-footer-bottom">
+          <span>© 2026 Beaver402</span>
+          <span>MIT licensed</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+export default function Landing() {
+  const [config, setConfig] = useState<PublicConfig | null>(null);
+
+  useEffect(() => {
+    trackView("/");
+    fetchConfig().then(setConfig);
   }, []);
 
   useReveal([config]);
@@ -199,31 +285,7 @@ export default function Landing() {
 
   return (
     <div className="ld">
-      <nav className={scrolled ? "ld-nav scrolled" : "ld-nav"} aria-label="Site">
-        <div className="ld-nav-inner">
-          <a className="ld-brand" href="/">
-            <img src="/beaver402-mark.png" alt="" />
-            <span>Beaver402</span>
-          </a>
-          <a className="ld-link" href="/status" onClick={() => trackClick("/", "status")}>
-            Status
-          </a>
-          <a
-            className="ld-link ld-icon-link"
-            href={REPOSITORY}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Source code on GitHub"
-            title="GitHub"
-            onClick={() => trackClick("/", "repository")}
-          >
-            <GitHubMark />
-          </a>
-          <a className="ld-cta" href="/panel" onClick={() => trackClick("/", "panel")}>
-            Owner panel
-          </a>
-        </div>
-      </nav>
+      <SiteNav page="/" />
 
       <main>
         <header className="ld-hero">
@@ -450,66 +512,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="ld-footer">
-        <div className="ld-footer-card ld-reveal">
-          <div className="ld-footer-brand">
-            <img src="/beaver402-mark.png" alt="" />
-            <strong>Beaver402</strong>
-            <p>The payment security layer for AI agents.</p>
-            <span className="ld-support">Supported by Stellar Community Fund Instawards and Stellar Türkiye</span>
-          </div>
-          <div className="ld-footer-cols">
-            <div>
-              <h4>Product</h4>
-              <a href="/panel" onClick={() => trackClick("/", "panel")}>
-                Owner panel
-              </a>
-              <a href="/status" onClick={() => trackClick("/", "status")}>
-                Live status
-              </a>
-              <Out href={DEMO} link="demo">
-                Demo video
-              </Out>
-              <a href={X_ACCOUNT} target="_blank" rel="noreferrer">
-                X / Twitter
-              </a>
-            </div>
-            <div>
-              <h4>Proof</h4>
-              <Out href={doc("docs/evidence.md")} link="evidence">
-                Evidence index
-              </Out>
-              <Out href={doc("docs/mainnet/deployment-record.md")} link="deployment-record">
-                Deployment record
-              </Out>
-              <Out href={doc("docs/threat-model.md")} link="threat-model">
-                Threat model
-              </Out>
-              <Out href={doc("docs/known-limitations.md")} link="limitations">
-                Known limitations
-              </Out>
-            </div>
-            <div>
-              <h4>Code</h4>
-              <Out href={REPOSITORY} link="repository">
-                GitHub
-              </Out>
-              {contractUrl ? (
-                <Out href={contractUrl} link="contract">
-                  Contract on the explorer
-                </Out>
-              ) : null}
-              <Out href={doc("docs/canonical-encoding.md")} link="encoding">
-                What is signed
-              </Out>
-            </div>
-          </div>
-          <div className="ld-footer-bottom">
-            <span>© 2026 Beaver402</span>
-            <span>MIT licensed</span>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
