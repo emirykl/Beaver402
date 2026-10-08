@@ -15,7 +15,7 @@ _Filled in at the mainnet deployment._
 | Contract | [`CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL`](https://stellar.expert/explorer/public/contract/CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL) |
 | Deployed | 8 October 2026, ledger 64831361 |
 | Source commit | `e495ae8` on `contract-hardening`; contract source identical to `v0.2.0-rc.1` |
-| Release tag | |
+| Release tag | `v0.2.0` (commit `ad7054e`, CI [37742442224](https://github.com/emirykl/Beaver402/actions/runs/37742442224)) |
 | Artifact sha256 | `b94e7a951332b9192696a2f6778a8e3833398172162b305271598285e19ae73f`, the reviewed release candidate |
 | Code hash on chain | `b94e7a951332b9192696a2f6778a8e3833398172162b305271598285e19ae73f` |
 
@@ -54,16 +54,16 @@ _Filled in at the mainnet deployment._
 
 | Step | Transaction | Notes |
 |---|---|---|
-| Payment from the MCP tool, settled by the facilitator | | |
-| Its proof of intent | | |
+| Payment from the MCP tool, settled by the facilitator | [`035fdb6d`](https://stellar.expert/explorer/public/tx/035fdb6d1e816eb832168510aac99397e743448302c3e86274479840ee5568c4) | 0.1 USDC, fee paid by the facilitator |
+| Its proof of intent | [`cb59a5ed`](https://stellar.expert/explorer/public/tx/cb59a5ed1335446f3506e40721cde7116a6831be112cbcbb4d56f0151a3c784a) | |
 | Request changed after signing, refused | none, refused before submission | reproducible log |
-| Halt | [`99c5d648`](https://stellar.expert/explorer/public/tx/99c5d648de39acd0c173ac551b4516724da8c92ca899a46976d758a8cb6fe3d0) | |
+| Halt | [`119d9dbf`](https://stellar.expert/explorer/public/tx/119d9dbf8e6676a056c91218e6dab121f0217e4dbef12486a1c07576656a3f2f); first halt from the panel [`99c5d648`](https://stellar.expert/explorer/public/tx/99c5d648de39acd0c173ac551b4516724da8c92ca899a46976d758a8cb6fe3d0) | |
 | Payment while halted, refused | none | `AccountFrozen` |
-| Resume | | |
-| Second payment | | |
-| Agent key revoked | | |
+| Resume | [`5db6b018`](https://stellar.expert/explorer/public/tx/5db6b0185416b5f2156d9991dc70b98f51bec324f088126030bbf1b601d03c50) | |
+| Second payment | [`98d4a50a`](https://stellar.expert/explorer/public/tx/98d4a50aff86e6ccca03e2ec51bef337f4425c6ea465c3c8598208325d1db9b9) | proof [`7bf2bc08`](https://stellar.expert/explorer/public/tx/7bf2bc08d6504b48e054fc25919acd8d042d94c41580f5085b68052d2321106a) |
+| Agent key revoked | [`7a539f58`](https://stellar.expert/explorer/public/tx/7a539f5810ad70e8d61672fe05352a2455d0d0370cbbf021b45d32133422aeb3) | |
 | Payment after revocation, refused | none | `SignerRevoked` |
-| Agent key reinstated | | |
+| Agent key reinstated | [`4e4bed49`](https://stellar.expert/explorer/public/tx/4e4bed49dce390f5e29385ac4ff5b5ead2e40914f9e10233b2bf09e2bc793767) | |
 | Merchant removed | | incident drill |
 | Limits lowered | | incident drill |
 | Funds recovered | | incident drill |
