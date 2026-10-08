@@ -12,43 +12,43 @@ _Filled in at the mainnet deployment._
 | | |
 |---|---|
 | Network | Stellar mainnet, `Public Global Stellar Network ; September 2015` |
-| Contract | |
-| Deployed | date, ledger |
-| Source commit | |
+| Contract | [`CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL`](https://stellar.expert/explorer/public/contract/CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL) |
+| Deployed | 8 October 2026, ledger 64831361 |
+| Source commit | `e495ae8` on `contract-hardening`; contract source identical to `v0.2.0-rc.1` |
 | Release tag | |
-| Artifact sha256 | must equal the reviewed hash in [release.md](release.md) |
-| Code hash on chain | |
+| Artifact sha256 | `b94e7a951332b9192696a2f6778a8e3833398172162b305271598285e19ae73f`, the reviewed release candidate |
+| Code hash on chain | `b94e7a951332b9192696a2f6778a8e3833398172162b305271598285e19ae73f` |
 
 ## Parameters fixed at creation
 
 | | |
 |---|---|
-| Owner passkey | public key, and the domain it belongs to |
-| Relying party hash | sha256 of the domain |
-| Agent signer | public key |
+| Owner passkey | `048453002ab0ec37…`, on `beaver402.vercel.app` |
+| Relying party hash | `bc08731c40fd1ebaa981da6e2c9a372fc5c1ae5d611b38bb7439c64c184e1b0c` |
+| Agent signer | `GCYXQGDJRIWLXOQNKGCJFBA7K6POKF2I47OWBCNH3YJDIH55CQMTKJ6B` |
 | Asset | `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`, Circle USDC |
-| Recovery address | |
+| Recovery address | `GA23GAV6HBRDAL3A5HP7X2M7LD2NFGINPKNZTJU5J54SLSLOEIMRTEWG` |
 | Limits | 1 USDC per payment, 5 payments and 5 USDC in any 24 hours |
 
 ## Roles
 
 | Role | Public key | Where its secret lives |
 |---|---|---|
-| Deployer and fee account | | the operator's machine, the agent deployment |
-| Agent | | the agent deployment |
-| Merchant | | the merchant deployment |
-| Recipient | | the merchant's treasury |
-| Recovery | | not held by any service |
-| Facilitator | | OpenZeppelin Channels, mainnet |
+| Deployer and fee account | `GBPIAV3AHJ6VPJVYFSLOSXCDA324EXX473OA4G7K5EHK445DODFY2AVG` | the operator's machine, the agent deployment |
+| Agent | `GCYXQGDJRIWLXOQNKGCJFBA7K6POKF2I47OWBCNH3YJDIH55CQMTKJ6B` | the agent deployment |
+| Merchant | `GCN3SBGN2EH3TDDIOVAIYJUPU6DMJDOUOZLM4SIA77YPUEEX4QEXWCV6` | the merchant deployment |
+| Recipient | `GCN3SBGN2EH3TDDIOVAIYJUPU6DMJDOUOZLM4SIA77YPUEEX4QEXWCV6`, the merchant itself | the merchant's treasury |
+| Recovery | `GA23GAV6HBRDAL3A5HP7X2M7LD2NFGINPKNZTJU5J54SLSLOEIMRTEWG` | not held by any service |
+| Facilitator | `GA5SXMFJTUPTZRIEKM6XZLCYOZRMUEE6KGAHL3GXDBG64DYOUIWYIF3M` | OpenZeppelin Channels, mainnet |
 
 ## Setup transactions
 
 | Step | Transaction |
 |---|---|
-| Code uploaded | |
-| Account created | |
-| Merchant approved with the passkey | |
-| Account funded | |
+| Code uploaded | [`f8637d1d`](https://stellar.expert/explorer/public/tx/f8637d1d2e3e49d96d5085716040f22273986f307e06e34924c64b3d558c7044), 8 October 2026, ledger 64827466, fee 28.2011 XLM |
+| Account created | [`f48eeaa4`](https://stellar.expert/explorer/public/tx/f48eeaa4aaf6619d1caa0f467b56284eb5d47f0a335c1d90579af9858a77d077), fee 7.6607 XLM |
+| Merchant approved with the passkey | [`75e6ba9a`](https://stellar.expert/explorer/public/tx/75e6ba9ae2113ddb01cef0bf37fc099e5236006c411ea38f70cde9556fc273f4) |
+| Account funded | 5.5 USDC from the recovery wallet, 8 October 2026 |
 
 ## Pilot transactions
 
@@ -57,7 +57,7 @@ _Filled in at the mainnet deployment._
 | Payment from the MCP tool, settled by the facilitator | | |
 | Its proof of intent | | |
 | Request changed after signing, refused | none, refused before submission | reproducible log |
-| Halt | | |
+| Halt | [`99c5d648`](https://stellar.expert/explorer/public/tx/99c5d648de39acd0c173ac551b4516724da8c92ca899a46976d758a8cb6fe3d0) | |
 | Payment while halted, refused | none | `AccountFrozen` |
 | Resume | | |
 | Second payment | | |
@@ -72,10 +72,10 @@ _Filled in at the mainnet deployment._
 
 | Check | Result |
 |---|---|
-| `get_asset` is Circle USDC | |
-| `get_recovery` is the recovery address | |
-| `get_agent_signer` is the agent | |
-| `get_velocity_config` is the pilot limits | |
+| `get_asset` is Circle USDC | yes, checked by deploy.sh |
+| `get_recovery` is the recovery address | yes, checked by deploy.sh |
+| `get_agent_signer` is the agent | yes, checked by deploy.sh |
+| `get_velocity_config` is the pilot limits | yes: 1 USDC, 5 payments, 5 USDC, 86,400 s |
 | The account's lifetime is the full 150 days | |
 | The status page shows the account | |
 | The event collector has its first run | |
