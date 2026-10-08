@@ -66,7 +66,7 @@ _Filled in at the mainnet deployment._
 | Agent key reinstated | [`4e4bed49`](https://stellar.expert/explorer/public/tx/4e4bed49dce390f5e29385ac4ff5b5ead2e40914f9e10233b2bf09e2bc793767) | |
 | Merchant removed | | incident drill |
 | Limits lowered | | incident drill |
-| Funds recovered | | incident drill |
+| Funds recovered | [`05b67079`](https://stellar.expert/explorer/public/tx/05b6707900f9d2b2dbd6098960b7ae0fc82c00b661d07d08bcadab0851512f66) | 5.1 USDC to the recovery address, after halt [`6ef53d84`](https://stellar.expert/explorer/public/tx/6ef53d84cc9ca167af86ddd365f8b0b56e1d6b496c7f2773e6fc3785ccb346ab) |
 
 ## Checked after deployment
 

@@ -2,7 +2,8 @@
 
 What was done on the mainnet account, in order, with the result each step
 produced. Refused payments leave no transaction, so the agent's answer is
-recorded here instead. Times are UTC, 8 October 2026.
+recorded here instead. Times are UTC, 8 October 2026. The pilot spent 0.4 USDC, all of it paid to
+the project's own merchant, and stayed inside every limit.
 
 Account: [`CBSMQ7LU…FVXL`](https://stellar.expert/explorer/public/contract/CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL)
 
@@ -21,6 +22,8 @@ Account: [`CBSMQ7LU…FVXL`](https://stellar.expert/explorer/public/contract/CBS
 | 07:29 | Agent key reinstated, passkey | done | [`4e4bed49`](https://stellar.expert/explorer/public/tx/4e4bed49dce390f5e29385ac4ff5b5ead2e40914f9e10233b2bf09e2bc793767) |
 | 07:29 | Second payment from the MCP tool | settled, content released | [`98d4a50a`](https://stellar.expert/explorer/public/tx/98d4a50aff86e6ccca03e2ec51bef337f4425c6ea465c3c8598208325d1db9b9), proof [`7bf2bc08`](https://stellar.expert/explorer/public/tx/7bf2bc08d6504b48e054fc25919acd8d042d94c41580f5085b68052d2321106a) |
 | 07:31 | Adversarial scenarios (`scripts/scenarios.ts`) against the mainnet merchant, including requests changed after the merchant signed | two allowed payments settled; the window then held 4 of 5 payments, 0.4 of 5 USDC | settlements [`5fe62168`](https://stellar.expert/explorer/public/tx/5fe621682b5d1c492ac4e64048876fc19775d694b478502bbd3554e7af977c29), [`5da913f9`](https://stellar.expert/explorer/public/tx/5da913f993e97fcc0deb278dd519d632685255fb3525e6294a7bd1afae4cd61e); proofs [`8f790063`](https://stellar.expert/explorer/public/tx/8f7900632f8c129b5132e87f6861eaf2b1254b9f5bd49890735d08126a0a7279), [`486f2f15`](https://stellar.expert/explorer/public/tx/486f2f15c84d7384eb0eaccb613d7f1fd2d8064f47dca737d8e0d95a3ec0d508) |
+| 07:36 | Halt before recovery, passkey | done | [`6ef53d84`](https://stellar.expert/explorer/public/tx/6ef53d84cc9ca167af86ddd365f8b0b56e1d6b496c7f2773e6fc3785ccb346ab) |
+| 07:37 | Funds recovered, passkey: the account's whole USDC balance to the recovery address fixed at creation | 5.1 USDC moved; the recovery wallet holds 5.6 USDC | [`05b67079`](https://stellar.expert/explorer/public/tx/05b6707900f9d2b2dbd6098960b7ae0fc82c00b661d07d08bcadab0851512f66) |
 
 The payment's merchant challenge hash was
 `def0e9a63880cb3370309aef05ced76b71fc51bfeb162bb81feba9517049d578` and
