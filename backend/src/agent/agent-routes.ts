@@ -31,8 +31,13 @@ function getAdapter(): Beaver402Adapter {
   return adapter;
 }
 
-const nodeFetch: FetchLike = async (url, init) => {
-  const response = await fetch(url, init);
+/**
+ * Redirects are not followed. The origin was checked against the allowlist,
+ * and a redirect would take the agent, and the payment it retries with, to
+ * an origin nobody approved.
+ */
+export const nodeFetch: FetchLike = async (url, init) => {
+  const response = await fetch(url, { ...init, redirect: "manual" });
   return {
     status: response.status,
     headers: response.headers,

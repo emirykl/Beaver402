@@ -133,3 +133,32 @@ describe("the agent route itself", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("the agent's fetch", () => {
+  it("does not follow a redirect away from the origin that was approved", async () => {
+    const { nodeFetch } = await import("../src/agent/agent-routes.js");
+    let reachedElsewhere = false;
+
+    const elsewhere = express();
+    elsewhere.get("/paid", (_req, res) => {
+      reachedElsewhere = true;
+      res.status(402).json({ error: "Payment Required" });
+    });
+    const target = elsewhere.listen(0);
+    const targetPort = (target.address() as AddressInfo).port;
+
+    const approved = express();
+    approved.get("/resource", (_req, res) => res.redirect(302, `http://127.0.0.1:${targetPort}/paid`));
+    const origin = approved.listen(0);
+    const originPort = (origin.address() as AddressInfo).port;
+
+    try {
+      const response = await nodeFetch(`http://127.0.0.1:${originPort}/resource`, { method: "GET" });
+      expect(response.status).toBe(302);
+      expect(reachedElsewhere).toBe(false);
+    } finally {
+      target.close();
+      origin.close();
+    }
+  });
+});

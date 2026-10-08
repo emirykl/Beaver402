@@ -56,7 +56,7 @@ The current branch still needs a release CI run and external peer review.
 | 26 | Recovery address chosen, holds a USDC trustline | | deployment record |
 | 27 | Recipient account holds a USDC trustline | | deployment record |
 | 28 | No secret in the repository, the browser, logs or the model's context | | review |
-| 35 | Mainnet Supabase schema and private table access are verified | | nine tables readable with service role, [verification](verification-2026-10-02.md); SQL Editor RLS/privilege results pending |
+| 35 | Mainnet Supabase schema and private table access are verified | yes | 8 October, SQL Editor: all nine tables have RLS on, service role full access, no `anon` or `authenticated` privilege, no policies; both functions executable by service role only; `facilitator` and `proof_tx_hash` columns present |
 | 36 | Private payment attempts are not exposed by a public API route | yes, testnet | [I14](../security/findings.md) closed in `bc3fcb8`; unauthenticated deployed testnet request now returns 401 |
 | 37 | Public status and error responses cannot reveal provider credentials | no | [I15](../security/findings.md) remains open for existing collector rows and raw hosted logs |
 | 38 | Mainnet env file and commands cannot silently select testnet | yes, local | [I16](../security/findings.md) closed in `bc3fcb8`; `dev:mainnet` stopped on missing mainnet RPC |
