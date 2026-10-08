@@ -281,7 +281,6 @@ export default function Landing() {
 
   const contractUrl = config?.contractId ? `${config.explorer}/contract/${config.contractId}` : null;
   const onMainnet = config?.network === "mainnet";
-  const onSolana = config?.chains?.includes("solana") ?? false;
 
   return (
     <div className="ld">
@@ -487,7 +486,7 @@ export default function Landing() {
             <div className="ld-chain ld-reveal" style={delay(0.2)}>
               <SolanaMark className="ld-chain-logo" />
               <strong>Solana</strong>
-              <span>{onSolana ? "Devnet · Anchor program" : "Devnet · coming next"}</span>
+              <span>Coming next</span>
             </div>
           </div>
         </section>
