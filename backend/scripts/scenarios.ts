@@ -16,7 +16,10 @@
  * The merchant has to be running. On testnet that is the backend with
  * BEAVER402_ROLE=all.
  *
- * Run with: npm run scenarios [merchantUrl]
+ * Run with: npm run scenarios [merchantUrl] [agentUrl]
+ *
+ * On mainnet the agent and the merchant are separate deployments, so the
+ * account's state is read from the agent when its URL is given.
  */
 import { Keypair } from "@stellar/stellar-sdk";
 
@@ -30,6 +33,7 @@ import type { SignedChallenge } from "../src/shared/types.js";
 
 const MERCHANT = process.argv[2] || `http://localhost:${process.env.PORT || 3000}`;
 const ENDPOINT = `${MERCHANT}/api/data`;
+const AGENT = process.argv[3] || MERCHANT;
 
 const adapter = createAdapter(process.env.AGENT_SECRET!, process.env.POLICY_CONTRACT_ID!);
 
@@ -122,7 +126,7 @@ async function decide(required: PaymentRequired, method = "GET", endpoint = ENDP
 }
 
 async function readState(): Promise<{ frozen: boolean; txCount: number; max: number }> {
-  const response = await fetch(`${MERCHANT}/api/policy/state`);
+  const response = await fetch(`${AGENT}/api/policy/state`);
   const state = (await response.json()) as { frozen: boolean; velocityTxCount: number; velocityMaxTxCount: number };
   return { frozen: state.frozen, txCount: state.velocityTxCount, max: state.velocityMaxTxCount };
 }

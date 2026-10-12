@@ -6,7 +6,9 @@ that nobody has to infer it from what is missing elsewhere.
 ## By design, for this pilot
 
 - **One merchant.** The account can approve several, but the pilot runs with
-  one reference merchant. There is no merchant registry or onboarding.
+  one reference merchant. There is no merchant registry or onboarding. Every
+  approved merchant also adds to what each payment reads and writes, so a
+  long list would push the payment's fee past what a facilitator accepts.
 - **Small amounts.** At most 1 USDC per payment, 5 payments and 5 USDC in any
   24 hours, and no more than 10 USDC funded. These are the limits on chain;
   they can only be lowered.
