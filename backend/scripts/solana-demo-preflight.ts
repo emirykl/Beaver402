@@ -6,8 +6,10 @@ import { enabledChains } from "../src/chains/registry.js";
 import { solana, solanaRpc, verifySolanaNetwork } from "../src/chains/solana/config.js";
 import { readPolicyAccount } from "../src/chains/solana/owner-actions.js";
 import { velocityState } from "../src/chains/solana/policy-account.js";
-import { associatedToken, solanaAddressOf } from "../src/chains/solana/program.js";
+import { associatedToken, compressP256, solanaAddressOf } from "../src/chains/solana/program.js";
 import { SOLANA_PRICE } from "../src/chains/solana/merchant.js";
+import { getUserCredentials } from "../src/passkey/webauthn-server.js";
+import { coseToOwnerKey } from "../src/passkey/owner-key.js";
 
 async function main() {
   const config = solana();
@@ -35,6 +37,22 @@ async function main() {
   if (policy.agentSigner !== agent) problems.push("AGENT_SECRET is not the policy's active agent");
   if (!policy.merchants.includes(merchant)) problems.push("the merchant is not approved in the policy");
   if (policy.frozen) problems.push("the policy is halted; resume it before the first payment");
+  const rpId = process.env.RP_ID || "localhost";
+  if (!policy.rpIdHash.equals(createHash("sha256").update(rpId).digest())) {
+    problems.push("the policy is bound to a different passkey domain");
+  }
+  const userId = process.env.PASSKEY_USER ||
+    ((rpId === "localhost" || rpId === "127.0.0.1") ? "beaver402-owner-local" : "beaver402-owner");
+  const credentials = await getUserCredentials(userId);
+  const passkeyMatches = credentials.some((credential) => {
+    try {
+      return compressP256(coseToOwnerKey(Uint8Array.from(credential.credentialPublicKey)))
+        .equals(policy.owner);
+    } catch {
+      return false;
+    }
+  });
+  if (!passkeyMatches) problems.push("no registered passkey matches the policy owner");
 
   const spent = velocityState(policy, Math.floor(Date.now() / 1000));
   const price = BigInt(SOLANA_PRICE);
@@ -66,6 +84,7 @@ async function main() {
     merchant,
     frozen: policy.frozen,
     merchantApproved: policy.merchants.includes(merchant),
+    passkeyMatches,
     vaultUsdcBaseUnits: vaultBalance.toString(),
     priceUsdcBaseUnits: SOLANA_PRICE,
     paymentsInWindow: spent.txCount,
