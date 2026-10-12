@@ -142,13 +142,17 @@ export function createServer(): McpServer {
       title: "Read the policy account state",
       description:
         "Report whether payments are frozen, which agent signer is active, and " +
-        "how much of the velocity budget has been used.",
-      inputSchema: {},
+        "how much of the velocity budget has been used on the selected chain.",
+      inputSchema: {
+        chain: z.enum(["stellar", "solana"]).optional().describe("Chain to inspect. Defaults to Stellar."),
+      },
       annotations: { readOnlyHint: true },
     },
-    async () => {
+    async ({ chain }) => {
       try {
-        const response = await fetch(`${BACKEND_URL}/api/policy/state`);
+        const url = new URL("/api/policy/state", BACKEND_URL);
+        if (chain) url.searchParams.set("chain", chain);
+        const response = await fetch(url);
         const state = await response.json();
         return {
           content: [{ type: "text" as const, text: JSON.stringify(state, null, 2) }],
