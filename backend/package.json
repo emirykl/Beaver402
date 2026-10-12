@@ -17,7 +17,8 @@
     "dev:mainnet": "BEAVER_NETWORK=mainnet tsx --env-file=.env.mainnet src/index.ts",
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
     "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts",
-    "solana:init": "tsx --env-file-if-exists=.env scripts/solana-init.ts"
+    "solana:init": "tsx --env-file-if-exists=.env scripts/solana-init.ts",
+    "solana:demo:preflight": "tsx --env-file-if-exists=.env scripts/solana-demo-preflight.ts"
   },
   "keywords": [
     "stellar",

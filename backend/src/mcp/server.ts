@@ -99,6 +99,7 @@ export function createServer(): McpServer {
         "endpoint, body, recipient, asset and amount.",
       inputSchema: {
         url: z.string().describe("The resource to fetch."),
+        chain: z.enum(["stellar", "solana"]).optional().describe("Required payment chain. Set this for a chain-specific demo."),
         method: z
           .string()
           .optional()
@@ -114,9 +115,9 @@ export function createServer(): McpServer {
         openWorldHint: true,
       },
     },
-    async ({ url, method, body }) => {
+    async ({ url, chain, method, body }) => {
       try {
-        const result = await callBackend({ url, method, body });
+        const result = await callBackend({ url, chain, method, body });
         return {
           content: [{ type: "text" as const, text: describe(result) }],
           isError: Boolean(result.error),

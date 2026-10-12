@@ -1,5 +1,6 @@
 import type { PreparedPayment } from "../adapter/x402-client.js";
 import type { PaymentAdapter } from "../adapter/multi-chain.js";
+import type { ChainId } from "../chains/registry.js";
 import { solanaExplorerTx } from "../chains/solana/config.js";
 import { describePolicyError } from "../shared/policy-errors.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
@@ -17,6 +18,7 @@ import {
 
 export interface PaidFetchRequest {
   url: string;
+  chain?: ChainId;
   method?: string;
   body?: string | null;
   headers?: Record<string, string>;
@@ -158,7 +160,7 @@ export async function paidFetch(
   // The adapter builds its own view of the request from what was actually
   // sent, not from what the merchant claims was sent. Disagreement between
   // the two is what stops here.
-  const prepared = await adapter.preparePayment(required, method, request.url, body ?? null);
+  const prepared = await adapter.preparePayment(required, method, request.url, body ?? null, request.chain);
   if (!prepared.success || !prepared.payload) {
     // The payment log keeps the raw host error. What the caller is told, and
     // what a model repeats back to someone, is the reason inside it.

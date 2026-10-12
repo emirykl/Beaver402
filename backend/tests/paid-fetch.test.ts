@@ -132,7 +132,7 @@ describe("fetching a resource that has to be paid for", () => {
 
     await paidFetch({ url: ENDPOINT, method: "post", body }, adapter, fetchImpl);
 
-    expect(adapter.preparePayment).toHaveBeenCalledWith(expect.anything(), "POST", ENDPOINT, body);
+    expect(adapter.preparePayment).toHaveBeenCalledWith(expect.anything(), "POST", ENDPOINT, body, undefined);
   });
 
   it("stops when the policy refuses the payment, without asking again", async () => {

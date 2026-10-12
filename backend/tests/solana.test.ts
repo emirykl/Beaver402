@@ -358,6 +358,29 @@ describe("the agent on several chains", () => {
     expect(calls).toEqual(["stellar:testnet", config.caip2]);
   });
 
+  it("uses an explicitly requested chain even when Stellar is the default", async () => {
+    const calls: string[] = [];
+    const agent = new MultiChainAdapter([
+      { chain: "stellar", adapter: chain("stellar:testnet", calls) },
+      { chain: "solana", adapter: chain(config.caip2, calls) },
+    ]);
+    const offered = required(["stellar:testnet", config.caip2]);
+    await agent.preparePayment(offered, "GET", ENDPOINT, null, "solana");
+    expect(calls).toEqual([config.caip2]);
+  });
+
+  it("does not fall back to Stellar when Solana was requested but is unavailable", async () => {
+    const calls: string[] = [];
+    const agent = new MultiChainAdapter([
+      { chain: "stellar", adapter: chain("stellar:testnet", calls) },
+      { chain: "solana", adapter: chain(config.caip2, calls) },
+    ]);
+    const result = await agent.preparePayment(required(["stellar:testnet"]), "GET", ENDPOINT, null, "solana");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/requires solana/);
+    expect(calls).toEqual([]);
+  });
+
   it("says so when the merchant accepts none of its chains", async () => {
     const agent = new MultiChainAdapter([{ chain: "stellar", adapter: chain("stellar:testnet", []) }]);
     const result = await agent.preparePayment(required(["eip155:1"]), "GET", ENDPOINT);

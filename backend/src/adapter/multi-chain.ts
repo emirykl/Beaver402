@@ -8,7 +8,8 @@ export interface PaymentAdapter {
     required: PaymentRequired,
     observedMethod: string,
     observedEndpoint: string,
-    observedBody?: string | Buffer | null
+    observedBody?: string | Buffer | null,
+    requestedChain?: ChainId
   ): Promise<PreparedPayment>;
 }
 
@@ -32,14 +33,23 @@ export class MultiChainAdapter implements PaymentAdapter {
     required: PaymentRequired,
     observedMethod: string,
     observedEndpoint: string,
-    observedBody?: string | Buffer | null
+    observedBody?: string | Buffer | null,
+    requestedChain?: ChainId
   ): Promise<PreparedPayment> {
-    const chosen = this.chains.find(({ adapter }) => adapter.accepts(required));
+    const eligible = requestedChain
+      ? this.chains.filter(({ chain }) => chain === requestedChain)
+      : this.chains;
+    if (requestedChain && eligible.length === 0) {
+      return { success: false, error: `this agent is not configured to pay on ${requestedChain}` };
+    }
+    const chosen = eligible.find(({ adapter }) => adapter.accepts(required));
     if (!chosen) {
       const offered = (required.accepts ?? []).map((r) => r.network).join(", ") || "nothing";
       return {
         success: false,
-        error: `the merchant accepts ${offered}, and this agent pays on ${this.chains.map((c) => c.chain).join(", ")}`,
+        error: requestedChain
+          ? `the merchant accepts ${offered}, but this request requires ${requestedChain}`
+          : `the merchant accepts ${offered}, and this agent pays on ${this.chains.map((c) => c.chain).join(", ")}`,
       };
     }
     return chosen.adapter.preparePayment(required, observedMethod, observedEndpoint, observedBody);

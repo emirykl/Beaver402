@@ -132,4 +132,20 @@ describe("the agent route itself", () => {
     close();
     expect(response.status).toBe(403);
   });
+
+  it("refuses an explicit Solana request before fetching when Solana is disabled", async () => {
+    restore = withEnv({ BEAVER_CHAINS: "stellar" });
+    const { url, close } = await serve({ token: TOKEN, allowedOrigins: null });
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
+        body: JSON.stringify({ url: "https://merchant.example/api/data", chain: "solana" }),
+      });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/solana is not enabled/);
+    } finally {
+      close();
+    }
+  });
 });

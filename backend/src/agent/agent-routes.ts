@@ -36,7 +36,7 @@ function getAdapter(): PaymentAdapter {
     solana: () => new SolanaAdapter(agentSecret),
   };
   const chains = chainPreference(enabledChains()).map((chain) => ({ chain, adapter: build[chain]() }));
-  adapter = chains.length === 1 ? chains[0]!.adapter : new MultiChainAdapter(chains);
+  adapter = new MultiChainAdapter(chains);
   return adapter;
 }
 
@@ -63,10 +63,18 @@ export function createAgentRouter(
   const router = express.Router();
 
   router.post("/api/agent/fetch", requireAgentToken(access), async (req: Request, res: Response) => {
-    const { url, method, body, headers } = req.body ?? {};
+    const { url, chain, method, body, headers } = req.body ?? {};
 
     if (!url || typeof url !== "string") {
       res.status(400).json({ error: "url is required" });
+      return;
+    }
+    if (chain !== undefined && chain !== "stellar" && chain !== "solana") {
+      res.status(400).json({ error: "chain must be stellar or solana" });
+      return;
+    }
+    if (chain && !enabledChains().includes(chain)) {
+      res.status(400).json({ error: `${chain} is not enabled on this backend` });
       return;
     }
     if (!isAllowedUrl(access, url)) {
@@ -76,7 +84,7 @@ export function createAgentRouter(
 
     try {
       const result = await paidFetch(
-        { url, method, body, headers },
+        { url, chain, method, body, headers },
         getAdapter(),
         fetchImpl
       );
