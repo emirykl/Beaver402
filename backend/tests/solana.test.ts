@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
+import { createHash, createSign, generateKeyPairSync } from "node:crypto";
 import {
   address,
   getBase64Encoder,
@@ -19,7 +19,8 @@ import {
   solanaSettlementPreimage,
   addressBytes,
 } from "../src/chains/solana/encoding.js";
-import { loadSolanaConfig } from "../src/chains/solana/config.js";
+import { loadSolanaConfig, solanaErrorText } from "../src/chains/solana/config.js";
+import { verifySolanaOwnerAssertion } from "../src/chains/solana/owner-actions.js";
 import { paymentTransaction } from "../src/chains/solana/adapter.js";
 import { confirmTransfer, readSolanaPayment } from "../src/chains/solana/settlement.js";
 import { decodePolicyAccount, velocityState } from "../src/chains/solana/policy-account.js";
@@ -88,6 +89,20 @@ const merchantTerms = {
 };
 
 describe("the Solana encoding", () => {
+  it("reports the instruction error when a native precompile emits no failure log", () => {
+    const failure = Object.assign(new Error("Transaction simulation failed"), {
+      context: {
+        err: { InstructionError: [1, "InvalidInstructionData"] },
+        logs: [
+          "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+          "Program ComputeBudget111111111111111111111111111111 success",
+        ],
+      },
+    });
+
+    expect(solanaErrorText(failure)).toContain('"InstructionError":[1,"InvalidInstructionData"]');
+  });
+
   it("reproduces the shared vectors the program checks", () => {
     for (const v of vectors.vectors) {
       const fields = v.fields as PayloadFields;
@@ -122,6 +137,26 @@ describe("the Solana encoding", () => {
 });
 
 describe("the program interface", () => {
+  it("checks an owner assertion against the compressed key stored on Solana", () => {
+    const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const jwk = publicKey.export({ format: "jwk" });
+    const x = Buffer.from(jwk.x!, "base64url");
+    const y = Buffer.from(jwk.y!, "base64url");
+    const owner = Buffer.concat([Buffer.from([2 + (y[31]! & 1)]), x]);
+    const authenticatorData = Buffer.alloc(37, 1);
+    const clientDataJSON = Buffer.from('{"type":"webauthn.get"}');
+    const message = Buffer.concat([authenticatorData, createHash("sha256").update(clientDataJSON).digest()]);
+    const signature = createSign("sha256").update(message).sign(privateKey);
+    const assertion = {
+      authenticatorData: authenticatorData.toString("base64url"),
+      clientDataJSON: clientDataJSON.toString("base64url"),
+      signature: signature.toString("base64url"),
+    };
+
+    expect(verifySolanaOwnerAssertion(owner, assertion)).toBe(true);
+    expect(verifySolanaOwnerAssertion(owner, { ...assertion, clientDataJSON: Buffer.from("changed").toString("base64url") })).toBe(false);
+  });
+
   it("uses Anchor's discriminators", () => {
     expect([...discriminator("pay")]).toEqual([119, 18, 216, 65, 192, 117, 122, 220]);
     expect([...discriminator("freeze_payments")]).toEqual([24, 244, 215, 207, 58, 126, 45, 76]);

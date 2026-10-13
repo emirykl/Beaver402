@@ -170,6 +170,9 @@ async function runOwnerAction(
     }
 
     const prepared: PreparedAction = preparation.prepared;
+    const ownerCredentialIds = Array.isArray(prepared.credentialIds)
+      ? prepared.credentialIds.filter((id): id is string => typeof id === "string")
+      : undefined;
 
     // The challenge is the payload the contract will be asked about, so the
     // assertion cannot be lifted and reused for anything else.
@@ -179,6 +182,7 @@ async function runOwnerAction(
         rpId: window.location.hostname,
         userVerification: "required",
         timeout: 60000,
+        ...(ownerCredentialIds ? { allowCredentials: ownerCredentialIds.map((id) => ({ id, type: "public-key" as const })) } : {}),
       },
     });
 

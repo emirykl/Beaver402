@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createPublicKey, ECDH, verify } from "node:crypto";
 import {
   address,
   appendTransactionMessageInstructions,
@@ -15,7 +15,10 @@ import {
 
 import { Keypair } from "@stellar/stellar-sdk";
 
+import { passkey } from "../../config/passkey.js";
 import { derToRawSignature, toWebAuthnChallenge, type OwnerAssertion } from "../../passkey/owner-signature.js";
+import { coseToOwnerKey } from "../../passkey/owner-key.js";
+import { getUserCredentials } from "../../passkey/webauthn-server.js";
 import { solanaOwnerChallenge, type SolanaLimits } from "./encoding.js";
 import {
   requirePolicy,
@@ -29,6 +32,7 @@ import {
 import { decodePolicyAccount, type PolicyAccount } from "./policy-account.js";
 import {
   associatedToken,
+  compressP256,
   computeUnitLimit,
   ownerActionArgs,
   ownerInstruction,
@@ -62,6 +66,8 @@ export interface PreparedSolanaAction {
   validUntil: string;
   /** The account's counter the challenge was made for. */
   ownerNonce: string;
+  /** Only these registered credentials hold this Solana policy's owner key. */
+  credentialIds: string[];
   /** What the passkey has to sign, ready to hand to navigator.credentials. */
   challenge: string;
 }
@@ -122,6 +128,20 @@ export async function prepareSolanaOwnerAction(
   await verifySolanaNetwork(config, rpc);
   const resolved = resolveInput(action, input);
   const account = await readPolicyAccount(config, rpc);
+  const rpId = passkey().rpId;
+  const userId = rpId === "localhost" || rpId === "127.0.0.1" ? "beaver402-owner-local" : "beaver402-owner";
+  const credentials = await getUserCredentials(userId);
+  const credentialIds = credentials.flatMap((credential) => {
+    try {
+      const owner = compressP256(coseToOwnerKey(Uint8Array.from(credential.credentialPublicKey)));
+      return owner.equals(account.owner) ? [credential.credentialID] : [];
+    } catch {
+      return [];
+    }
+  });
+  if (credentialIds.length === 0) {
+    throw new Error("no registered passkey matches this Solana policy's owner key");
+  }
   const validUntil = BigInt(now + VALIDITY_SECONDS);
   const challenge = solanaOwnerChallenge({
     programId: config.programId,
@@ -138,12 +158,31 @@ export async function prepareSolanaOwnerAction(
     limits: resolved.limits,
     validUntil: validUntil.toString(),
     ownerNonce: account.ownerNonce.toString(),
+    credentialIds,
     challenge: toWebAuthnChallenge(challenge),
   };
 }
 
 function decode(value: string): Buffer {
   return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+
+/** Check the browser assertion against the exact owner key stored on Solana. */
+export function verifySolanaOwnerAssertion(owner: Buffer, assertion: OwnerAssertion): boolean {
+  const point = ECDH.convertKey(owner, "prime256v1", undefined, undefined, "uncompressed");
+  const key = createPublicKey({
+    key: {
+      kty: "EC",
+      crv: "P-256",
+      x: point.subarray(1, 33).toString("base64url"),
+      y: point.subarray(33, 65).toString("base64url"),
+    },
+    format: "jwk",
+  });
+  const authenticatorData = decode(assertion.authenticatorData);
+  const clientDataJSON = decode(assertion.clientDataJSON);
+  const message = Buffer.concat([authenticatorData, createHash("sha256").update(clientDataJSON).digest()]);
+  return verify("sha256", message, key, decode(assertion.signature));
 }
 
 /**
@@ -174,6 +213,9 @@ export async function submitSolanaOwnerAction(
   const authenticatorData = decode(assertion.authenticatorData);
   const clientDataJSON = decode(assertion.clientDataJSON);
   const message = Buffer.concat([authenticatorData, createHash("sha256").update(clientDataJSON).digest()]);
+  if (!verifySolanaOwnerAssertion(account.owner, assertion)) {
+    throw new Error("the passkey assertion does not match this Solana policy's owner key");
+  }
   const signature = derToRawSignature(decode(assertion.signature));
 
   const recover =

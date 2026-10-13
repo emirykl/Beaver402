@@ -131,9 +131,18 @@ export function solanaErrorText(err: unknown): string {
   let current: unknown = err;
   while (current && typeof current === "object" && !seen.has(current)) {
     seen.add(current);
-    const context = (current as { context?: { logs?: unknown } }).context;
+    const context = (current as { context?: { logs?: unknown; err?: unknown } }).context;
     if (Array.isArray(context?.logs) && context.logs.length > 0) {
-      return context.logs.join("\n");
+      // A failed native precompile can emit no log of its own. In that case
+      // the preceding ComputeBudget success is all the logs contain; keep
+      // the RPC error and instruction result so the real failure is visible.
+      const message = (current as { message?: unknown }).message;
+      const details = [
+        typeof message === "string" ? message : undefined,
+        context.err === undefined ? undefined : JSON.stringify(context.err),
+        ...context.logs,
+      ];
+      return details.filter((line): line is string => typeof line === "string" && line.length > 0).join("\n");
     }
     current = (current as { cause?: unknown }).cause;
   }
