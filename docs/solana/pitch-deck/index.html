@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#09090a" />
+    <title>Beaver402 — Solana Pitch Deck</title>
+    <style>
+      :root {
+        --ink: #09090a;
+        --ink-2: #101012;
+        --panel: #171719;
+        --line: #37302b;
+        --white: #f7f4ef;
+        --muted: #a69f98;
+        --copper: #e8a849;
+        --copper-2: #bd7740;
+        --green: #9bd6b0;
+        --red: #f0a195;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        color: var(--white);
+        background: #050506;
+        font-family: -apple-system, BlinkMacSystemFont, "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button { font: inherit; }
+      .stage { min-height: 100vh; display: grid; place-items: center; overflow: hidden; }
+      .deck { position: relative; width: 1600px; height: 900px; transform-origin: center; }
+      .slide {
+        display: none;
+        position: absolute;
+        inset: 0;
+        width: 1600px;
+        height: 900px;
+        padding: 62px 88px 58px;
+        overflow: hidden;
+        background:
+          radial-gradient(ellipse 850px 560px at 100% 0%, rgba(88, 48, 24, .17), transparent 75%),
+          radial-gradient(ellipse 500px 450px at 0% 100%, rgba(45, 31, 23, .14), transparent 75%),
+          var(--ink);
+      }
+      .slide.is-active { display: block; }
+      .slide::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: .17;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.09'/%3E%3C/svg%3E");
+      }
+      .slide > * { position: relative; z-index: 1; }
+      .brand { display: flex; align-items: center; gap: 13px; font-size: 20px; font-weight: 750; letter-spacing: -.035em; }
+      .brand img { width: 36px; height: 36px; object-fit: contain; }
+      .topline, .footline { display: flex; align-items: center; justify-content: space-between; }
+      .topline { margin-bottom: 45px; }
+      .footline { position: absolute; left: 88px; right: 88px; bottom: 35px; color: #77716d; font-size: 16px; letter-spacing: .06em; z-index: 2; }
+      .footline .page { color: #b9a796; }
+      .eyebrow { color: var(--copper); font-size: 18px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: 105px; line-height: .99; letter-spacing: -.075em; font-weight: 760; }
+      h2 { max-width: 1130px; font-size: 68px; line-height: 1.05; letter-spacing: -.067em; font-weight: 720; }
+      h3 { font-size: 29px; line-height: 1.13; letter-spacing: -.035em; font-weight: 670; }
+      .lede { color: var(--muted); font-size: 26px; line-height: 1.36; letter-spacing: -.02em; }
+      .heading { display: flex; flex-direction: column; gap: 17px; }
+      .heading .lede { max-width: 1030px; margin-top: 2px; }
+      .accent { color: var(--copper); }
+      .micro { font-family: "Menlo", "SFMono-Regular", ui-monospace, monospace; font-size: 16px; letter-spacing: .04em; }
+      .pill { display: inline-flex; align-items: center; gap: 11px; border: 1px solid #775130; border-radius: 100px; background: #2a1b13aa; padding: 12px 18px; color: #eab676; font-size: 15px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+      .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--copper); box-shadow: 0 0 16px var(--copper); }
+      .card { border: 1px solid #39312c; border-radius: 24px; background: linear-gradient(147deg, rgba(33, 29, 27, .86), rgba(18, 18, 19, .94)); }
+      .card-label { color: var(--copper); font-family: "Menlo", ui-monospace, monospace; font-size: 16px; letter-spacing: .12em; text-transform: uppercase; }
+      .card-copy { color: var(--muted); font-size: 21px; line-height: 1.42; }
+      .icon { width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid #62442b; border-radius: 17px; background: linear-gradient(145deg, #3b291d, #181717); color: var(--copper); }
+      .icon svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+      /* 01 — cover */
+      .cover { background: #09090a url("assets/cover-background.png") center center / cover no-repeat; }
+      .cover::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5, 6, 8, .68), rgba(5, 6, 8, .30) 55%, transparent); }
+      .cover-kicker { display: flex; align-items: center; gap: 25px; }
+      .cover-networks { display: inline-flex; align-items: center; gap: 12px; }
+      .cover-networks img { width: 30px; height: 30px; object-fit: contain; }
+      .cover .cover-logo { width: 124px; height: 124px; object-fit: contain; margin-top: 75px; margin-bottom: 37px; filter: drop-shadow(0 11px 26px rgba(0,0,0,.45)); }
+      .cover h1 { margin-top: 13px; }
+      .cover .cover-sub { margin-top: 27px; max-width: 800px; color: #ebe1d5; font-size: 38px; line-height: 1.28; font-weight: 490; letter-spacing: -.03em; }
+      .cover .footline { color: #c8b5a2; }
+
+      /* 02 — problem */
+      .problem-grid { display: grid; grid-template-columns: 1.04fr .96fr; gap: 35px; margin-top: 35px; height: 310px; }
+      .problem-main { padding: 30px 34px; display: flex; flex-direction: column; justify-content: space-between; }
+      .request-box { display: flex; align-items: center; gap: 23px; }
+      .request-line { flex: 1; height: 2px; background: linear-gradient(90deg, #b57942, #5a4d42); position: relative; }
+      .request-line::after { content: ""; position: absolute; right: 0; top: -6px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 10px solid #8e765e; }
+      .request-node { width: 120px; height: 90px; display: grid; place-items: center; border: 1px solid #4c3b2f; border-radius: 18px; background: #211a17; text-align: center; }
+      .request-node b { display: block; font-size: 16px; }
+      .request-node small { display: block; color: #ad9683; margin-top: 5px; font-size: 13px; }
+      .tamper { border-color: #875348; background: #321d1c; }
+      .tamper b { color: var(--red); }
+      .bad-result { display: flex; align-items: center; gap: 12px; color: #f1aaa2; font-size: 19px; }
+      .bad-result i { width: 9px; height: 9px; border-radius: 50%; background: #f1aaa2; }
+      .problem-stack { display: grid; grid-template-rows: repeat(3, 1fr); gap: 14px; }
+      .risk { display: flex; align-items: center; gap: 22px; padding: 21px 25px; }
+      .risk .num { display: block; margin-top: 0; width: 22px; font: 700 22px "Menlo", monospace; color: #b87e50; }
+      .risk strong { display: block; font-size: 23px; letter-spacing: -.03em; }
+      .risk span { display: block; color: var(--muted); font-size: 16px; margin-top: 5px; }
+
+      /* 03 — solution */
+      .solution-visual { display: grid; grid-template-columns: 1fr 160px 1fr; align-items: center; gap: 15px; margin-top: 41px; }
+      .proof-card { min-height: 273px; padding: 29px 33px; display: flex; flex-direction: column; }
+      .proof-card h3 { font-size: 29px; margin-top: 10px; }
+      .request-slip { margin-top: 23px; padding: 18px 22px; border-radius: 14px; border: 1px solid #554333; background: #0e0f11; box-shadow: inset 0 1px 0 #fff1; display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+      .request-slip .endpoint { font: 18px "Menlo", ui-monospace, monospace; color: #f0e7db; }
+      .request-slip .endpoint b { color: var(--green); font-weight: 650; }
+      .request-slip .amount { font: 18px "Menlo", ui-monospace, monospace; color: #e9b16f; }
+      .proof-card .proof-tag { margin-top: auto; color: #d6a16a; }
+      .match-core { display: grid; place-items: center; position: relative; }
+      .match-core::before { content: ""; position: absolute; left: -19px; right: -19px; height: 1px; background: #76553b; }
+      .match-badge { width: 122px; height: 122px; display: grid; place-items: center; border-radius: 50%; border: 1px solid #c78b4f; background: radial-gradient(circle at 40% 30%, #58351f, #1a1715 74%); box-shadow: 0 0 45px #bd774024; z-index: 1; }
+      .match-badge svg { width: 53px; height: 53px; fill: none; stroke: #f0bb78; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+      .solution-bottom { margin-top: 21px; color: #d1c4b7; text-align: center; font-size: 24px; }
+      .solution-bottom strong { color: var(--green); font-weight: 600; }
+
+      /* 04–09 — payment sequence */
+      .flow-slide .topline { margin-bottom: 48px; }
+      .flow-slide .heading h2 { max-width: 1280px; font-size: 68px; }
+      .flow-slide .heading .lede { max-width: 1230px; }
+      .flow-stage { display: flex; align-items: center; gap: 52px; margin-top: 51px; min-height: 250px; }
+      .flow-actor { flex: 0 0 235px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+      .flow-portrait { width: 186px; height: 186px; display: grid; place-items: center; border: 2px solid #a87140; border-radius: 50%; background: radial-gradient(circle at 38% 25%, #38271b, #161516 72%); box-shadow: 0 0 0 9px #a96c3012; }
+      .flow-portrait img { width: 175px; height: 175px; object-fit: contain; }
+      .flow-portrait img.beaver-role { width: 142px; height: 142px; }
+      .flow-actor-name { color: var(--white); font-size: 21px; font-weight: 670; letter-spacing: -.02em; }
+      .flow-stage-arrow { color: var(--copper); font-size: 54px; font-weight: 200; }
+      .flow-action { flex: 1; min-height: 176px; padding: 18px 0 18px 44px; border-left: 1px solid #765236; display: flex; flex-direction: column; justify-content: center; }
+      .flow-action-label { color: var(--copper); font: 16px "Menlo", ui-monospace, monospace; letter-spacing: .13em; }
+      .flow-action strong { display: block; margin-top: 16px; color: var(--white); font-size: 43px; line-height: 1.15; font-weight: 650; letter-spacing: -.045em; }
+      .flow-action small { display: block; margin-top: 16px; color: #bbaa9a; font-size: 22px; line-height: 1.3; }
+      .flow-timeline { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 47px; padding-top: 27px; border-top: 1px solid #4b3b2f; }
+      .timeline-step { position: relative; display: flex; flex-direction: column; gap: 9px; color: #817970; }
+      .timeline-step:not(:last-child)::after { content: "→"; position: absolute; right: 16px; top: 12px; color: #88623f; font-size: 25px; }
+      .timeline-step b { color: #9a7a5e; font: 18px "Menlo", ui-monospace, monospace; }
+      .timeline-step span { font-size: 18px; font-weight: 610; }
+      .timeline-step.active b, .timeline-step.active span { color: var(--copper); }
+
+      /* 05 — architecture */
+      .arch-simple { position: relative; margin-top: 63px; display: grid; grid-template-columns: 1fr 78px 1.14fr 78px 1fr; align-items: center; gap: 15px; }
+      .arch-node { height: 282px; padding: 33px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+      .arch-node .big { font-size: 35px; font-weight: 690; letter-spacing: -.045em; }
+      .arch-node .small { margin-top: 15px; font-size: 21px; color: #bca997; line-height: 1.3; }
+      .arch-node.policy-node { border-color: #a66c3d; background: radial-gradient(circle at 50% 20%, #352316, #171718 77%); }
+      .arch-node.policy-node .checks { margin-top: 21px; display: flex; gap: 18px; color: #dfa96e; font: 16px "Menlo", ui-monospace, monospace; }
+      .arch-node .small strong { color: #edbf87; font-weight: 600; }
+      .arch-connector { height: 2px; background: linear-gradient(90deg, #77553c, #c98e55); position: relative; }
+      .arch-connector::after { content: ""; position: absolute; right: 0; top: -6px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 10px solid #c98e55; }
+      .owner-rule { position: absolute; top: -60px; left: 50%; transform: translateX(-50%); padding: 10px 22px; border: 1px solid #7a5435; border-radius: 30px; color: #e8b780; background: #261b16; font: 17px "Menlo", ui-monospace, monospace; white-space: nowrap; }
+      .owner-rule::after { content: "↓"; position: absolute; left: calc(50% - 9px); top: 41px; font-size: 22px; color: #b47a49; }
+
+      /* Evidence from the live Solana devnet owner approval and settlement. */
+      .evidence-slide .topline { margin-bottom: 28px; }
+      .evidence-grid { display: grid; grid-template-columns: 1.12fr .88fr; gap: 22px; margin-top: 26px; }
+      .evidence-shot { height: 382px; margin: 0; overflow: hidden; border: 1px solid #614733; border-radius: 18px; background: #151210; }
+      .evidence-shot img { display: block; width: 100%; height: 324px; object-fit: cover; object-position: center 13%; }
+      .evidence-shot.settlement img { object-position: center 12%; }
+      .evidence-shot figcaption { height: 58px; padding: 18px 22px; color: #dbc4aa; font-size: 18px; letter-spacing: .01em; border-top: 1px solid #473a30; }
+      .evidence-strip { display: flex; justify-content: space-between; align-items: center; gap: 22px; margin-top: 14px; padding: 15px 22px; border: 1px solid #6d4a30; border-radius: 14px; background: #271b15; }
+      .evidence-strip strong { color: var(--copper); font-size: 19px; white-space: nowrap; }
+      .evidence-strip span { color: #d5c5b6; font: 15px "Menlo", ui-monospace, monospace; }
+      .evidence-strip a { color: #e8a849; font: 15px "Menlo", ui-monospace, monospace; text-decoration: underline; text-underline-offset: 4px; white-space: nowrap; }
+
+      /* 09 — market */
+      .market-grid { display: grid; grid-template-columns: repeat(2, 1fr); margin-top: 92px; }
+      .market-stat { min-height: 255px; padding: 12px 42px 0; border-left: 1px solid #5d4432; }
+      .market-stat:first-child { padding-left: 0; border-left: none; }
+      .market-stat strong { display: block; color: var(--copper); font-size: 99px; line-height: 1; letter-spacing: -.075em; font-weight: 710; }
+      .market-stat span { display: block; margin-top: 25px; max-width: 500px; color: #e1d7cc; font-size: 24px; line-height: 1.3; }
+      .market-sources { margin-top: 24px; color: #8c8177; font-size: 15px; }
+      .market-sources a { color: #bca28b; text-decoration: none; border-bottom: 1px solid #68513e; }
+
+      /* 12 — business */
+      .business-grid { display: grid; grid-template-columns: .85fr 1.1fr 1.15fr; margin-top: 100px; }
+      .business-pillar { min-height: 255px; padding: 14px 42px 0; border-left: 1px solid #5d4432; }
+      .business-pillar:first-child { padding-left: 0; border-left: none; }
+      .business-pillar .card-label { margin-bottom: 29px; }
+      .business-pillar strong { display: block; color: var(--white); font-size: 37px; line-height: 1.17; font-weight: 660; letter-spacing: -.045em; }
+      .business-pillar.grant strong { color: var(--copper); font-size: 99px; line-height: 1; letter-spacing: -.075em; }
+      .business-pillar .business-sub { margin-top: 19px; color: #c0b1a3; font-size: 22px; line-height: 1.3; }
+      .business-pillar .revenue-accent { color: var(--copper); }
+      .business-note { margin-top: 17px; color: #968b81; font-size: 17px; }
+
+      /* 11 — team */
+      .team-minimal { display: flex; align-items: center; gap: 92px; margin-top: 48px; }
+      .team-photo { width: 486px; height: 560px; object-fit: cover; object-position: center 82%; border-radius: 24px; border: 1px solid #503c2d; box-shadow: 0 30px 90px #0008; }
+      .team-name { font-size: 88px; line-height: 1.06; letter-spacing: -.07em; font-weight: 720; }
+      .team-role { margin-top: 25px; color: var(--copper); font-size: 33px; letter-spacing: -.02em; }
+
+      .controls { position: fixed; z-index: 10; right: 22px; bottom: 20px; display: flex; align-items: center; gap: 8px; background: #151516e8; border: 1px solid #4c3b2d; padding: 8px; border-radius: 100px; backdrop-filter: blur(20px); box-shadow: 0 8px 25px #0006; }
+      .controls button { width: 38px; height: 34px; border: 0; border-radius: 20px; color: #ead5bd; background: transparent; cursor: pointer; font-size: 20px; }
+      .controls button:hover, .controls button:focus-visible { background: #46301f; outline: none; }
+      .controls .count { min-width: 53px; text-align: center; font: 13px "Menlo", monospace; color: #c6ad93; }
+      .controls .print { width: auto; font-size: 13px; padding: 0 11px; }
+      @page { size: 16in 9in; margin: 0; }
+      @media print {
+        html, body { width: 16in; margin: 0; padding: 0; background: #09090a; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .stage { display: block; min-height: 0; overflow: visible; }
+        .deck { width: auto; height: auto; transform: none !important; }
+        .slide, .slide.is-active { display: block !important; position: relative; width: 16in; height: 9in; page-break-after: always; break-after: page; overflow: hidden; }
+        .slide:last-child { page-break-after: auto; break-after: auto; }
+        .controls { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage"><main class="deck" id="deck" aria-label="Beaver402 Solana pitch deck">
+      <section class="slide cover is-active" aria-label="Cover">
+        <div class="cover-kicker"><span class="eyebrow">AI AGENT PAYMENTS</span><span class="cover-networks"><img src="assets/stellar-mark.svg" alt="Stellar" /><img src="assets/solana-mark.svg" alt="Solana" /></span></div>
+        <img class="cover-logo" src="assets/beaver402-mark.png" alt="Beaver402 beaver holding a shield" />
+        <h1>Beaver402</h1>
+        <p class="cover-sub">Every agent payment,<br />checked against real intent.</p>
+        <div class="footline"><span>BEAVER402 / SOLANA</span><span class="page">01 / 14</span></div>
+      </section>
+
+      <section class="slide" aria-label="Problem">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">01 / PROBLEM</span></div>
+        <div class="heading"><h2>A valid payment can still be<br /><span class="accent">the wrong payment.</span></h2><p class="lede">x402 can prove a transfer is valid. It cannot prove the agent paid for the request the owner intended.</p></div>
+        <div class="problem-grid">
+          <div class="card problem-main"><div class="card-label">The gap</div><div class="request-box"><div class="request-node"><div><b>Agent</b><small>asks for data</small></div></div><div class="request-line"></div><div class="request-node tamper"><div><b>Changed</b><small>terms / request</small></div></div><div class="request-line"></div><div class="request-node"><div><b>Payment</b><small>still valid</small></div></div></div><div class="bad-result"><i></i> Valid on chain. Wrong in context.</div></div>
+          <div class="problem-stack"><div class="card risk"><span class="num">-</span><div><strong>Prompt injection</strong><span>Changes what the agent buys.</span></div></div><div class="card risk"><span class="num">-</span><div><strong>Tool manipulation</strong><span>Swaps recipient, amount or body.</span></div></div><div class="card risk"><span class="num">-</span><div><strong>Retry loops</strong><span>Multiply individually valid payments.</span></div></div></div>
+        </div>
+        <div class="footline"><span>PAYMENT VALIDITY ≠ OWNER INTENT</span><span class="page">02 / 14</span></div>
+      </section>
+
+      <section class="slide" aria-label="Solution">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">02 / SOLUTION</span></div>
+        <div class="heading"><h2>Two sides agree.<br /><span class="accent">The account decides.</span></h2><p class="lede">Same request. Same recipient. Same amount.</p></div>
+        <div class="solution-visual">
+          <div class="card proof-card"><div class="card-label">Merchant signed</div><h3>What was offered</h3><div class="request-slip"><span class="endpoint"><b>GET</b> /data</span><span class="amount">0.10 USDC</span></div><div class="proof-tag micro">SIGNED TERMS →</div></div>
+          <div class="match-core"><div class="match-badge"><svg viewBox="0 0 60 60"><path d="M12 29l12 12 24-25"/></svg></div></div>
+          <div class="card proof-card"><div class="card-label">Agent observed</div><h3>What was requested</h3><div class="request-slip"><span class="endpoint"><b>GET</b> /data</span><span class="amount">0.10 USDC</span></div><div class="proof-tag micro">← OBSERVED TERMS</div></div>
+        </div>
+        <div class="solution-bottom"><strong>Match → pay.</strong> Mismatch → stop.</div>
+        <div class="footline"><span>MERCHANT PROOF × BUYER INTENT × OWNER POLICY</span><span class="page">03 / 14</span></div>
+      </section>
+
+      <section class="slide flow-slide" aria-label="Payment flow step 1: Owner">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">03 / FLOW · 01 OF 06</span></div>
+        <div class="heading"><h2>You set the rules.<br /><span class="accent">Your vault holds the USDC.</span></h2><p class="lede">Passkey approves merchants and spending limits; you fund the vault.</p></div>
+        <div class="flow-stage">
+          <div class="flow-actor"><div class="flow-portrait"><img src="assets/role-owner.svg" alt="Illustration of an account owner" /></div><span class="flow-actor-name">Owner</span></div>
+          <span class="flow-stage-arrow" aria-hidden="true">→</span>
+          <div class="flow-action"><span class="flow-action-label">STEP 01</span><strong>Approve merchants + limits</strong><small>OWNER PASSKEY → BEAVER402 POLICY</small></div>
+        </div>
+        <div class="flow-timeline" aria-label="Payment sequence">
+          <div class="timeline-step active"><b>01</b><span>Owner</span></div>
+          <div class="timeline-step"><b>02</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>03</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>04</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>05</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>06</b><span>Beaver402</span></div>
+        </div>
+        <div class="footline"><span>OWNER CONTROL</span><span class="page">04 / 14</span></div>
+      </section>
+
+      <section class="slide flow-slide" aria-label="Payment flow step 2: AI agent">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">03 / FLOW · 02 OF 06</span></div>
+        <div class="heading"><h2>The agent requests an API.<br /><span class="accent">No payment yet.</span></h2><p class="lede">It sends the actual HTTP request to the paid service.</p></div>
+        <div class="flow-stage">
+          <div class="flow-actor"><div class="flow-portrait"><img src="assets/role-agent.svg" alt="Illustration of an AI robot" /></div><span class="flow-actor-name">AI agent</span></div>
+          <span class="flow-stage-arrow" aria-hidden="true">→</span>
+          <div class="flow-action"><span class="flow-action-label">STEP 02</span><strong>GET /data → merchant API</strong><small>THE REQUEST THE AGENT ACTUALLY SENT</small></div>
+        </div>
+        <div class="flow-timeline" aria-label="Payment sequence">
+          <div class="timeline-step"><b>01</b><span>Owner</span></div>
+          <div class="timeline-step active"><b>02</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>03</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>04</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>05</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>06</b><span>Beaver402</span></div>
+        </div>
+        <div class="footline"><span>API REQUEST</span><span class="page">05 / 14</span></div>
+      </section>
+
+      <section class="slide flow-slide" aria-label="Payment flow step 3: Merchant">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">03 / FLOW · 03 OF 06</span></div>
+        <div class="heading"><h2>The merchant quotes a price.<br /><span class="accent">And signs the terms.</span></h2><p class="lede">HTTP 402 names the request, recipient, amount and expiry.</p></div>
+        <div class="flow-stage">
+          <div class="flow-actor"><div class="flow-portrait"><img src="assets/role-merchant.svg" alt="Illustration of a storefront" /></div><span class="flow-actor-name">Merchant</span></div>
+          <span class="flow-stage-arrow" aria-hidden="true">→</span>
+          <div class="flow-action"><span class="flow-action-label">STEP 03</span><strong>Signed 402 · 0.10 USDC</strong><small>MERCHANT KEY SIGNS THE OFFER HASH</small></div>
+        </div>
+        <div class="flow-timeline" aria-label="Payment sequence">
+          <div class="timeline-step"><b>01</b><span>Owner</span></div>
+          <div class="timeline-step"><b>02</b><span>AI agent</span></div>
+          <div class="timeline-step active"><b>03</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>04</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>05</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>06</b><span>Beaver402</span></div>
+        </div>
+        <div class="footline"><span>SIGNED OFFER</span><span class="page">06 / 14</span></div>
+      </section>
+
+      <section class="slide flow-slide" aria-label="Payment flow step 4: AI agent">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">03 / FLOW · 04 OF 06</span></div>
+        <div class="heading"><h2>The agent checks the offer.<br /><span class="accent">Then signs the payment.</span></h2><p class="lede">Beaver402 compares the signed terms with the actual request. A mismatch stops here.</p></div>
+        <div class="flow-stage">
+          <div class="flow-actor"><div class="flow-portrait"><img src="assets/role-agent.svg" alt="Illustration of an AI robot" /></div><span class="flow-actor-name">AI agent</span></div>
+          <span class="flow-stage-arrow" aria-hidden="true">→</span>
+          <div class="flow-action"><span class="flow-action-label">STEP 04</span><strong>Request matches → agent signs</strong><small>THE AGENT SIGNS THE SOLANA TRANSACTION</small></div>
+        </div>
+        <div class="flow-timeline" aria-label="Payment sequence">
+          <div class="timeline-step"><b>01</b><span>Owner</span></div>
+          <div class="timeline-step"><b>02</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>03</b><span>Merchant</span></div>
+          <div class="timeline-step active"><b>04</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>05</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>06</b><span>Beaver402</span></div>
+        </div>
+        <div class="footline"><span>REQUEST CHECK</span><span class="page">07 / 14</span></div>
+      </section>
+
+      <section class="slide flow-slide" aria-label="Payment flow step 5: Merchant">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">03 / FLOW · 05 OF 06</span></div>
+        <div class="heading"><h2>The merchant checks again.<br /><span class="accent">Then sends the transaction.</span></h2><p class="lede">It adds the fee-payer signature and pays the SOL network fee.</p></div>
+        <div class="flow-stage">
+          <div class="flow-actor"><div class="flow-portrait"><img src="assets/role-merchant.svg" alt="Illustration of a storefront" /></div><span class="flow-actor-name">Merchant</span></div>
+          <span class="flow-stage-arrow" aria-hidden="true">→</span>
+          <div class="flow-action"><span class="flow-action-label">STEP 05</span><strong>Agent-signed payment → Solana</strong><small>MERCHANT CO-SIGNS AS FEE PAYER</small></div>
+        </div>
+        <div class="flow-timeline" aria-label="Payment sequence">
+          <div class="timeline-step"><b>01</b><span>Owner</span></div>
+          <div class="timeline-step"><b>02</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>03</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>04</b><span>AI agent</span></div>
+          <div class="timeline-step active"><b>05</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>06</b><span>Beaver402</span></div>
+        </div>
+        <div class="footline"><span>NETWORK SUBMISSION</span><span class="page">08 / 14</span></div>
+      </section>
+
+      <section class="slide flow-slide" aria-label="Payment flow step 6: Beaver402">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">03 / FLOW · 06 OF 06</span></div>
+        <div class="heading"><h2>Beaver402 checks on chain.<br /><span class="accent">Only then can USDC move.</span></h2><p class="lede">The program verifies signatures, recipient, nonce and your limits.</p></div>
+        <div class="flow-stage">
+          <div class="flow-actor"><div class="flow-portrait"><img class="beaver-role" src="assets/beaver402-mark.png" alt="Beaver402 beaver logo" /></div><span class="flow-actor-name">Beaver402</span></div>
+          <span class="flow-stage-arrow" aria-hidden="true">→</span>
+          <div class="flow-action"><span class="flow-action-label">STEP 06</span><strong>Checks pass → vault pays merchant</strong><small>FAILED CHECK → NO USDC TRANSFER</small></div>
+        </div>
+        <div class="flow-timeline" aria-label="Payment sequence">
+          <div class="timeline-step"><b>01</b><span>Owner</span></div>
+          <div class="timeline-step"><b>02</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>03</b><span>Merchant</span></div>
+          <div class="timeline-step"><b>04</b><span>AI agent</span></div>
+          <div class="timeline-step"><b>05</b><span>Merchant</span></div>
+          <div class="timeline-step active"><b>06</b><span>Beaver402</span></div>
+        </div>
+        <div class="footline"><span>ON-CHAIN CONTROL</span><span class="page">09 / 14</span></div>
+      </section>
+
+      <section class="slide" aria-label="Solana architecture">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">04 / BUILT FOR SOLANA</span></div>
+        <div class="heading"><h2>One vault.<br /><span class="accent">One rulebook.</span></h2><p class="lede">Every outgoing USDC transfer passes through the Solana policy.</p></div>
+        <div class="arch-simple">
+          <div class="card arch-node"><div class="card-label">Two signatures</div><div class="big">Merchant + agent</div><div class="small">same payment terms</div></div>
+          <div class="arch-connector"></div>
+          <div class="card arch-node policy-node"><span class="owner-rule">Owner passkey sets rules</span><div class="card-label">On chain</div><div class="big">Policy PDA</div><div class="checks"><span>INTENT</span><span>LIMITS</span><span>NONCE</span></div></div>
+          <div class="arch-connector"></div>
+          <div class="card arch-node"><div class="card-label">Controlled funds</div><div class="big">USDC vault</div><div class="small">pays the <strong>recipient</strong></div></div>
+        </div>
+        <div class="footline"><span>PROGRAM-MEDIATED PAYMENTS ON SOLANA</span><span class="page">10 / 14</span></div>
+      </section>
+
+      <section class="slide evidence-slide" aria-label="Product evidence">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">05 / PRODUCT EVIDENCE</span></div>
+        <div class="heading"><h2>Live on Solana devnet.</h2><p class="lede">The owner approved a merchant with a passkey. Then an AI agent paid 0.10 USDC for a protected API response through the on-chain policy.</p></div>
+        <div class="evidence-grid">
+          <figure class="evidence-shot"><img src="assets/solana-devnet-owner-approved.png" alt="Beaver402 owner panel on Solana devnet showing merchant approval confirmed with a passkey" /><figcaption>Owner passkey · merchant approved</figcaption></figure>
+          <figure class="evidence-shot settlement"><img src="assets/solana-devnet-payment-explorer.png" alt="Solana Explorer showing the finalized devnet payment transaction" /><figcaption>Solana devnet · finalized settlement</figcaption></figure>
+        </div>
+        <div class="evidence-strip"><strong>0.10 USDC SETTLED</strong><span>TX 4cnJExi…bxu5R9D3b</span><a href="https://explorer.solana.com/tx/4cnJExiJgLtVpkE5mLcfa6TzRLKUumhTrkW9C3NkT9b9PzDAmC1AXMNacnfsh6waxbiE7Spd5cu5Kwtbxu5R9D3b?cluster=devnet">VIEW ON EXPLORER ↗</a></div>
+        <div class="footline"><span>FINALIZED SOLANA DEVNET TRANSACTION · PROGRAM 6PLoS71…BL9Uhx5</span><span class="page">11 / 14</span></div>
+      </section>
+
+      <section class="slide" aria-label="Market">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">05 / MARKET</span></div>
+        <div class="heading"><h2>Solana at scale.<br /><span class="accent">Agent payments in motion.</span></h2></div>
+        <div class="market-grid">
+          <div class="market-stat"><strong>35M+</strong><span>x402 transactions on Solana since launch</span></div>
+          <div class="market-stat"><strong>5.4M</strong><span>BlockRun payments via PayAI in one week</span></div>
+        </div>
+        <div class="market-sources">Sources: <a href="https://solana.com/news/solana-ecosystem-roundup-august-2026">Solana Foundation · August 2026</a> &nbsp;·&nbsp; <a href="https://solana.com/news/solana-ecosystem-roundup-july-2026">Solana Foundation · July 2026</a></div>
+        <div class="footline"><span>x402 · AGENT PAYMENTS</span><span class="page">12 / 14</span></div>
+      </section>
+
+      <section class="slide" aria-label="Proposed business model">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">06 / BUSINESS MODEL</span></div>
+        <div class="heading"><h2>Early support.<br /><span class="accent">A clear revenue path.</span></h2></div>
+        <div class="business-grid">
+          <div class="business-pillar grant"><div class="card-label">Grant received</div><strong>$10K</strong><div class="business-sub">Project support</div></div>
+          <div class="business-pillar"><div class="card-label">Customers</div><strong>AI agent platforms<br />Paid API providers</strong></div>
+          <div class="business-pillar"><div class="card-label">Proposed revenue</div><strong>Subscription<br /><span class="revenue-accent">+ usage tiers</span></strong><div class="business-sub">Monthly access · payment volume</div></div>
+        </div>
+        <div class="business-note">Pricing is proposed. The current devnet flow charges no Beaver402 platform fee.</div>
+        <div class="footline"><span>GRANT RECEIVED · REVENUE MODEL PROPOSED</span><span class="page">13 / 14</span></div>
+      </section>
+
+      <section class="slide" aria-label="Team">
+        <div class="topline"><div class="brand"><img src="assets/beaver402-mark.png" alt="" />Beaver402</div><span class="eyebrow">07 / TEAM</span></div>
+        <div class="team-minimal"><img class="team-photo" src="assets/emir-yenikale.jpeg" alt="Emir Yenikale" /><div><h2 class="team-name">Emir<br />Yenikale</h2><p class="team-role">Freelance Software Developer</p></div></div>
+        <div class="footline"><span>BEAVER402 / SOLANA</span><span class="page">14 / 14</span></div>
+      </section>
+    </main></div>
+    <div class="controls" aria-label="Presentation controls"><button id="previous" title="Previous slide" aria-label="Previous slide">‹</button><span class="count" id="count">1 / 14</span><button id="next" title="Next slide" aria-label="Next slide">›</button><button class="print" id="print" title="Print or save as PDF">PDF ↗</button></div>
+    <script>
+      const deck = document.querySelector("#deck");
+      const slides = [...deck.querySelectorAll(".slide")];
+      let current = Math.min(Math.max(Number(location.hash.slice(1)) - 1 || 0, 0), slides.length - 1);
+      function fit() { deck.style.transform = `scale(${Math.min(innerWidth / 1600, innerHeight / 900)})`; }
+      function show(index) { current = Math.min(Math.max(index, 0), slides.length - 1); slides.forEach((slide, i) => slide.classList.toggle("is-active", i === current)); document.querySelector("#count").textContent = `${current + 1} / ${slides.length}`; history.replaceState(null, "", `#${current + 1}`); }
+      addEventListener("resize", fit);
+      addEventListener("keydown", event => { if (["ArrowRight", "ArrowDown", "PageDown", " "].includes(event.key)) { event.preventDefault(); show(current + 1); } if (["ArrowLeft", "ArrowUp", "PageUp"].includes(event.key)) { event.preventDefault(); show(current - 1); } if (event.key === "Home") show(0); if (event.key === "End") show(slides.length - 1); });
+      document.querySelector("#previous").addEventListener("click", () => show(current - 1));
+      document.querySelector("#next").addEventListener("click", () => show(current + 1));
+      document.querySelector("#print").addEventListener("click", () => print());
+      fit(); show(current);
+    </script>
+  </body>
+</html>

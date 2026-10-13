@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="AI agent">
+  <defs><linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#75583e"/><stop offset="1" stop-color="#302720"/></linearGradient></defs>
+  <circle cx="80" cy="80" r="74" fill="#161919" stroke="#765137" stroke-width="2"/>
+  <path d="M80 27v15" stroke="#dca15d" stroke-width="4" stroke-linecap="round"/><circle cx="80" cy="24" r="6" fill="#e8a849"/>
+  <rect x="34" y="43" width="92" height="82" rx="23" fill="url(#metal)" stroke="#c2894d" stroke-width="2"/>
+  <rect x="44" y="59" width="72" height="40" rx="12" fill="#111819" stroke="#8c6d4d" stroke-width="2"/>
+  <circle cx="62" cy="79" r="7" fill="#e8a849"/><circle cx="98" cy="79" r="7" fill="#e8a849"/>
+  <path d="M67 109h26" stroke="#e0a666" stroke-width="3" stroke-linecap="round"/>
+  <path d="M34 68h-9v25h9M126 68h9v25h-9" fill="#6a4a2d" stroke="#c2894d" stroke-width="2"/>
+</svg>

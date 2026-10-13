@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Merchant">
+  <circle cx="80" cy="80" r="74" fill="#211914" stroke="#765137" stroke-width="2"/>
+  <path d="M37 63h86v68H37z" fill="#3a281e" stroke="#c38c52" stroke-width="2"/>
+  <path d="M32 61l12-31h72l12 31" fill="#d69452" stroke="#f2bc7c" stroke-width="2"/>
+  <path d="M32 61c0 12 16 14 20 3 4 12 20 12 28 0 8 12 24 12 28 0 4 11 20 9 20-3" fill="#e6ad69" stroke="#f2bc7c" stroke-width="2"/>
+  <path d="M55 81h26v50H55z" fill="#1a1716" stroke="#a36d43" stroke-width="2"/>
+  <path d="M91 82h22v21H91z" fill="#1a1716" stroke="#a36d43" stroke-width="2"/>
+  <path d="M45 130h70" stroke="#b98555" stroke-width="3" stroke-linecap="round"/>
+</svg>
