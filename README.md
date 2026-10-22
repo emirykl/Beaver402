@@ -20,9 +20,12 @@ Payments settle through a standard x402 v2 facilitator.
 Neither the agent nor a compromised adapter can redefine an approved payment
 on its own, while the owner keeps immediate control through a passkey.
 
-**Status: running on Stellar testnet; a limited mainnet pilot is being
-prepared.** On mainnet the account will hold at most 10 USDC, pay at most
-1 USDC at a time and at most 5 payments or 5 USDC in any 24 hours.
+**Status: deployed on Stellar mainnet.** The pilot account
+[`CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL`](https://stellar.expert/explorer/public/contract/CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL)
+was deployed on 8 October 2026 from release `v0.2.0` and paid real Circle
+USDC through the OpenZeppelin facilitator. It pays at most 1 USDC at a time
+and at most 5 payments or 5 USDC in any 24 hours. The pilot is closed and its
+funds have been recovered to the owner's recovery address.
 
 [A seven minute recording](https://youtu.be/0vFrfGZc1x0) of the first month
 shows an agent paying without holding a key, the owner halting it with a
@@ -32,6 +35,8 @@ passkey, the agent key revoked on chain, and the adversarial cases refused.
 
 | | |
 |---|---|
+| [Mainnet deployment](docs/mainnet/deployment-record.md) | the mainnet account, its parameters, roles and every setup and pilot transaction |
+| [Mainnet pilot log](docs/mainnet/pilot-log.md) | each step of the pilot in order: payments, refusals, halt, revocation and fund recovery |
 | [Testnet rehearsal](docs/operations/rehearsals/2026-10-02-testnet-hosted.md) | the whole pilot on a fresh account, settled by the hosted OpenZeppelin facilitator: x402 payments, one started from the MCP tool, every refusal with its reason, the incident drill and the migration |
 | [x402 compatibility](docs/mainnet/x402-compat.md) | what a facilitator requires of the account, and the measurements |
 | [First month](docs/evidence.md) | the original testnet deployment and its transactions |
