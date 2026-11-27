@@ -79,3 +79,9 @@ _Filled in at the mainnet deployment._
 | The account's lifetime is the full 150 days | |
 | The status page shows the account | |
 | The event collector has its first run | |
+
+## Hosted service updates
+
+| Date (UTC) | Services | Source | Why | Checked |
+|---|---|---|---|---|
+| 2026-11-27 | `beaver402-api`, `beaver402-merchant` | `v0.2.0` plus `2969035` (branch `sdk-protocol-30`), Stellar SDK 16.3.1 to 16.4.1 only | Testnet and mainnet moved to protocol 30. 16.3.1 could not decode the new ledger header (`unknown StellarValueType member for value 3`), so `/api/status` failed on mainnet | Before: `/api/status` answered `could not read the status`. After: it returns the account (halted since the pilot closed, 100 days of lifetime left), and the merchant's `/health` answers 200. 237 backend tests pass on the deployed source. The contract is unchanged |
