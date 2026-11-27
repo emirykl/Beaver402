@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, contract-hardening]
+    branches: [main, contract-hardening, merchant-kit]
   pull_request:
     branches: [main]
 
@@ -99,6 +99,46 @@ jobs:
         # compatibility checks and the interface checks against the
         # contract's own source.
         run: npx vitest run
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+  # ── Merchant kit ───────────────────────────────────────────────
+  merchant-kit:
+    name: Merchant kit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/merchant
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: packages/merchant/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        # Includes the encoding vectors shared with the contract.
+        run: npx vitest run
+
+      - name: Build and pack
+        run: |
+          npm run build
+          npm pack
+          {
+            echo "### Merchant kit package"
+            echo ""
+            echo "\`$(sha256sum beaver402-merchant-*.tgz)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Audit production dependencies
         run: npm audit --omit=dev
