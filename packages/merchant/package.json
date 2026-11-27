@@ -1,6 +1,6 @@
 {
   "name": "@beaver402/merchant",
-  "version": "0.1.0",
+  "version": "0.1.0-rc.1",
   "description": "Put an API route behind a Beaver402-protected x402 USDC payment on Stellar",
   "type": "module",
   "main": "./dist/index.js",
