@@ -28,6 +28,9 @@ export const LINKS = [
   "status",
   "panel",
   "transaction",
+  "x",
+  "pilot",
+  "merchant-kit",
 ] as const;
 
 export interface Metric {

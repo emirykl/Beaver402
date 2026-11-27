@@ -17,7 +17,10 @@ export type Link =
   | "limitations"
   | "status"
   | "panel"
-  | "transaction";
+  | "transaction"
+  | "x"
+  | "pilot"
+  | "merchant-kit";
 
 function send(body: Record<string, string>): void {
   try {

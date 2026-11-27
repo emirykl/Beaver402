@@ -1,0 +1,39 @@
+name: Pilot partner request
+description: Ask to try Beaver402 with your paid API or your agent
+title: "Pilot request: "
+labels: ["pilot"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest. This form is public, so leave out anything confidential; we will move the conversation to a private channel if you prefer.
+  - type: dropdown
+    id: role
+    attributes:
+      label: What would you use Beaver402 for?
+      options:
+        - I sell a paid API and want agents to pay for it
+        - I run an agent that needs to pay for APIs
+        - Wallet or payment infrastructure
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you handle payments today?
+      description: The API or agent, the network, and how it is paid for now.
+    validations:
+      required: true
+  - type: textarea
+    id: trial
+    attributes:
+      label: What would a trial need to show you?
+      description: The question it should answer, or what currently stops you.
+  - type: input
+    id: contact
+    attributes:
+      label: How should we reach you?
+      description: An X handle, Telegram, or "reply here".
+    validations:
+      required: true

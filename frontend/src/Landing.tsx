@@ -8,6 +8,10 @@ import "./landing.css";
 const REPOSITORY = "https://github.com/emirykl/Beaver402";
 const DEMO = "https://youtu.be/0vFrfGZc1x0";
 const X_ACCOUNT = "https://x.com/Beaver402";
+// A public form rather than an address on the page: requests land as
+// GitHub issues the builder answers, and no email is published.
+const PILOT_CONTACT = `${REPOSITORY}/issues/new?template=pilot-partner.yml`;
+const MERCHANT_KIT = `${REPOSITORY}/tree/main/packages/merchant#readme`;
 const doc = (path: string) => `${REPOSITORY}/blob/main/${path}`;
 
 /** An outbound link that is counted when followed. */
@@ -226,9 +230,12 @@ export function SiteFooter({ page = "/" }: { page?: "/" | "/status" }) {
             <Out href={DEMO} link="demo">
               Demo video
             </Out>
-            <a href={X_ACCOUNT} target="_blank" rel="noreferrer">
+            <Out href={X_ACCOUNT} link="x">
               X / Twitter
-            </a>
+            </Out>
+            <Out href={PILOT_CONTACT} link="pilot">
+              Become a pilot partner
+            </Out>
           </div>
           <div>
             <h4>Proof</h4>
@@ -255,6 +262,9 @@ export function SiteFooter({ page = "/" }: { page?: "/" | "/status" }) {
                 Contract on the explorer
               </Out>
             ) : null}
+            <Out href={MERCHANT_KIT} link="merchant-kit">
+              Merchant integration kit
+            </Out>
             <Out href={doc("docs/canonical-encoding.md")} link="encoding">
               What is signed
             </Out>
@@ -498,10 +508,13 @@ export default function Landing() {
             Let your agent pay. Safely.
           </h2>
           <div className="ld-actions ld-reveal" style={delay(0.16)}>
-            <a className="ld-social" href={X_ACCOUNT} target="_blank" rel="noreferrer">
+            <Out className="ld-social" href={X_ACCOUNT} link="x">
               <XMark className="ld-social-icon" />
               Follow @Beaver402
-            </a>
+            </Out>
+            <Out className="ld-social" href={PILOT_CONTACT} link="pilot">
+              Become a pilot partner
+            </Out>
             <Out className="ld-social ld-social-play" href={DEMO} link="demo">
               <svg className="ld-social-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M8 5.5v13l11-6.5z" />
