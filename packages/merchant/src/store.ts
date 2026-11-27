@@ -266,3 +266,70 @@ export function postgresStore(client: SqlClient, table = "beaver402_settlements"
     },
   };
 }
+
+/** The part of a supabase-js client the Supabase store uses. */
+export interface SupabaseLike {
+  from(table: string): any;
+}
+
+/**
+ * The same table as postgresStore(), reached through a supabase-js client
+ * with the service role key. Create it with POSTGRES_SCHEMA first. The
+ * unique constraints do the duplicate check, so it is safe with several
+ * instances, including serverless ones.
+ */
+export function supabaseStore(client: SupabaseLike, table = "beaver402_settlements"): SettlementStore {
+  const fail = (what: string, error: { message: string } | null) => {
+    if (error) throw new Error(`${table} ${what}: ${error.message}`);
+  };
+  const fromRow = (row: Record<string, unknown>): SettledPayment => ({
+    txHash: String(row.tx_hash),
+    nonce: String(row.nonce),
+    challengeHash: String(row.challenge_hash),
+    payer: String(row.payer),
+    recipient: String(row.recipient),
+    asset: String(row.asset),
+    amount: String(row.amount),
+    network: String(row.network),
+    method: String(row.method),
+    url: String(row.url),
+    settledAt: new Date(row.settled_at as string).toISOString(),
+    proofTransaction: row.proof_transaction ? String(row.proof_transaction) : undefined,
+  });
+  return {
+    persistent: true,
+    async hasNonce(nonce) {
+      const { data, error } = await client.from(table).select("nonce").eq("nonce", nonce).limit(1);
+      fail("read", error);
+      return (data ?? []).length > 0;
+    },
+    async record(p) {
+      const { error } = await client.from(table).insert({
+        tx_hash: p.txHash,
+        nonce: p.nonce,
+        challenge_hash: p.challengeHash,
+        payer: p.payer,
+        recipient: p.recipient,
+        asset: p.asset,
+        amount: p.amount,
+        network: p.network,
+        method: p.method,
+        url: p.url,
+        settled_at: p.settledAt,
+      });
+      if (!error) return true;
+      if (error.code === "23505") return false;
+      fail("write", error);
+      return false;
+    },
+    async markProof(nonce, proofTransaction) {
+      const { error } = await client.from(table).update({ proof_transaction: proofTransaction }).eq("nonce", nonce);
+      fail("update", error);
+    },
+    async pendingProofs() {
+      const { data, error } = await client.from(table).select("*").is("proof_transaction", null).order("settled_at");
+      fail("read", error);
+      return (data ?? []).map(fromRow);
+    },
+  };
+}

@@ -1,0 +1,14 @@
+{
+  "name": "beaver402-merchant-vercel",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20.12" },
+  "dependencies": {
+    "@beaver402/merchant": "https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.2/beaver402-merchant-0.1.0-rc.2.tgz",
+    "@supabase/supabase-js": "^2.112.2",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6"
+  }
+}

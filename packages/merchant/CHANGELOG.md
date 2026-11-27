@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-rc.2
+
+- `supabaseStore()`: the settlement store through a supabase-js client, for
+  merchants without a lasting disk, such as Vercel functions
+- `deploy-vercel/`: the example as a Vercel function, installed from the
+  release like any other project
+
 ## 0.1.0-rc.1
 
 First release.

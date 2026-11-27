@@ -30,7 +30,7 @@ The protected route runs only after all of that has passed.
 Node 20.12 or later. From a release tarball:
 
 ```sh
-npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.1/beaver402-merchant-0.1.0-rc.1.tgz express
+npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.2/beaver402-merchant-0.1.0-rc.2.tgz express
 ```
 
 ## Use

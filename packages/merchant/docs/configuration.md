@@ -29,6 +29,7 @@ description.
 | --- | --- | --- |
 | `memoryStore()` | no | Tests and testnet. Forgets every payment on restart, so mainnet refuses it |
 | `fileStore(path)` | yes | One process on one machine. Append-only JSON lines, flushed to disk before a payment counts as recorded. A lock file stops a second process from opening the same file |
+| `supabaseStore(client)` | yes | Supabase through supabase-js with the service role key, for serverless hosts such as Vercel. Same table and constraints as `postgresStore()`; `scripts/supabase-migration-005.sql` in the repository creates it |
 | `postgresStore(client)` | yes | Several instances. Takes a node-postgres `Pool` or anything with the same `query(sql, params)`. Create the table with `POSTGRES_SCHEMA` first. Unique constraints on the transaction hash and the nonce do the duplicate check |
 
 Your own store implements `SettlementStore`: `hasNonce`, `record` (false

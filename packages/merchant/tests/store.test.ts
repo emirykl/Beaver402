@@ -123,3 +123,54 @@ describe("postgres store", () => {
     expect(() => postgresStore(fakePg(), "x; drop table y")).toThrow();
   });
 });
+
+describe("supabase store", async () => {
+  const { supabaseStore } = await import("../src/store.js");
+  /** Just enough of supabase-js: unique tx_hash and nonce, and the calls the store makes. */
+  function fakeSupabase() {
+    const rows: Record<string, unknown>[] = [];
+    return {
+      from() {
+        return {
+          select() {
+            const filters: ((r: Record<string, unknown>) => boolean)[] = [];
+            const q = {
+              eq(col: string, v: unknown) {
+                filters.push((r) => r[col] === v);
+                return q;
+              },
+              is(col: string, v: unknown) {
+                filters.push((r) => (r[col] ?? null) === v);
+                return q;
+              },
+              limit() {
+                return q;
+              },
+              order() {
+                return q;
+              },
+              then(resolve: (x: unknown) => void) {
+                resolve({ data: rows.filter((r) => filters.every((f) => f(r))), error: null });
+              },
+            };
+            return q;
+          },
+          async insert(row: Record<string, unknown>) {
+            if (rows.some((r) => r.tx_hash === row.tx_hash || r.nonce === row.nonce)) return { error: { code: "23505", message: "duplicate" } };
+            rows.push({ ...row, proof_transaction: null });
+            return { error: null };
+          },
+          update(values: Record<string, unknown>) {
+            return {
+              async eq(col: string, v: unknown) {
+                rows.filter((r) => r[col] === v).forEach((r) => Object.assign(r, values));
+                return { error: null };
+              },
+            };
+          },
+        };
+      },
+    };
+  }
+  it("records each payment once, through the unique constraints", () => behavesAsAStore(supabaseStore(fakeSupabase())));
+});
