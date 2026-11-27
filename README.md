@@ -24,8 +24,22 @@ on its own, while the owner keeps immediate control through a passkey.
 [`CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL`](https://stellar.expert/explorer/public/contract/CBSMQ7LUZYAAN5P2JAAR74AFNKRZYF32JA4VTX3BFBFDCY4JXF5SFVXL)
 was deployed on 8 October 2026 from release `v0.2.0` and paid real Circle
 USDC through the OpenZeppelin facilitator. It pays at most 1 USDC at a time
-and at most 5 payments or 5 USDC in any 24 hours. The pilot is closed and its
-funds have been recovered to the owner's recovery address.
+and at most 5 payments or 5 USDC in any 24 hours. After the first pilot its
+funds were recovered to the owner's recovery address. In November 2026 the
+owner approved a second merchant with the passkey and the account paid it
+0.1 USDC under the same limits; it holds a small builder funded balance.
+
+**Merchant kit.** [`@beaver402/merchant`](packages/merchant/README.md) lets
+any developer put an Express route behind a Beaver402 payment. Release
+[`merchant-v0.1.0`](https://github.com/emirykl/Beaver402/releases/tag/merchant-v0.1.0)
+can be tried in the browser with GitHub Codespaces; an independent developer
+set up a merchant from the guide in about 11 minutes and received a testnet
+payment. Results of the third month are in the
+[final report](docs/month-3/final-report.md).
+
+Follow the project on X: [@Beaver402](https://x.com/Beaver402). Teams with a
+paid API, or an agent that pays for one, can
+[apply as a technical pilot partner](https://github.com/emirykl/Beaver402/issues/new?template=pilot-partner.yml).
 
 [A seven minute recording](https://youtu.be/0vFrfGZc1x0) of the first month
 shows an agent paying without holding a key, the owner halting it with a
@@ -40,6 +54,8 @@ passkey, the agent key revoked on chain, and the adversarial cases refused.
 | [Testnet rehearsal](docs/operations/rehearsals/2026-10-02-testnet-hosted.md) | the whole pilot on a fresh account, settled by the hosted OpenZeppelin facilitator: x402 payments, one started from the MCP tool, every refusal with its reason, the incident drill and the migration |
 | [x402 compatibility](docs/mainnet/x402-compat.md) | what a facilitator requires of the account, and the measurements |
 | [First month](docs/evidence.md) | the original testnet deployment and its transactions |
+| [Third month report](docs/month-3/final-report.md) | the merchant kit, the independent developer setup, three customer conversations, the second mainnet merchant, alert tests and the pilot decision |
+| [Third month evidence](docs/month-3/evidence.md) | every third month deliverable with its public link |
 
 ## How a payment happens
 
@@ -97,6 +113,7 @@ down, and the contract cannot be upgraded.
 | [Network configuration](docs/mainnet/network-config.md) | testnet and mainnet side by side |
 | [Readiness checklist](docs/mainnet/readiness-checklist.md) | what has to be true before mainnet |
 | [Findings](docs/security/findings.md) | every issue found, and its fix |
+| [Merchant kit guide](packages/merchant/README.md) | how to sell an API to agents through Beaver402 |
 
 ## Setup
 
@@ -279,10 +296,12 @@ account. Moving the panel to another domain means a new account.
 
 ## Scope
 
-A limited pilot: one account, one merchant, the builder's own USDC, small
-limits that can only be lowered, an immutable contract, a peer review rather
-than a formal audit. No custody of anyone else's funds, no merchant registry,
-no device recovery for the passkey. See the
+A limited pilot: one account, two approved merchants sharing the same
+limits, the builder's own USDC, small limits that can only be lowered, an
+immutable contract, an AI assisted technical review rather than a formal
+audit. No custody of anyone else's funds, no merchant registry, no device
+recovery for the passkey. Passkey recovery and an external audit are the
+next priorities named in the [final report](docs/month-3/final-report.md#11-pilot-decision). See the
 [known limitations](docs/known-limitations.md). The encoding and the schema
 here are a reference specification, not a standard.
 

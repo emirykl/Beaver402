@@ -90,9 +90,9 @@ The signing key stayed in the codespace and was not shared.
 | Improvement made from the feedback | done 2026-11-28 | [what changed](developer-feedback.md#what-changed-in-merchant-v010) |
 | Consented follow-up video with a second-period participant | pending | |
 | X account and pilot contact route on the landing page | done | landing footer and closing section |
-| Six X posts with dates, views and engagement | pending | |
-| Inquiry summary | pending | |
-| Final report: five hypotheses and the strongest adoption barrier | pending | |
+| Six X posts with dates, views and engagement | in progress: first post live, four scheduled for 28 November, results post to follow; views to be recorded | [final report, section 8](final-report.md#8-public-communication) |
+| Inquiry summary | done 2026-11-28; no inquiries received during the period | [final report, section 8](final-report.md#inquiry-summary) |
+| Final report: five hypotheses and the strongest adoption barrier | done 2026-11-28 | [final report](final-report.md) |
 
 ## Operations this month
 
