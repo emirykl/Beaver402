@@ -13,7 +13,7 @@ public link. A row without a link is not claimed.
 | Setup guide, configuration reference, troubleshooting | done | [README](../../packages/merchant/README.md), [configuration](../../packages/merchant/docs/configuration.md), [troubleshooting](../../packages/merchant/docs/troubleshooting.md) |
 | Automated test results | CI | the "Merchant kit" job |
 | Tagged release candidate | pending | |
-| Testnet payment through the kit, with linked Proof of Intent | pending: owner approval on testnet | |
+| Testnet payment through the kit, with linked Proof of Intent | done 2026-11-27, `npm run kit:e2e` against the kit's example | GET with a query: [settlement](https://stellar.expert/explorer/testnet/tx/c1096a70b267b65d426a50c3fa105fcd788c5971e822bb7ef3a8edba35484e48), [PoI](https://stellar.expert/explorer/testnet/tx/6c825a87d2b2f59e32e706c7e9fe37e0c7d706d4a9b7bc7866940ecb17dd4f3d). POST with a body: [settlement](https://stellar.expert/explorer/testnet/tx/59a2ae9d63134b8ce54230574d56a38417062d14efd8c18316abbd8798fd3f39), [PoI](https://stellar.expert/explorer/testnet/tx/2f01157599c7616959589f9b8818507465a83aebe97d195e97e201e56012e83a). Refused, nothing settled: a request changed after signing, requirements pointing at another recipient, an unapproved merchant key |
 | Independent developer setup notes | pending | |
 | Final release with the feedback applied | pending | |
 
@@ -50,4 +50,5 @@ public link. A row without a link is not claimed.
 
 | Date | What | Link |
 |---|---|---|
+| 2026-11-27 | Stellar owner actions ask for the owner's own passkey; a second passkey for the same domain had signed and was refused | `f166987` |
 | 2026-11-27 | Protocol 30 SDK update of the hosted mainnet services | [deployment record](../mainnet/deployment-record.md#hosted-service-updates), [finding I17](../security/findings.md) |
