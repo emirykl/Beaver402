@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-rc.3
+
+- `beaver402-merchant init`: one command from an empty folder to a testnet
+  merchant: key, friendbot funding, USDC trustline, an optional free
+  facilitator key, `.env` and a `server.ts` with a paid GET and POST
+- The guide starts with a five command quick start that installs from the
+  release, and explains how to take the first payment: tunnel, `PUBLIC_URL`,
+  what to send the account owner and what success looks like.
+  See `docs/month-3/guide-review.md` in the repository for why
+
 ## 0.1.0-rc.2
 
 - `supabaseStore()`: the settlement store through a supabase-js client, for

@@ -11,10 +11,13 @@ import { NETWORKS } from "./config.js";
 
 import { optionsFromEnv, usdcContract, type NetworkName } from "./config.js";
 import { createMerchant } from "./merchant.js";
+import { init } from "./init.js";
 import { fileStore, memoryStore } from "./store.js";
 
 const USAGE = `beaver402-merchant <command>
 
+  init                           set up a testnet merchant in this folder: key, funding,
+                                 USDC trustline, facilitator key, .env and server.ts
   keygen                         make a new merchant signing key
   setup-testnet                  fund MERCHANT_SECRET's account from friendbot and add the USDC trustline
   usdc <testnet|mainnet>         print the USDC contract for a network
@@ -97,7 +100,11 @@ async function main(): Promise<number> {
       const key = Keypair.random();
       console.log(`public key: ${key.publicKey()}`);
       console.log(`secret:     ${key.secret()}`);
-      console.log("\nKeep the secret private. Fund the public key with a little XLM: it pays for proofs of intent.");
+      console.log("\nKeep the secret private. On testnet, `beaver402-merchant init` does this and the rest for you.");
+      return 0;
+    }
+    case "init": {
+      await init(process.cwd(), { setupAccount: setupTestnetAccount });
       return 0;
     }
     case "setup-testnet": {

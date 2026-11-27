@@ -20,34 +20,83 @@ by an x402 facilitator. This package is the merchant's half:
 
 The protected route runs only after all of that has passed.
 
-- [Setup guide](#setup-on-testnet) (this page)
+- [Quick start](#quick-start-five-minutes-on-testnet) (this page)
 - [Configuration reference](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Changelog](CHANGELOG.md)
 
-## Install
+## Quick start: five minutes on testnet
 
-Node 20.12 or later. From a release tarball:
+You need Node.js 20.12 or later (`node -v`). Everything on testnet is free:
+the network gives out test XLM and nothing here costs real money.
 
 ```sh
-npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.2/beaver402-merchant-0.1.0-rc.2.tgz express
+mkdir my-paid-api && cd my-paid-api
+npm init -y
+npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.3/beaver402-merchant-0.1.0-rc.3.tgz express tsx
+npx beaver402-merchant init
+npm start
 ```
 
-## Use
+`init` does all of the setup and asks you one question:
+
+1. makes your merchant key and saves it in `.env` (keep that file private;
+   it is added to `.gitignore` for you)
+2. opens your testnet account with free test XLM and adds the USDC trustline
+   it needs to receive payments
+3. asks whether to get a free testnet key from OpenZeppelin Channels, the
+   service that settles each payment and pays its network fee. Say yes, or
+   say no and put your own key in `.env` as `FACILITATOR_API_KEY`
+4. writes `server.ts`: a paid `GET /forecast` (0.1 USDC) and a paid
+   `POST /summarize` (0.2 USDC)
+
+It never overwrites anything, so you can run it again if it stops halfway.
+
+`npm start` checks the setup against the network and prints one line per
+check. When every line says `ok`, open <http://localhost:4021/forecast>: you
+get `402 Payment Required` with a signed challenge. Your API is now for sale.
+The last line printed is your **merchant key**; you need it in the next step.
+
+## Take your first payment
+
+A Beaver402 account pays a merchant only after its owner approves that
+merchant with their passkey. So the first payment takes three short steps
+between you and the account owner. You do not need an agent or USDC of your
+own.
+
+1. **Make your server reachable.** The owner's agent has to call it over
+   https. A free tunnel works without an account:
+
+   ```sh
+   brew install cloudflared      # or see developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads
+   cloudflared tunnel --url http://localhost:4021
+   ```
+
+   It prints an address like `https://something.trycloudflare.com`. Put it
+   in `.env` as `PUBLIC_URL`, then restart `npm start`. The challenge signs
+   the full URL, so it has to be the address the agent calls.
+
+2. **Send the account owner two things:** your merchant key (`G...`, also at
+   `/merchant`) and your public URL. Never send `MERCHANT_SECRET`.
+
+3. **The owner approves you and pays.** They press APPROVE next to your key
+   in their panel and run a payment against your URL. Each paid request
+   appears in your terminal, and the payment and its Proof of Intent
+   appear on <https://stellar.expert/explorer/testnet> under your merchant
+   key.
+
+Before approval, the owner's payments to you are refused with
+`the paying account's owner has not approved this merchant`. That refusal is
+the protection working, not an error. Approving you does not raise the
+owner's limits: every merchant shares the same per payment and daily caps.
+
+## Add it to your own Express app
 
 ```ts
 import express from "express";
-import { captureRawBody, createMerchant, fileStore, usdc, usdcContract } from "@beaver402/merchant";
+import { captureRawBody, createMerchant, fileStore, optionsFromEnv, usdc } from "@beaver402/merchant";
 
-const merchant = createMerchant({
-  network: "testnet",
-  usdcContract: usdcContract("testnet"),
-  facilitatorApiKey: process.env.FACILITATOR_API_KEY!,
-  merchantSecret: process.env.MERCHANT_SECRET!,
-  recipient: process.env.RECIPIENT_ADDRESS!,
-  price: usdc("0.1"),
-  store: fileStore("./data/payments.jsonl"),
-});
+const merchant = createMerchant(optionsFromEnv(process.env, fileStore("./data/payments.jsonl")));
 
 const app = express();
 app.use(express.json({ verify: captureRawBody })); // the challenge signs the raw body
@@ -62,93 +111,23 @@ app.post("/summarize", merchant.protect({ price: usdc("0.2") }), (req, res) => {
 app.listen(4021);
 ```
 
-Every option is checked when `createMerchant` runs, and the network side
-(RPC, recipient trustline, facilitator, signer balance) before the first
-challenge goes out. A merchant that is set up wrong answers `503` and
-logs why. It never hands out a challenge that cannot be paid.
+`protect()` goes in front of any route you want paid for, with an optional
+price per route. Every option is checked when `createMerchant` runs, and the
+network side (RPC, recipient trustline, facilitator, signer balance) before
+the first challenge goes out. A merchant that is set up wrong answers `503`
+and logs why: it never hands out a challenge that cannot be paid. Pass the
+options as an object instead of `optionsFromEnv` if you prefer; see the
+[configuration reference](docs/configuration.md).
 
-## Setup on testnet
+## Run the example from this repository
 
-This walks through running the example as a new, separate merchant and
-taking one protected testnet payment. Plan on about half an hour.
-
-### 1. Get the example
+To read or change the kit itself:
 
 ```sh
 git clone https://github.com/emirykl/Beaver402.git
-cd Beaver402/packages/merchant
-npm install && npm run build
-cd example && npm install
-cp .env.example .env
+cd Beaver402/packages/merchant && npm install && npm run build
+cd example && npm install && npx beaver402-merchant init && npm start
 ```
-
-### 2. Make the merchant account
-
-The merchant has one Stellar account that signs challenges, receives the
-USDC and pays the small fee for publishing each Proof of Intent.
-
-```sh
-npx beaver402-merchant keygen
-```
-
-Put the secret in `.env` as `MERCHANT_SECRET` and keep it to yourself. Then
-fund the account with test XLM and add the USDC trustline it needs to receive
-payments:
-
-```sh
-npx beaver402-merchant setup-testnet
-```
-
-Put the printed public key in `.env` as `RECIPIENT_ADDRESS`.
-
-### 3. Get a facilitator key
-
-The facilitator submits the payment and pays its network fee. Get a free
-testnet key from OpenZeppelin Channels at
-<https://channels.openzeppelin.com/testnet/gen> and put it in `.env` as
-`FACILITATOR_API_KEY`.
-
-### 4. Check the setup
-
-```sh
-npx beaver402-merchant check
-```
-
-Every line should say `ok`. A `FAIL` line says what to fix; see
-[troubleshooting](docs/troubleshooting.md).
-
-### 5. Start the merchant
-
-```sh
-npm start
-```
-
-`GET /forecast` now answers `402 Payment Required` with a challenge.
-`GET /merchant` prints the merchant's public key.
-
-### 6. Get the merchant approved
-
-A Beaver402 account pays only merchants its owner approved, one by one,
-with their passkey. Send the account owner the `merchantPubkey` from
-`GET /merchant`. They add it to their panel's merchant list and press
-**APPROVE**. Until then every payment to you is refused with
-`the paying account's owner has not approved this merchant`. That refusal
-is the protection working.
-
-Approving another merchant does not raise the account's limits: every
-merchant shares the same per payment, daily and balance caps.
-
-### 7. Take a payment
-
-The account owner's agent calls your URL. On success the response carries a
-`PAYMENT-RESPONSE` header with the settlement transaction and, under
-`extensions.beaver402.proofTransaction`, the Proof of Intent. Both open on
-<https://stellar.expert/explorer/testnet>.
-
-If the merchant is reachable only on your machine, expose it with a tunnel
-(for example `cloudflared tunnel --url http://localhost:4021`) and set
-`PUBLIC_URL` to the tunnel's https origin, so the URL the challenge signs is
-the one the agent calls.
 
 ## Going to mainnet
 

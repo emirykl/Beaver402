@@ -3,6 +3,24 @@
 Start with `npx beaver402-merchant check` in the folder holding `.env`.
 Each `FAIL` line names the problem.
 
+## `init` stopped halfway
+
+Run it again. It keeps the key it already saved and fills in only what is
+missing. If friendbot was down, it tries the funding again.
+
+## `npm start` says `Cannot use import statement outside a module`
+
+`package.json` needs `"type": "module"`. `init` sets it; if you made the
+package by hand, run `npm pkg set type=module`.
+
+## The owner's payment is refused with `the payment was authorized for a different request`
+
+The URL the agent called is not the URL your server signed. Behind a tunnel
+or proxy, `PUBLIC_URL` in `.env` must be exactly the https origin the agent
+uses (for example `https://something.trycloudflare.com`, no path), and the
+server has to be restarted after you change it. A quick tunnel gets a new
+address every time it starts.
+
 ## The merchant answers 503
 
 The setup is broken, and the server log says how. Usual causes:
