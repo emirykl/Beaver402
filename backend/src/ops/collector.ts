@@ -183,6 +183,24 @@ function tooLarge(err: unknown): boolean {
   return /processing limit|exceeded/i.test(err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
 }
 
+/** A dropped connection or a timeout, worth trying again. */
+function transient(err: unknown): boolean {
+  const e = err as { isAxiosError?: boolean; response?: unknown; code?: string; message?: string };
+  if (e?.isAxiosError && !e.response) return true;
+  return /ECONNRESET|ETIMEDOUT|ECONNABORTED|socket hang up|fetch failed|\b50[234]\b/i.test(`${e?.code ?? ""} ${e?.message ?? ""}`);
+}
+
+async function withRetry<T>(call: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await call();
+    } catch (err) {
+      if (i >= attempts || !transient(err)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * i));
+    }
+  }
+}
+
 /**
  * Every event in one range. A range the provider refuses as too much work
  * is split in half and each half read on its own, down to a few ledgers.
@@ -198,7 +216,8 @@ async function readRange(
   try {
     for (;;) {
       // The RPC treats endLedger as exclusive.
-      const page = await server.getEvents({ filters, startLedger: pageStart, endLedger: end + 1, limit: PAGE });
+      const request = { filters, startLedger: pageStart, endLedger: end + 1, limit: PAGE };
+      const page = await withRetry(() => server.getEvents(request));
       for (const event of page.events) byId.set(event.id, event);
       if (page.events.length < PAGE) break;
       const lastLedger = page.events[page.events.length - 1]!.ledger;

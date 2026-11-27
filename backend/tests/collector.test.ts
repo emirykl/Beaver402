@@ -142,3 +142,18 @@ describe("a range the provider refuses as too large", async () => {
     expect(seen.sort((a, b) => a - b)).toEqual([700, 1500, 1990]);
   });
 });
+
+describe("a dropped connection", async () => {
+  const { scanRange } = await import("../src/ops/collector.js");
+  it("is tried again rather than ending the run", async () => {
+    let calls = 0;
+    const server = {
+      async getEvents() {
+        if (++calls === 1) throw Object.assign(new Error("socket hang up"), { isAxiosError: true });
+        return { events: [], cursor: "0", latestLedger: 0, oldestLedger: 0 } as never;
+      },
+    };
+    await expect(scanRange(server, [], 1, 100, 2000, async () => {})).resolves.toBe(100);
+    expect(calls).toBe(2);
+  });
+});
