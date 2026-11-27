@@ -1,0 +1,71 @@
+{
+  "name": "@beaver402/merchant",
+  "version": "0.1.0",
+  "description": "Put an API route behind a Beaver402-protected x402 USDC payment on Stellar",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "beaver402-merchant": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "example": "tsx --env-file-if-exists=example/.env example/server.ts",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "stellar",
+    "x402",
+    "usdc",
+    "payments",
+    "beaver402"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emirykl/Beaver402.git",
+    "directory": "packages/merchant"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^16.4.1",
+    "@x402/core": "2.28.0"
+  },
+  "peerDependencies": {
+    "express": "^4.18.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.2.0",
+    "express": "^5.2.1",
+    "tsx": "^4.23.11",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "@stellar/stellar-sdk": {
+      "axios": "1.20.0"
+    }
+  }
+}

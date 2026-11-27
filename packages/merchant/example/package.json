@@ -1,0 +1,17 @@
+{
+  "name": "beaver402-merchant-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file-if-exists=.env server.ts",
+    "check": "beaver402-merchant check"
+  },
+  "dependencies": {
+    "@beaver402/merchant": "file:..",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "tsx": "^4.23.11"
+  }
+}

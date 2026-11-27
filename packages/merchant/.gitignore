@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.tgz
+example/.env
+example/data/
