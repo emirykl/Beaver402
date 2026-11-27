@@ -85,7 +85,7 @@ The signing key stayed in the codespace and was not shared.
 
 | Evidence | Status | Link |
 |---|---|---|
-| Three anonymized conversation summaries | pending | |
+| Three anonymized conversation summaries | done, 13, 15 and 17 November 2026, Google Meet | [conversations](interviews.md) |
 | Independent developer setup, observed | done 2026-11-27 (UTC), payment settled; about 11 minutes to the first 402 | [Independent developer run](#independent-developer-run-on-testnet-27-november-2026) |
 | Improvement made from the feedback | done 2026-11-28 | [what changed](developer-feedback.md#what-changed-in-merchant-v010) |
 | Consented follow-up video with a second-period participant | pending | |
