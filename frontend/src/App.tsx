@@ -14,6 +14,7 @@ import {
   recoverFunds,
   removeMerchant,
   type Limits,
+  type KnownMerchant,
   type PolicyState,
   type PublicConfig,
   type Transaction,
@@ -59,6 +60,8 @@ import {
   column,
   lineRow,
   lineLabel,
+  merchantRow,
+  merchantKeyText,
   lineValue,
   meterTrack,
   meterSegment,
@@ -120,7 +123,8 @@ export default function App() {
   // Recovering the funds and removing the merchant are hard to undo in the
   // middle of an incident, so each takes two presses.
   const [recoveryArmed, setRecoveryArmed] = useState(false);
-  const [removalArmed, setRemovalArmed] = useState(false);
+  // The merchant whose removal is waiting for its second press.
+  const [removalArmed, setRemovalArmed] = useState<string | null>(null);
 
   const addLog = useCallback(
     (message: string, type: LogEntry["type"] = "info") => {
@@ -262,6 +266,14 @@ export default function App() {
   const merchantKey = onSolana
     ? config?.solana?.merchantPubkey ?? null
     : merchantInfo?.merchantPubkey ?? config?.merchantPubkey ?? null;
+  // Every merchant this account may pay, each approved on its own. On
+  // Solana the deployment still has the one.
+  const merchants: KnownMerchant[] =
+    !onSolana && policyState.merchants
+      ? policyState.merchants
+      : merchantKey
+        ? [{ label: "Reference merchant", pubkey: merchantKey, approved: policyState.merchantApproved === true }]
+        : [];
   const multiChain = config?.chains?.includes("solana") ?? false;
   const limits = policyState.limits ?? null;
 
@@ -332,17 +344,57 @@ export default function App() {
               <section style={{ ...panel, borderColor: `${amber}55` }}>
                 <h2 style={{ ...heading, color: amber }}>ACTION REQUIRED</h2>
                 <p style={body}>
-                  No merchant is approved, so every payment is refused.
+                  No merchant is approved, so every payment is refused. Approve one under MERCHANTS.
                 </p>
-                <Button
-                  label="APPROVE MERCHANT"
-                  busy={loading === "approve"}
-                  disabled={loading !== null || !merchantKey}
-                  onClick={() =>
-                    merchantKey &&
-                    handleAction("Approve merchant", () => allowMerchant(merchantKey))
-                  }
-                />
+              </section>
+            )}
+
+            {deployed && merchants.length > 0 && (
+              <section style={panel}>
+                <h2 style={heading}>MERCHANTS</h2>
+                {merchants.map((m) => {
+                  const approve = `Approve ${m.label}`;
+                  const remove = `Remove ${m.label}`;
+                  return (
+                    <div key={m.pubkey} style={merchantRow}>
+                      <Line
+                        label={m.label}
+                        value={m.approved ? "APPROVED" : "NOT APPROVED"}
+                        tone={m.approved ? green : amber}
+                      />
+                      <div style={merchantKeyText} title={m.pubkey}>
+                        {m.pubkey}
+                      </div>
+                      {m.approved ? (
+                        <Button
+                          label={removalArmed === m.pubkey ? "CONFIRM: STOP PAYING THIS MERCHANT" : "REMOVE"}
+                          danger
+                          busy={loading === remove}
+                          disabled={loading !== null}
+                          onClick={() => {
+                            if (removalArmed !== m.pubkey) {
+                              setRemovalArmed(m.pubkey);
+                              addLog(`Press again to remove ${m.label}; it can be approved again later`);
+                              return;
+                            }
+                            setRemovalArmed(null);
+                            handleAction(remove, () => removeMerchant(m.pubkey));
+                          }}
+                        />
+                      ) : (
+                        <Button
+                          label="APPROVE"
+                          busy={loading === approve}
+                          disabled={loading !== null}
+                          onClick={() => handleAction(approve, () => allowMerchant(m.pubkey))}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+                <p style={body}>
+                  Every approved merchant shares the same limits. Approving one more does not raise them.
+                </p>
               </section>
             )}
 
@@ -416,23 +468,6 @@ export default function App() {
                       }
                       setRecoveryArmed(false);
                       handleAction("Recover", recoverFunds);
-                    }}
-                  />
-                )}
-                {merchantKey && (
-                  <Button
-                    label={removalArmed ? "CONFIRM: STOP PAYING THIS MERCHANT" : "REMOVE MERCHANT"}
-                    danger
-                    busy={loading === "Remove merchant"}
-                    disabled={loading !== null}
-                    onClick={() => {
-                      if (!removalArmed) {
-                        setRemovalArmed(true);
-                        addLog("Press again to remove the merchant; it can be approved again later");
-                        return;
-                      }
-                      setRemovalArmed(false);
-                      handleAction("Remove merchant", () => removeMerchant(merchantKey));
                     }}
                   />
                 )}

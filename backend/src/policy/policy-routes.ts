@@ -14,6 +14,7 @@ import {
   submitSolanaOwnerAction,
 } from "../chains/solana/owner-actions.js";
 import { velocityState } from "../chains/solana/policy-account.js";
+import { isKnownMerchant, knownMerchants, ownMerchantKey, type KnownMerchant } from "./merchants.js";
 import { solanaAddressOf } from "../chains/solana/program.js";
 import {
   isOwnerAction,
@@ -142,22 +143,13 @@ function invalidateCache(): void {
   cache.clear();
 }
 
-/**
- * The merchant this deployment works with, as a public key.
- *
- * The merchant runs as its own service with its own secret, so this backend
- * is told the public key. A single process running both halves for local
- * development can still derive it from the secret.
- */
+/** The merchant this deployment works with, as a public key. */
 function merchantPublicKey(): string | null {
-  if (process.env.MERCHANT_PUBKEY) return process.env.MERCHANT_PUBKEY;
-  const secret = process.env.MERCHANT_SECRET;
-  return secret ? StellarSdk.Keypair.fromSecret(secret).publicKey() : null;
+  return ownMerchantKey();
 }
 
-/** Whether the owner has approved the merchant this deployment uses. */
-async function isMerchantApproved(): Promise<boolean> {
-  const pubkey = merchantPublicKey();
+/** Whether the owner has approved a merchant key. */
+async function isMerchantApproved(pubkey: string | null = merchantPublicKey()): Promise<boolean> {
   if (!pubkey) return false;
 
   try {
@@ -170,6 +162,11 @@ async function isMerchantApproved(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Every merchant the panel lists, with whether the owner has approved it. */
+async function readMerchants(): Promise<(KnownMerchant & { approved: boolean })[]> {
+  return Promise.all(knownMerchants().map(async (m) => ({ ...m, approved: await isMerchantApproved(m.pubkey) })));
 }
 
 export interface LimitsReading {
@@ -260,6 +257,7 @@ export function publicConfig() {
     asset: config.usdcContract,
     facilitator: config.facilitatorUrl,
     merchantPubkey: merchantPublicKey(),
+    merchants: knownMerchants(),
   };
 }
 
@@ -274,6 +272,7 @@ export async function readPolicyState() {
       velocityWindowStart: 0,
       contractId: "not deployed",
       merchantApproved: false,
+      merchants: [],
       velocityMaxTxCount: 0,
       limits: null,
     };
@@ -307,7 +306,8 @@ export async function readPolicyState() {
 
   // The control panel needs these to tell the owner what is still to do and
   // how much of the budget is left.
-  const merchantApproved = await cached("merchant", isMerchantApproved);
+  const merchants = await cached("merchants", readMerchants);
+  const merchantApproved = merchants.some((m) => m.approved);
   const limits = await cached("limits", readLimits);
 
   return {
@@ -318,6 +318,7 @@ export async function readPolicyState() {
     velocityWindowStart: reading.windowStart,
     contractId: contractId(),
     merchantApproved,
+    merchants,
     velocityMaxTxCount: limits?.maxTxCount ?? 0,
     limits,
   };
@@ -383,6 +384,15 @@ export function createPolicyRouter() {
       res.status(400).json({
         success: false,
         error: `action must be one of ${OWNER_ACTIONS.join(", ")}`,
+      });
+      return;
+    }
+
+    const pubkey = req.body?.pubkey ?? req.body?.merchantPubkey;
+    if (action === "add_merchant" && !isKnownMerchant(String(pubkey ?? ""))) {
+      res.status(400).json({
+        success: false,
+        error: "only a merchant listed for this account can be approved here",
       });
       return;
     }

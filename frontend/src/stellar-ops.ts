@@ -55,8 +55,17 @@ export interface PolicyState {
    * the backend predates the check, which is not the same as false.
    */
   merchantApproved?: boolean;
+  /** Each merchant this account may pay, with its approval. Stellar only. */
+  merchants?: KnownMerchant[];
   /** How many payments the budget allows per window. */
   velocityMaxTxCount: number;
+}
+
+/** A merchant the operator listed for this account. */
+export interface KnownMerchant {
+  label: string;
+  pubkey: string;
+  approved: boolean;
 }
 
 export async function fetchPolicyState(): Promise<PolicyState> {

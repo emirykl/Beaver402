@@ -192,6 +192,22 @@ export const lineRow: CSSProperties = {
 
 export const lineLabel: CSSProperties = { fontSize: 16, color: dim };
 
+export const merchantRow: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  paddingBottom: 14,
+  marginBottom: 14,
+  borderBottom: `1px solid ${edge}`,
+};
+
+export const merchantKeyText: CSSProperties = {
+  fontFamily: mono,
+  fontSize: 12,
+  color: dim,
+  overflowWrap: "anywhere",
+};
+
 export const lineValue: CSSProperties = {
   fontSize: 17,
   fontWeight: 700,
