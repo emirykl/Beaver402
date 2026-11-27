@@ -68,5 +68,7 @@ that run.
 
 | Date | What | Link |
 |---|---|---|
+| 2026-11-27 | First manual mainnet collector run failed and raised the `collector_failed` alert by email; cause was the RPC provider's per-call limit, fixed in `dd608c3`, pilot events backfilled | [finding I20](../security/findings.md) |
+| 2026-11-27 | Month 3 code deployed to the hosted mainnet services from `main` (`8180a74`) | `beaver402-api`, `beaver402-merchant`, `beaver402` |
 | 2026-11-27 | Stellar owner actions ask for the owner's own passkey; a second passkey for the same domain had signed and was refused | `f166987` |
 | 2026-11-27 | Protocol 30 SDK update of the hosted mainnet services | [deployment record](../mainnet/deployment-record.md#hosted-service-updates), [finding I17](../security/findings.md) |
