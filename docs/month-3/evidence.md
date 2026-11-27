@@ -26,11 +26,11 @@ public link. A row without a link is not claimed.
 | Owner approval of the second merchant (testnet) | pending | |
 | One testnet payment to each merchant | pending | |
 | Changed request and changed recipient refused after approval | pending | |
-| Mainnet checks: network, account, trustline, facilitator, keys, store, limits | pending | |
-| Owner approval on mainnet | pending | |
-| 0.1 USDC mainnet settlement and Proof of Intent | pending | |
+| Mainnet checks: network, account, trustline, facilitator, keys, store, limits | done 2026-11-27 | the merchant's own preflight passed before its first challenge (RPC on mainnet, recipient USDC trustline, signer funded, OpenZeppelin facilitator, Supabase store); limits read back unchanged |
+| Owner approval on mainnet | done, passkey | [`6512938a`](https://stellar.expert/explorer/public/tx/6512938a70160da4b2868f31ba0d31bf480e1764a8fdff62e30cd2cf185964b0) (`merchant/added`); account resumed in [`a5ec57d3`](https://stellar.expert/explorer/public/tx/a5ec57d3975c66a206792b85a6592a0218a55ad5beebfd9b04df39ef180fcef6) |
+| 0.1 USDC mainnet settlement and Proof of Intent | done 2026-11-27 16:45 UTC, agent to `https://beaver402-merchant-2.vercel.app/forecast?city=Ankara` | settlement [`23812035`](https://stellar.expert/explorer/public/tx/238120350b217d6c5e018b04f7dfdc1348b4f236663a191a1164ffa3c49d87da), PoI [`a900dfc4`](https://stellar.expert/explorer/public/tx/a900dfc4bcbb497bdd307ebbc01ae35898137025103b39350732badbacb030a6) |
 | Policy screenshot: 1 USDC per payment, 5 payments and 5 USDC per day, 10 USDC balance cap | pending | |
-| Collector record matches the settlement | pending | |
+| Collector record matches the settlement | done | `chain_events` ledger 65702372: `transfer` from the account to `GCJT…JS2G`, 1000000 units, tx `23812035`; ledger 65702374: `poi/verified`, amount 1000000, tx `a900dfc4` |
 | Collector alerts, both conditions | rehearsed 2026-11-27 | [alerts](../operations/alerts.md#rehearsal); the received emails are kept with the submission |
 
 ### Builder rehearsal on testnet, 27 November 2026
@@ -50,6 +50,18 @@ that run.
 | Request changed after signing, after approval | refused | agent answer |
 | Requirements pointing at another recipient, after approval | refused | agent answer |
 | Shared limits | unchanged: 1 USDC per payment, 5 payments and 5 USDC per 24 hours; both merchants counted in one window (4 of 5, 0.6 USDC) | `get_velocity_config`, `get_velocity_state` |
+
+### Second merchant on mainnet
+
+Hosted from the kit's release (`packages/merchant/deploy-vercel`, `merchant-v0.1.0-rc.2`) at `https://beaver402-merchant-2.vercel.app`. Signing key `GA5ZPOPQMGMKW4UVB2KCVEMSHW75BRM7XWAJAPVON7QSDAOHMWQYKNSC`, held only by that deployment; payments land in a wallet of the builder's, `GCJT4JWWRGHJDBH6WEKTWNQFOXELHKMCSZ7PDREFWE547RIX7A4KJS2G`. The builder operated this merchant; the independent developer's setup is recorded separately. The refusal of an unapproved merchant is shown on testnet, as the scope places it.
+
+| Time (UTC) | Step | Fee | Link |
+|---|---|---|---|
+| 15:04 | 0.3 USDC from the recovery wallet to the account | | [`4f0b4ea4`](https://stellar.expert/explorer/public/tx/4f0b4ea4b0a17974d985a9a6d2607542a50e03d3aa4c04b9dccbd75547cd9f72) |
+| 16:44 | Merchant 2 approved, passkey; also extended the account and its code to 150 days | 12.05 XLM, almost all of it rent ([I21](../security/findings.md)) | [`6512938a`](https://stellar.expert/explorer/public/tx/6512938a70160da4b2868f31ba0d31bf480e1764a8fdff62e30cd2cf185964b0) |
+| 16:45 | Payments resumed, passkey | 0.001 XLM | [`a5ec57d3`](https://stellar.expert/explorer/public/tx/a5ec57d3975c66a206792b85a6592a0218a55ad5beebfd9b04df39ef180fcef6) |
+| 16:45 | 0.1 USDC paid by the agent, settled by the facilitator, content released | 0.0015 XLM, paid by the facilitator | [`23812035`](https://stellar.expert/explorer/public/tx/238120350b217d6c5e018b04f7dfdc1348b4f236663a191a1164ffa3c49d87da) |
+| 16:45 | Proof of Intent published by Merchant 2 | 0.0005 XLM | [`a900dfc4`](https://stellar.expert/explorer/public/tx/a900dfc4bcbb497bdd307ebbc01ae35898137025103b39350732badbacb030a6) |
 
 ## D3: Developer validation and public communication
 
