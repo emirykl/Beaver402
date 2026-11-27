@@ -33,6 +33,24 @@ public link. A row without a link is not claimed.
 | Collector record matches the settlement | pending | |
 | Collector alerts, both conditions | rehearsed 2026-11-27 | [alerts](../operations/alerts.md#rehearsal); the received emails are kept with the submission |
 
+### Builder rehearsal on testnet, 27 November 2026
+
+Run by the builder with a second merchant account of its own
+(`GAPE262SQ4HX6WAB4PMTSKXP5A4XA5UUEUCGUZAA7L7XUZ2CYFABSXWA`), set up from the
+kit's guide with `beaver402-merchant setup-testnet`. It proves the flow before
+the independent developer runs it with their own account; it does not replace
+that run.
+
+| Step | Result | Link |
+|---|---|---|
+| Payment to the second merchant before approval | refused by the policy, nothing settled | agent answer |
+| Owner approval of the second merchant, passkey | confirmed in the panel | panel log |
+| GET with a query to the second merchant | settled | [settlement](https://stellar.expert/explorer/testnet/tx/de41b6e0e3ff32ec282e2c3b0318cb19f1211db3c9728e7924c69c7806d1ca46), [PoI](https://stellar.expert/explorer/testnet/tx/d01780d2f0f02abe399afdc06520932b93b836cd16abf2dd9ce288269f780d14) |
+| POST with a body to the second merchant | settled | [settlement](https://stellar.expert/explorer/testnet/tx/c553d42ee2d261c45d13434aee358e1838fec29e20813ebcbe71eec4973b67e9), [PoI](https://stellar.expert/explorer/testnet/tx/ef76293db6bceed5fe810d2fd2473bded20cdbce87a2e6e79ea07d1f243c6ed7) |
+| Request changed after signing, after approval | refused | agent answer |
+| Requirements pointing at another recipient, after approval | refused | agent answer |
+| Shared limits | unchanged: 1 USDC per payment, 5 payments and 5 USDC per 24 hours; both merchants counted in one window (4 of 5, 0.6 USDC) | `get_velocity_config`, `get_velocity_state` |
+
 ## D3: Developer validation and public communication
 
 | Evidence | Status | Link |
