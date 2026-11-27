@@ -64,12 +64,29 @@ Hosted from the kit's release (`packages/merchant/deploy-vercel`, `merchant-v0.1
 | 16:45 | 0.1 USDC paid by the agent, settled by the facilitator, content released | 0.0015 XLM, paid by the facilitator | [`23812035`](https://stellar.expert/explorer/public/tx/238120350b217d6c5e018b04f7dfdc1348b4f236663a191a1164ffa3c49d87da) |
 | 16:45 | Proof of Intent published by Merchant 2 | 0.0005 XLM | [`a900dfc4`](https://stellar.expert/explorer/public/tx/a900dfc4bcbb497bdd307ebbc01ae35898137025103b39350732badbacb030a6) |
 
+### Independent developer run on testnet, 27 November 2026
+
+A developer who has not contributed to Beaver402 set the merchant up from the
+published guide, through its "Open in GitHub Codespaces" route, on a computer
+other than the builder's. The codespace ran under the builder's GitHub account, which was
+signed in on that computer; the developer followed the guide without help and
+made port 4021 public by hand, as the guide's terminal message asks. Their
+merchant key is `GBWVX6KX46J2TCQJ6FF373B4ZSYYDMO7HFNN4WVB4Y3QQASJRWF2M7BS`.
+The signing key stayed in the codespace and was not shared.
+
+| Step (UTC) | Result | Link |
+|---|---|---|
+| Developer's checks against their own server | `/merchant` 200, `/forecast` and `/summarize` 402; a changed request, another recipient and an unapproved merchant key were all refused | developer's terminal |
+| 21:50 payment before the owner approved the key | refused by the policy, nothing settled | owner panel, settlements |
+| 21:53 owner approval with the passkey | `Developer merchant` approved | owner panel, log |
+| 21:54 payment of 0.1 test USDC to `GET /forecast?city=Ankara` | settled, content released | [settlement](https://stellar.expert/explorer/testnet/tx/7f6cb9c23e737cb659c13807cfd6cebe051577744fc3717fe8461efce71e41e7), [PoI](https://stellar.expert/explorer/testnet/tx/05df29b3e2c4f8e0f24b14625786f18c80d96c271cee74e6e83e4f25d3a719a0) |
+
 ## D3: Developer validation and public communication
 
 | Evidence | Status | Link |
 |---|---|---|
 | Three anonymized conversation summaries | pending | |
-| Independent developer setup, observed | pending | |
+| Independent developer setup, observed | done 2026-11-27 (UTC), payment settled; observation notes pending | [Independent developer run](#independent-developer-run-on-testnet-27-november-2026) |
 | Improvement made from the feedback | pending | |
 | Consented follow-up video with a second-period participant | pending | |
 | X account and pilot contact route on the landing page | done | landing footer and closing section |
