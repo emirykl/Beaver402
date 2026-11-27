@@ -20,7 +20,8 @@
     "solana:init": "tsx --env-file-if-exists=.env scripts/solana-init.ts",
     "solana:demo:preflight": "tsx --env-file-if-exists=.env scripts/solana-demo-preflight.ts",
     "kit:e2e": "tsx --env-file-if-exists=.env scripts/kit-e2e.ts",
-    "alerts:rehearse": "tsx --env-file-if-exists=.env scripts/alerts-rehearse.ts"
+    "alerts:rehearse": "tsx --env-file-if-exists=.env scripts/alerts-rehearse.ts",
+    "collect:backfill": "tsx --env-file-if-exists=.env scripts/collect-backfill.ts"
   },
   "keywords": [
     "stellar",

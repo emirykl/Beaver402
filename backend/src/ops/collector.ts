@@ -108,6 +108,9 @@ export function collectorFailure(err: unknown): string {
   if (/fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|getaddrinfo|socket|timeout|\b5\d\d\b/i.test(text)) {
     return "the RPC could not be reached";
   }
+  if (/processing limit|exceeded/i.test(text)) {
+    return "the RPC refused a request as too large";
+  }
   if (/startLedger|cursor|range/i.test(text)) {
     return "the RPC no longer holds the requested ledgers";
   }
@@ -119,6 +122,7 @@ export function collectorFailure(err: unknown): string {
 
 const PUBLIC_COLLECTOR_ERRORS = new Set([
   "the RPC could not be reached",
+  "the RPC refused a request as too large",
   "the RPC no longer holds the requested ledgers",
   "the database refused the write",
   "the collection failed",
@@ -143,6 +147,8 @@ export interface CollectResult {
   lastLedger: number;
   /** Ledgers that had already left the RPC's window, so were not seen. */
   gap: { from: number; to: number } | null;
+  /** False when the run stopped at its time budget; the next run goes on. */
+  caughtUp?: boolean;
 }
 
 async function readState(name: string): Promise<CollectorState | null> {
@@ -161,12 +167,96 @@ async function writeState(state: CollectorState): Promise<void> {
 }
 
 /**
+ * How many ledgers one getEvents call may cover. Hosted RPC providers cap
+ * the work a single call may do: on mainnet, Validation Cloud answered 5,000
+ * ledgers and refused 10,000 with "request exceeded processing limit
+ * threshold", and near the deployment even 4,000 took ten seconds and was
+refused. Ranges are bounded, and a refused range is split in half.
+ */
+export const DEFAULT_CHUNK_LEDGERS = 2000;
+const PAGE = 200;
+
+type EventsServer = Pick<StellarSdk.rpc.Server, "getEvents">;
+
+/** The provider refused a call as too much work, rather than failing. */
+function tooLarge(err: unknown): boolean {
+  return /processing limit|exceeded/i.test(err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
+}
+
+/**
+ * Every event in one range. A range the provider refuses as too much work
+ * is split in half and each half read on its own, down to a few ledgers.
+ */
+async function readRange(
+  server: EventsServer,
+  filters: StellarSdk.rpc.Api.EventFilter[],
+  start: number,
+  end: number
+): Promise<StellarSdk.rpc.Api.EventResponse[]> {
+  const byId = new Map<string, StellarSdk.rpc.Api.EventResponse>();
+  let pageStart = start;
+  try {
+    for (;;) {
+      // The RPC treats endLedger as exclusive.
+      const page = await server.getEvents({ filters, startLedger: pageStart, endLedger: end + 1, limit: PAGE });
+      for (const event of page.events) byId.set(event.id, event);
+      if (page.events.length < PAGE) break;
+      const lastLedger = page.events[page.events.length - 1]!.ledger;
+      if (lastLedger <= pageStart) {
+        throw new Error(`more than ${PAGE} events in ledger ${pageStart}`);
+      }
+      // Read the last ledger again in full; repeats are dropped by id.
+      pageStart = lastLedger;
+    }
+  } catch (err) {
+    if (!tooLarge(err) || end - start < 16) throw err;
+    const middle = start + Math.floor((end - start) / 2);
+    const halves = [...(await readRange(server, filters, start, middle)), ...(await readRange(server, filters, middle + 1, end))];
+    for (const event of halves) byId.set(event.id, event);
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Read every event matching the filters from `from` to `to`, inclusive, in
+ * ranges of at most `chunk` ledgers. Each range is handed to `onRange`
+ * once it has been read completely, so the caller can store it and record
+ * how far it got before going on. A full page continues from the ledger of
+ * its last event; events are keyed by id, so the overlap is harmless.
+ */
+export async function scanRange(
+  server: EventsServer,
+  filters: StellarSdk.rpc.Api.EventFilter[],
+  from: number,
+  to: number,
+  chunk: number,
+  onRange: (events: StellarSdk.rpc.Api.EventResponse[], through: number) => Promise<void>,
+  shouldStop: () => boolean = () => false
+): Promise<number> {
+  let scanned = from - 1;
+  for (let start = from; start <= to; start += chunk) {
+    if (shouldStop()) break;
+    const end = Math.min(start + chunk - 1, to);
+    const events = await readRange(server, filters, start, end);
+    await onRange(events, end);
+    scanned = end;
+  }
+  return scanned;
+}
+
+/**
  * Read every new event and store it. Safe to run as often as wanted: events
  * are keyed by their RPC id, so a repeat is a no-op.
+ *
+ * `last_ledger` in the state is the last ledger read completely. A run goes
+ * on from there to the latest ledger in bounded ranges and saves its place
+ * after each one, so a run cut short by the host's time limit loses nothing
+ * and the next run continues.
  */
 export async function collect(
   policy: string = process.env.POLICY_CONTRACT_ID ?? "",
-  server: Pick<StellarSdk.rpc.Server, "getEvents" | "getHealth"> = rpcServer()
+  server: Pick<StellarSdk.rpc.Server, "getEvents" | "getHealth" | "getLatestLedger"> = rpcServer(),
+  { chunk = Number(process.env.COLLECTOR_CHUNK_LEDGERS) || DEFAULT_CHUNK_LEDGERS, budgetMs = 45_000 }: { chunk?: number; budgetMs?: number } = {}
 ): Promise<CollectResult> {
   if (!policy) throw new Error("POLICY_CONTRACT_ID is not set, there is nothing to collect");
   if (!isSupabaseConfigured()) throw new Error("the collector needs the database");
@@ -175,62 +265,58 @@ export async function collect(
   await verifyNetwork(config);
   const previous = await readState(config.name);
   const filters = filtersFor(policy, config.usdcContract);
+  const began = Date.now();
 
   let collected = 0;
   let gap: CollectResult["gap"] = null;
   let lastLedger = previous?.last_ledger ?? 0;
-  let cursor = previous?.cursor ?? null;
 
   try {
-    // The first run starts at the deployment, or as far back as the RPC
-    // still remembers if that is later.
-    let page: StellarSdk.rpc.Api.GetEventsResponse;
-    if (cursor) {
-      page = await server.getEvents({ filters, cursor, limit: 200 });
-    } else {
-      const health = await server.getHealth();
-      const deployed = Number(process.env.POLICY_DEPLOY_LEDGER || 0);
-      const startLedger = Math.max(health.oldestLedger + 1, deployed);
-      if (deployed && deployed <= health.oldestLedger) {
-        gap = { from: deployed, to: health.oldestLedger };
+    const [health, latest] = await Promise.all([server.getHealth(), server.getLatestLedger()]);
+    const deployed = Number(process.env.POLICY_DEPLOY_LEDGER || 0);
+    // Where to go on from: after the last ledger read, or the deployment on
+    // a first run.
+    let from = previous?.last_ledger ? previous.last_ledger + 1 : Math.max(deployed, 1);
+    if (from <= health.oldestLedger) {
+      if (previous?.last_ledger || deployed) {
+        gap = { from, to: health.oldestLedger };
       }
-      page = await server.getEvents({ filters, startLedger, limit: 200 });
+      from = health.oldestLedger + 1;
     }
 
-    if (previous?.last_ledger && page.oldestLedger > previous.last_ledger + 1) {
-      gap = { from: previous.last_ledger + 1, to: page.oldestLedger - 1 };
-    }
+    lastLedger = await scanRange(
+      server,
+      filters,
+      from,
+      latest.sequence,
+      chunk,
+      async (events, through) => {
+        if (events.length > 0) {
+          const rows = events.map((event) => toRow(event, config));
+          const { error } = await getSupabase().from("chain_events").upsert(rows, { onConflict: "id" });
+          if (error) throw new Error(error.message);
+          collected += rows.length;
+        }
+        await writeState({
+          network: config.name,
+          cursor: null,
+          last_ledger: through,
+          last_run_at: new Date().toISOString(),
+          last_error: gap ? `ledgers ${gap.from} to ${gap.to} had left the RPC window before they were read` : null,
+        });
+      },
+      () => Date.now() - began > budgetMs
+    );
+    if (lastLedger < from) lastLedger = previous?.last_ledger ?? 0;
 
-    // RPC scans a bounded range of ledgers per call and hands back a cursor
-    // even when that range held nothing, so an empty page is not the end.
-    // The end is a cursor that has caught up with the latest ledger.
-    for (;;) {
-      if (page.events.length > 0) {
-        const rows = page.events.map((event) => toRow(event, config));
-        const { error } = await getSupabase().from("chain_events").upsert(rows, { onConflict: "id" });
-        if (error) throw new Error(error.message);
-        collected += rows.length;
-        lastLedger = Math.max(lastLedger, ...rows.map((row) => row.ledger));
-      }
-      cursor = page.cursor;
-      if (page.events.length < 200 && cursorLedger(cursor) >= page.latestLedger) break;
-      page = await server.getEvents({ filters, cursor, limit: 200 });
-    }
-
-    await writeState({
-      network: config.name,
-      cursor,
-      last_ledger: lastLedger || page.latestLedger,
-      last_run_at: new Date().toISOString(),
-      last_error: gap ? `ledgers ${gap.from} to ${gap.to} had left the RPC window before they were read` : null,
-    });
-    return { collected, lastLedger, gap };
+    return { collected, lastLedger, gap, caughtUp: lastLedger >= latest.sequence };
   } catch (err) {
     console.error("event collection failed:", forLog(err));
+    const saved = await readState(config.name).catch(() => previous);
     await writeState({
       network: config.name,
-      cursor: previous?.cursor ?? null,
-      last_ledger: previous?.last_ledger ?? null,
+      cursor: null,
+      last_ledger: saved?.last_ledger ?? previous?.last_ledger ?? null,
       last_run_at: new Date().toISOString(),
       last_error: collectorFailure(err),
     }).catch(() => {});
