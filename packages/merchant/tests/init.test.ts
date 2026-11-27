@@ -72,3 +72,23 @@ describe("init", () => {
     await expect(init(dir, quiet)).rejects.toThrow(/testnet/);
   });
 });
+
+describe("init in GitHub Codespaces", () => {
+  let dir: string;
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  it("sets PUBLIC_URL to the codespace's forwarded address", async () => {
+    dir = mkdtempSync(join(tmpdir(), "b402-init-"));
+    await init(dir, {
+      log: () => {},
+      setupAccount: async () => "",
+      confirm: async () => false,
+      env: { CODESPACE_NAME: "fuzzy-space-xyz", GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: "app.github.dev" },
+    });
+    expect(envOf(dir).PUBLIC_URL).toBe("https://fuzzy-space-xyz-4021.app.github.dev");
+  });
+  it("leaves PUBLIC_URL empty elsewhere", async () => {
+    dir = mkdtempSync(join(tmpdir(), "b402-init-"));
+    await init(dir, { log: () => {}, setupAccount: async () => "", confirm: async () => false, env: {} });
+    expect(envOf(dir).PUBLIC_URL).toBe("");
+  });
+});

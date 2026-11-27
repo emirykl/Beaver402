@@ -1,0 +1,14 @@
+{
+  "name": "Beaver402 merchant on testnet",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "workspaceFolder": "/workspaces/Beaver402/packages/merchant/starter",
+  "postCreateCommand": "npm install",
+  "postAttachCommand": "bash start-codespace.sh",
+  "forwardPorts": [4021],
+  "portsAttributes": {
+    "4021": { "label": "Your paid API", "onAutoForward": "silent" }
+  },
+  "customizations": {
+    "codespaces": { "openFiles": ["README.md"] }
+  }
+}

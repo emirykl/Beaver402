@@ -1,0 +1,14 @@
+{
+  "name": "beaver402-merchant-starter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file-if-exists=.env server.ts",
+    "check": "beaver402-merchant check"
+  },
+  "dependencies": {
+    "@beaver402/merchant": "https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.4/beaver402-merchant-0.1.0-rc.4.tgz",
+    "express": "^5.2.1",
+    "tsx": "^4.23.11"
+  }
+}

@@ -20,10 +20,27 @@ by an x402 facilitator. This package is the merchant's half:
 
 The protected route runs only after all of that has passed.
 
-- [Quick start](#quick-start-five-minutes-on-testnet) (this page)
+- [Try it in your browser](#try-it-in-your-browser-nothing-to-install) (this page)
+- [Quick start on your machine](#quick-start-five-minutes-on-testnet)
 - [Configuration reference](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Changelog](CHANGELOG.md)
+
+## Try it in your browser: nothing to install
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/emirykl/Beaver402?devcontainer_path=.devcontainer%2Fmerchant%2Fdevcontainer.json&quickstart=1)
+
+Click the button and choose **Create codespace**. GitHub opens a ready
+workspace in your browser and sets everything up on its own: your merchant
+key, a free testnet account with its USDC trustline, a free facilitator key,
+and a server with two paid routes, reachable from the internet. It takes
+about two minutes and needs only a GitHub account; personal accounts include
+free Codespaces hours, and this uses a few minutes of them.
+
+The terminal ends with your **key** and your **address**. Send those two
+lines to the account owner, keep the tab open, and watch their payment
+arrive. Delete the codespace afterwards from
+<https://github.com/codespaces> if you like.
 
 ## Quick start: five minutes on testnet
 
@@ -33,7 +50,7 @@ the network gives out test XLM and nothing here costs real money.
 ```sh
 mkdir my-paid-api && cd my-paid-api
 npm init -y
-npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.3/beaver402-merchant-0.1.0-rc.3.tgz express tsx
+npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.4/beaver402-merchant-0.1.0-rc.4.tgz express tsx
 npx beaver402-merchant init
 npm start
 ```

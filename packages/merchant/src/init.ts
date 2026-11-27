@@ -102,6 +102,19 @@ export interface InitDeps {
   fetchFacilitatorKey: () => Promise<string>;
   confirm: (question: string, fallback: boolean) => Promise<boolean>;
   log: (line: string) => void;
+  /** The process environment, read for GitHub Codespaces. */
+  env: Record<string, string | undefined>;
+}
+
+/**
+ * The public address of a port in GitHub Codespaces, where the merchant
+ * can be reached from the internet without a tunnel once the port is made
+ * public.
+ */
+export function codespacesUrl(env: Record<string, string | undefined>, port: string): string | null {
+  const name = env.CODESPACE_NAME;
+  const domain = env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+  return name && domain ? `https://${name}-${port}.${domain}` : null;
 }
 
 /** Ask OpenZeppelin Channels for a free testnet key, as its /testnet/gen page does. */
@@ -139,6 +152,11 @@ export async function init(dir: string, deps: Partial<InitDeps> & Pick<InitDeps,
   if (!env.get("PRICE_USDC")) env.set("PRICE_USDC", "0.1");
   if (!env.get("SETTLEMENT_STORE")) env.set("SETTLEMENT_STORE", "./data/payments.jsonl");
   if (!env.get("PORT")) env.set("PORT", "4021");
+  const hosted = codespacesUrl(deps.env ?? process.env, env.get("PORT")!);
+  if (hosted && !env.get("PUBLIC_URL")) {
+    env.set("PUBLIC_URL", hosted);
+    done.push("set PUBLIC_URL to this codespace's address");
+  }
   if (!env.has("PUBLIC_URL")) env.set("PUBLIC_URL", "");
   // Saved before anything goes to the network, so a failure later never
   // loses the key that was just made.
@@ -150,6 +168,9 @@ export async function init(dir: string, deps: Partial<InitDeps> & Pick<InitDeps,
   }
 
   if (!env.get("FACILITATOR_API_KEY")) {
+    if (!process.stdin.isTTY && !deps.confirm) {
+      log("Getting a free OpenZeppelin Channels testnet key for the facilitator (set FACILITATOR_API_KEY in .env first to use your own).");
+    }
     const generate = await confirm(
       "The facilitator settles payments and pays their network fee. Get a free OpenZeppelin Channels testnet key now?",
       true
@@ -192,4 +213,5 @@ export async function init(dir: string, deps: Partial<InitDeps> & Pick<InitDeps,
 
   log(`\nDone: ${done.join(", ")}.`);
   log(`\nNext:\n  npm start\n\nSend the account owner your merchant key so they can approve it:\n  ${key.publicKey()}`);
+  if (env.get("PUBLIC_URL")) log(`and your public address:\n  ${env.get("PUBLIC_URL")}`);
 }

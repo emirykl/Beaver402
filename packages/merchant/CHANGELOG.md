@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-rc.4
+
+- "Try it in your browser": a GitHub Codespaces button sets up and starts a
+  testnet merchant with no local install and no tunnel. `init` sets
+  `PUBLIC_URL` to the codespace's forwarded address
+
 ## 0.1.0-rc.3
 
 - `beaver402-merchant init`: one command from an empty folder to a testnet
