@@ -18,7 +18,9 @@
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
     "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts",
     "solana:init": "tsx --env-file-if-exists=.env scripts/solana-init.ts",
-    "solana:demo:preflight": "tsx --env-file-if-exists=.env scripts/solana-demo-preflight.ts"
+    "solana:demo:preflight": "tsx --env-file-if-exists=.env scripts/solana-demo-preflight.ts",
+    "kit:e2e": "tsx --env-file-if-exists=.env scripts/kit-e2e.ts",
+    "alerts:rehearse": "tsx --env-file-if-exists=.env scripts/alerts-rehearse.ts"
   },
   "keywords": [
     "stellar",
@@ -34,7 +36,7 @@
     "@solana-program/compute-budget": "^0.19.0",
     "@solana-program/token": "^0.17.0",
     "@solana/kit": "^8.4.0",
-    "@stellar/stellar-sdk": "^16.3.1",
+    "@stellar/stellar-sdk": "^16.4.1",
     "@supabase/supabase-js": "^2.112.2",
     "@x402/core": "2.28.0",
     "@x402/stellar": "2.28.0",
