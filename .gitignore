@@ -27,3 +27,4 @@ docs/demo-cekimi.md
 
 # Soroban regenerates these on every test run with fresh random keys
 test_snapshots/
+x-posts/
