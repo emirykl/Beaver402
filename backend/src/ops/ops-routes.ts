@@ -8,6 +8,7 @@ import { network, rpcServer, explorerTx } from "../config/network.js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase.js";
 import { failPublicly } from "../lib/public-error.js";
 import { collectorFailure, publicCollectorError } from "./collector.js";
+import { alertAfterRun } from "./alerts.js";
 
 /**
  * The operational side: collecting events, exporting them, and the public
@@ -79,8 +80,11 @@ export function createOpsRouter() {
 
   const runCollection = async (_req: Request, res: Response) => {
     try {
-      res.json(await collect());
+      const result = await collect();
+      await alertAfterRun({ ok: true, gap: result.gap }, network().name);
+      res.json(result);
     } catch (err) {
+      await alertAfterRun({ ok: false, summary: collectorFailure(err) }, network().name);
       failPublicly(res, 500, collectorFailure(err), err);
     }
   };
