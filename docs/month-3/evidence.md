@@ -14,6 +14,7 @@ public link. A row without a link is not claimed.
 | Automated test results | CI | the "Merchant kit" job |
 | Tagged release candidate | done 2026-11-27; installs from the release URL into an empty project | [merchant-v0.1.0-rc.1](https://github.com/emirykl/Beaver402/releases/tag/merchant-v0.1.0-rc.1), tarball sha256 `6963e8b7f1b60e3cbb31d37e3d91a6511cbff35badbe9b61b8511ff7fa3a9fbf` |
 | Testnet payment through the kit, with linked Proof of Intent | done 2026-11-27, `npm run kit:e2e` against the kit's example | GET with a query: [settlement](https://stellar.expert/explorer/testnet/tx/c1096a70b267b65d426a50c3fa105fcd788c5971e822bb7ef3a8edba35484e48), [PoI](https://stellar.expert/explorer/testnet/tx/6c825a87d2b2f59e32e706c7e9fe37e0c7d706d4a9b7bc7866940ecb17dd4f3d). POST with a body: [settlement](https://stellar.expert/explorer/testnet/tx/59a2ae9d63134b8ce54230574d56a38417062d14efd8c18316abbd8798fd3f39), [PoI](https://stellar.expert/explorer/testnet/tx/2f01157599c7616959589f9b8818507465a83aebe97d195e97e201e56012e83a). Refused, nothing settled: a request changed after signing, requirements pointing at another recipient, an unapproved merchant key |
+| Builder's newcomer review of the guide, and the changes it led to | done 2026-11-27, `merchant-v0.1.0-rc.3` | [guide review](guide-review.md), [rc.3](https://github.com/emirykl/Beaver402/releases/tag/merchant-v0.1.0-rc.3) |
 | Independent developer setup notes | pending | |
 | Final release with the feedback applied | pending | |
 
