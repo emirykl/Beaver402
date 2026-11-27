@@ -4,7 +4,7 @@ import { isAuthenticated } from "../lib/sessions.js";
 import { createRateLimit } from "../lib/rate-limit.js";
 import { network, rpcServer, explorerContract } from "../config/network.js";
 import { describeOwnerActionError } from "../shared/policy-errors.js";
-import { failPublicly, redact } from "../lib/public-error.js";
+import { failPublicly, forLog, redact } from "../lib/public-error.js";
 import { enabledChains, isChainEnabled } from "../chains/registry.js";
 import { solana, solanaExplorerAccount } from "../chains/solana/config.js";
 import {
@@ -376,7 +376,8 @@ export function createPolicyRouter() {
         });
         res.json({ success: true, prepared });
       } catch (err) {
-        res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
+        console.error("owner action failed:", forLog(err));
+      res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
       }
       return;
     }
@@ -405,6 +406,7 @@ export function createPolicyRouter() {
       });
       res.json({ success: true, prepared });
     } catch (err) {
+      console.error("owner action failed:", forLog(err));
       res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
     }
   });
@@ -426,7 +428,8 @@ export function createPolicyRouter() {
         const result = await submitSolanaOwnerAction(prepared, assertion, requireFeeSecret());
         res.json({ success: true, txHash: result.txHash });
       } catch (err) {
-        res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
+        console.error("owner action failed:", forLog(err));
+      res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
       }
       return;
     }
@@ -448,6 +451,7 @@ export function createPolicyRouter() {
       invalidateCache();
       res.json({ success: true, txHash: result.txHash });
     } catch (err) {
+      console.error("owner action failed:", forLog(err));
       res.status(500).json({ success: false, error: redact(describeOwnerActionError(String(err))) });
     }
   });

@@ -6,6 +6,9 @@ import {
   type OwnerAssertion,
 } from "../passkey/owner-signature.js";
 import { network, rpcServer, verifyNetwork } from "../config/network.js";
+import { passkey } from "../config/passkey.js";
+import { coseToOwnerKey } from "../passkey/owner-key.js";
+import { getUserCredentials } from "../passkey/webauthn-server.js";
 
 const BASE_FEE = "10000000";
 const AUTH_VALIDITY_LEDGERS = 60;
@@ -144,6 +147,12 @@ export interface PreparedOwnerAction {
   challenge: string;
   /** The unsigned authorization entry, carried back on submit. */
   authEntry: string;
+  /**
+   * The registered passkeys whose key is this account's owner. The browser
+   * is told to sign with one of these only, so a second passkey for the same
+   * domain, such as one that owns another account, is never offered.
+   */
+  credentialIds?: string[];
   validUntilLedger: number;
 }
 
@@ -201,13 +210,68 @@ export async function prepareOwnerAction(
   );
   const payload = StellarSdk.hash(preimage.toXDR());
 
+  const credentialIds = await ownerCredentialIds(contractId, server);
+
   return {
     action,
     args: args.map((arg) => arg.toXDR("base64")),
     challenge: toWebAuthnChallenge(Buffer.from(payload)),
     authEntry: entry.toXDR("base64"),
     validUntilLedger,
+    ...(credentialIds ? { credentialIds } : {}),
   };
+}
+
+/** The owner key the account stores, as the uncompressed secp256r1 point. */
+export async function readOwnerKey(
+  contractId: string,
+  server: Pick<StellarSdk.rpc.Server, "getLedgerEntries"> = rpcServer()
+): Promise<Buffer | null> {
+  const key = StellarSdk.xdr.LedgerKey.contractData(
+    new StellarSdk.xdr.LedgerKeyContractData({
+      contract: StellarSdk.Address.fromString(contractId).toScAddress(),
+      key: StellarSdk.xdr.ScVal.scvLedgerKeyContractInstance(),
+      durability: StellarSdk.xdr.ContractDataDurability.persistent(),
+    })
+  );
+  const { entries } = await server.getLedgerEntries(key);
+  const storage = entries[0]?.val.contractData().val().instance().storage() ?? [];
+  for (const item of storage) {
+    const name = StellarSdk.scValToNative(item.key());
+    if (Array.isArray(name) && name[0] === "Owner") {
+      return Buffer.from(item.val().bytes());
+    }
+  }
+  return null;
+}
+
+/**
+ * The stored passkeys that own this account. Undefined when there is no
+ * credential store to read, which leaves the choice to the browser as before.
+ */
+export async function ownerCredentialIds(
+  contractId: string,
+  server: Pick<StellarSdk.rpc.Server, "getLedgerEntries"> = rpcServer(),
+  readCredentials: typeof getUserCredentials = getUserCredentials
+): Promise<string[] | undefined> {
+  const rpId = passkey().rpId;
+  const userId = rpId === "localhost" || rpId === "127.0.0.1" ? "beaver402-owner-local" : "beaver402-owner";
+  const credentials = await readCredentials(userId);
+  if (credentials.length === 0) return undefined;
+
+  const owner = await readOwnerKey(contractId, server);
+  if (!owner) return undefined;
+  const ids = credentials.flatMap((credential) => {
+    try {
+      return coseToOwnerKey(Uint8Array.from(credential.credentialPublicKey)).equals(owner) ? [credential.credentialID] : [];
+    } catch {
+      return [];
+    }
+  });
+  if (ids.length === 0) {
+    throw new Error("no registered passkey matches this account's owner key");
+  }
+  return ids;
 }
 
 /**
