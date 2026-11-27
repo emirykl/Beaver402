@@ -3,6 +3,37 @@
 Start with `npx beaver402-merchant check` in the folder holding `.env`.
 Each `FAIL` line names the problem.
 
+## Codespaces
+
+**It takes longer than a few minutes.** The first codespace is built from
+scratch and the kit is installed before the setup starts; about ten minutes
+is normal. The terminal at the bottom shows where it is. Wait for the box
+with your key and address.
+
+**GitHub asks to authorize Codespaces.** That is GitHub's own permission
+screen, shown the first time an account uses Codespaces. Accept it to
+continue; the kit asks for no permissions of its own.
+
+**`gh codespace ssh` or `gh codespace` status commands fail with an SSH server
+error.** The kit's codespace is meant to be used in the browser and does not
+run an SSH server. Open it from <https://github.com/codespaces> instead: the
+setup and the terminal are there.
+
+**The owner cannot reach your address.** Codespaces starts every port as
+private. Open the PORTS tab, right click 4021 and choose Port Visibility >
+Public. Your address then answers without asking anyone to sign in to
+GitHub.
+
+**`/forecast` answers 402 but no payment arrives.** The 402 means your API
+is ready. A payment completes only after the account owner approves your
+key with their passkey; ask them whether they have. Before that, their
+payments are refused with `the paying account's owner has not approved this
+merchant`.
+
+**The terminal stopped or the tab was closed.** Run `bash start-codespace.sh`
+in a new terminal. It keeps your key and settings. A codespace also stops
+after 30 minutes without use; reopen it from <https://github.com/codespaces>.
+
 ## `init` stopped halfway
 
 Run it again. It keeps the key it already saved and fills in only what is

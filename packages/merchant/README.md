@@ -33,14 +33,33 @@ The protected route runs only after all of that has passed.
 Click the button and choose **Create codespace**. GitHub opens a ready
 workspace in your browser and sets everything up on its own: your merchant
 key, a free testnet account with its USDC trustline, a free facilitator key,
-and a server with two paid routes, reachable from the internet. It takes
-about two minutes and needs only a GitHub account; personal accounts include
-free Codespaces hours, and this uses a few minutes of them.
+and a server with two paid routes, reachable from the internet. It needs
+only a GitHub account; personal accounts include free Codespaces hours, and
+this uses a few minutes of them. Plan on about ten minutes the first time:
+GitHub builds the workspace and installs the kit before the setup runs. The
+first time you use Codespaces, GitHub may also ask you to authorize it; that
+screen is GitHub's own and not part of these ten minutes.
 
-The terminal ends with your **key** and your **address**. Send those two
-lines to the account owner, keep the tab open, and watch their payment
-arrive. Delete the codespace afterwards from
-<https://github.com/codespaces> if you like.
+What happens, in order:
+
+1. **Setup.** The terminal prints one `ok` line per check, then a box with
+   your **key** and your **address**.
+2. **Port.** If the terminal asks, open the PORTS tab, right click port
+   4021 and choose Port Visibility > Public. Codespaces keeps ports private
+   until you do.
+3. **Your API is for sale.** `<address>/forecast` now answers
+   `402 Payment Required`. That is success, not an error.
+4. **Send the key and the address to the account owner.** Never send
+   `MERCHANT_SECRET` from `.env`.
+5. **The owner approves your key with their passkey.** Until they do, their
+   agent's payments to you are refused. No payment can complete before
+   this step, so wait for the owner to confirm it.
+6. **The owner's agent pays.** The paid request appears in your terminal.
+   Keep the tab open until then.
+
+Delete the codespace afterwards from <https://github.com/codespaces> if you
+like. Stuck? See [Codespaces](docs/troubleshooting.md#codespaces) in
+troubleshooting.
 
 ## Quick start: five minutes on testnet
 
@@ -50,7 +69,7 @@ the network gives out test XLM and nothing here costs real money.
 ```sh
 mkdir my-paid-api && cd my-paid-api
 npm init -y
-npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.4/beaver402-merchant-0.1.0-rc.4.tgz express tsx
+npm install https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0/beaver402-merchant-0.1.0.tgz express tsx
 npx beaver402-merchant init
 npm start
 ```

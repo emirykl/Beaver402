@@ -7,7 +7,7 @@
     "check": "beaver402-merchant check"
   },
   "dependencies": {
-    "@beaver402/merchant": "https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0-rc.4/beaver402-merchant-0.1.0-rc.4.tgz",
+    "@beaver402/merchant": "https://github.com/emirykl/Beaver402/releases/download/merchant-v0.1.0/beaver402-merchant-0.1.0.tgz",
     "express": "^5.2.1",
     "tsx": "^4.23.11"
   }

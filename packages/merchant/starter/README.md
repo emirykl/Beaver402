@@ -14,12 +14,15 @@ like this:
 1. Send those two lines to the account owner who asked you to try this.
    Never send anything from `.env`: `MERCHANT_SECRET` there is your
    merchant's private key.
-2. Keep this tab open. The owner approves your key and their agent pays
-   your API. Each paid request shows up in the terminal.
+2. Keep this tab open. Your `/forecast` answers `402 Payment Required`
+   right away: your API is for sale. No payment completes until the owner
+   approves your key with their passkey; after that, their agent pays your
+   API and each paid request shows up in the terminal.
 3. Open `server.ts` to see the two paid routes: `GET /forecast` at 0.1 USDC
    and `POST /summarize` at 0.2 USDC. `merchant.protect()` is all it takes
    to put a route behind a payment.
 
 If the terminal stopped or you closed it, run `bash start-codespace.sh`.
 
-The full guide: [packages/merchant](../README.md).
+The full guide: [packages/merchant](../README.md). If something looks
+stuck, see [Codespaces troubleshooting](../docs/troubleshooting.md#codespaces).

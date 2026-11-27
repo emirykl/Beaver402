@@ -15,18 +15,18 @@ public link. A row without a link is not claimed.
 | Tagged release candidate | done 2026-11-27; installs from the release URL into an empty project | [merchant-v0.1.0-rc.1](https://github.com/emirykl/Beaver402/releases/tag/merchant-v0.1.0-rc.1), tarball sha256 `6963e8b7f1b60e3cbb31d37e3d91a6511cbff35badbe9b61b8511ff7fa3a9fbf` |
 | Testnet payment through the kit, with linked Proof of Intent | done 2026-11-27, `npm run kit:e2e` against the kit's example | GET with a query: [settlement](https://stellar.expert/explorer/testnet/tx/c1096a70b267b65d426a50c3fa105fcd788c5971e822bb7ef3a8edba35484e48), [PoI](https://stellar.expert/explorer/testnet/tx/6c825a87d2b2f59e32e706c7e9fe37e0c7d706d4a9b7bc7866940ecb17dd4f3d). POST with a body: [settlement](https://stellar.expert/explorer/testnet/tx/59a2ae9d63134b8ce54230574d56a38417062d14efd8c18316abbd8798fd3f39), [PoI](https://stellar.expert/explorer/testnet/tx/2f01157599c7616959589f9b8818507465a83aebe97d195e97e201e56012e83a). Refused, nothing settled: a request changed after signing, requirements pointing at another recipient, an unapproved merchant key |
 | Builder's newcomer review of the guide, and the changes it led to | done 2026-11-27, `merchant-v0.1.0-rc.3` | [guide review](guide-review.md), [rc.3](https://github.com/emirykl/Beaver402/releases/tag/merchant-v0.1.0-rc.3) |
-| Independent developer setup notes | pending | |
-| Final release with the feedback applied | pending | |
+| Independent developer setup notes | done 2026-11-28 | [developer feedback](developer-feedback.md) |
+| Final release with the feedback applied | done 2026-11-28 | [merchant-v0.1.0](https://github.com/emirykl/Beaver402/releases/tag/merchant-v0.1.0), tarball sha256 `7b2d355d0e944b25aa321cb503da6cb63bf9e62e2136a2d5915c3de4632260e2` |
 
 ## D2: Second merchant and mainnet operations
 
 | Evidence | Status | Link |
 |---|---|---|
 | Owner panel lists each merchant with its approval | done | `frontend/src/App.tsx`, `backend/src/policy/merchants.ts` |
-| Second merchant refused before approval (testnet) | pending | |
-| Owner approval of the second merchant (testnet) | pending | |
-| One testnet payment to each merchant | pending | |
-| Changed request and changed recipient refused after approval | pending | |
+| Second merchant refused before approval (testnet) | done 2026-11-27 | [builder rehearsal](#builder-rehearsal-on-testnet-27-november-2026), and again for the [independent developer's merchant](#independent-developer-run-on-testnet-27-november-2026) |
+| Owner approval of the second merchant (testnet) | done 2026-11-27, passkey | [builder rehearsal](#builder-rehearsal-on-testnet-27-november-2026), [independent developer run](#independent-developer-run-on-testnet-27-november-2026) |
+| One testnet payment to each merchant | done 2026-11-27 | first merchant: [kit payment](https://stellar.expert/explorer/testnet/tx/c1096a70b267b65d426a50c3fa105fcd788c5971e822bb7ef3a8edba35484e48); second: [settlement](https://stellar.expert/explorer/testnet/tx/de41b6e0e3ff32ec282e2c3b0318cb19f1211db3c9728e7924c69c7806d1ca46); developer's: [settlement](https://stellar.expert/explorer/testnet/tx/7f6cb9c23e737cb659c13807cfd6cebe051577744fc3717fe8461efce71e41e7) |
+| Changed request and changed recipient refused after approval | done 2026-11-27 | [builder rehearsal](#builder-rehearsal-on-testnet-27-november-2026) |
 | Mainnet checks: network, account, trustline, facilitator, keys, store, limits | done 2026-11-27 | the merchant's own preflight passed before its first challenge (RPC on mainnet, recipient USDC trustline, signer funded, OpenZeppelin facilitator, Supabase store); limits read back unchanged |
 | Owner approval on mainnet | done, passkey | [`6512938a`](https://stellar.expert/explorer/public/tx/6512938a70160da4b2868f31ba0d31bf480e1764a8fdff62e30cd2cf185964b0) (`merchant/added`); account resumed in [`a5ec57d3`](https://stellar.expert/explorer/public/tx/a5ec57d3975c66a206792b85a6592a0218a55ad5beebfd9b04df39ef180fcef6) |
 | 0.1 USDC mainnet settlement and Proof of Intent | done 2026-11-27 16:45 UTC, agent to `https://beaver402-merchant-2.vercel.app/forecast?city=Ankara` | settlement [`23812035`](https://stellar.expert/explorer/public/tx/238120350b217d6c5e018b04f7dfdc1348b4f236663a191a1164ffa3c49d87da), PoI [`a900dfc4`](https://stellar.expert/explorer/public/tx/a900dfc4bcbb497bdd307ebbc01ae35898137025103b39350732badbacb030a6) |
@@ -86,8 +86,8 @@ The signing key stayed in the codespace and was not shared.
 | Evidence | Status | Link |
 |---|---|---|
 | Three anonymized conversation summaries | pending | |
-| Independent developer setup, observed | done 2026-11-27 (UTC), payment settled; observation notes pending | [Independent developer run](#independent-developer-run-on-testnet-27-november-2026) |
-| Improvement made from the feedback | pending | |
+| Independent developer setup, observed | done 2026-11-27 (UTC), payment settled; about 11 minutes to the first 402 | [Independent developer run](#independent-developer-run-on-testnet-27-november-2026) |
+| Improvement made from the feedback | done 2026-11-28 | [what changed](developer-feedback.md#what-changed-in-merchant-v010) |
 | Consented follow-up video with a second-period participant | pending | |
 | X account and pilot contact route on the landing page | done | landing footer and closing section |
 | Six X posts with dates, views and engagement | pending | |

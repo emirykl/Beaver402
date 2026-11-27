@@ -33,6 +33,13 @@ cat <<MSG
    Key:     $KEY
    Address: $URL
 
+ What happens next:
+   1. <address>/forecast answers 402 Payment Required. That
+      means your API is for sale.
+   2. The owner approves your key with their passkey. Until
+      then their payments are refused; that is expected.
+   3. Their agent pays and the request appears below.
+
  Keep this tab open until the owner says the payment is done.
 ============================================================
 MSG

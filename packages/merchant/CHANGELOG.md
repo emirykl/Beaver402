@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.0
+
+First stable release, after an independent developer set a merchant up
+from the guide and took a testnet payment.
+
+- The guide's Codespaces section gives a realistic time, about ten minutes
+  the first time instead of two, and lists the steps in order, with the
+  owner's passkey approval shown as its own step between the first 402 and
+  the completed payment
+- The codespace's terminal box says what happens next: the 402 means the API
+  is for sale, and payments are refused until the owner approves the key
+- Troubleshooting has a Codespaces section: build time, GitHub's
+  authorization screen, the SSH error from `gh codespace` commands, private
+  ports, a 402 with no payment yet, and a stopped codespace
+
 ## 0.1.0-rc.4
 
 - "Try it in your browser": a GitHub Codespaces button sets up and starts a
