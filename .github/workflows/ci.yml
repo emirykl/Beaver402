@@ -124,8 +124,11 @@ jobs:
         run: npm ci
 
       - name: Build
-        # The example imports the package by name, which resolves to dist.
-        run: npm run build
+        # The example imports the package by name: build dist, then link it
+        # into the example's own node_modules, as a user's project would.
+        run: |
+          npm run build
+          npm ci --prefix example
 
       - name: Type check
         run: npx tsc --noEmit
