@@ -151,7 +151,7 @@ page, together with a pilot partner application route.
 | Mainnet pilot evidence | 28 November 2026, 05:00, scheduled | to be recorded |
 | Owner passkey controls | 28 November 2026, 07:00, scheduled | to be recorded |
 | Merchant integration guide | 28 November 2026, 09:00, scheduled | to be recorded |
-| Third month results and pilot invitation, thread | 28 November 2026, 03:29 | [post](https://x.com/Beaver402/status/2126473459673022507) |
+| Third month results and pilot invitation | 28 November 2026, 03:49 | [post](https://x.com/Beaver402/status/2126478474005352491) |
 
 A further post reported the project's presentation at Stellar Builder Day
 İzmir on 26 November 2026. Views and engagement will be recorded in the
